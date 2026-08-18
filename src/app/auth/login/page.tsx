@@ -2,23 +2,28 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
-import { User, Lock, ArrowRight, ShieldCheck, ArrowLeft, Bike, Store, Building2, LayoutDashboard } from 'lucide-react'
+import { User, Lock, ArrowRight, ShieldCheck, ArrowLeft, Bike, Store, Building2, LayoutDashboard, Loader2 } from 'lucide-react'
+
 import { useRouter } from 'next/navigation'
 
 export default function AuthLoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [selectedRole, setSelectedRole] = useState<'customer' | 'biz' | 'driver' | 'base' | 'owner' | 'admin'>('customer')
+  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
-    if (selectedRole === 'customer') router.push('/customer/home')
-    else if (selectedRole === 'biz') router.push('/biz/kds')
-    else if (selectedRole === 'driver') router.push('/driver/home')
-    else if (selectedRole === 'base') router.push('/base/radar')
-    else if (selectedRole === 'owner') router.push('/owner/dashboard')
-    else if (selectedRole === 'admin') router.push('/admin/dashboard')
+    setIsLoading(true)
+    setTimeout(() => {
+      if (selectedRole === 'customer') router.push('/customer/home')
+      else if (selectedRole === 'biz') router.push('/biz/kds')
+      else if (selectedRole === 'driver') router.push('/driver/home')
+      else if (selectedRole === 'base') router.push('/base/radar')
+      else if (selectedRole === 'owner') router.push('/owner/dashboard')
+      else if (selectedRole === 'admin') router.push('/admin/dashboard')
+    }, 600)
   }
 
   return (
@@ -108,10 +113,20 @@ export default function AuthLoginPage() {
 
           <button 
             type="submit"
-            className="w-full bg-[#0056d2] hover:bg-[#0040a1] text-white py-3.5 rounded-full font-black text-xs sm:text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2"
+            disabled={isLoading}
+            className="w-full bg-[#0056d2] hover:bg-[#0040a1] disabled:bg-[#0056d2]/70 text-white py-3.5 rounded-full font-black text-xs sm:text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
           >
-            <span>INICIAR SESIÓN</span>
-            <ArrowRight className="w-4 h-4" />
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <span>INICIANDO SESIÓN...</span>
+              </>
+            ) : (
+              <>
+                <span>INICIAR SESIÓN</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </form>
 

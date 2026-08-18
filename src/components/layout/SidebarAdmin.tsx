@@ -12,12 +12,14 @@ import {
   LogOut, 
   ChevronRight, 
   Menu, 
-  X 
+  X,
+  Users,
+  Radio
 } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 
 interface SidebarAdminProps {
-  activeTab: 'dashboard' | 'fleets' | 'new-fleet' | 'plans' | 'infrastructure'
+  activeTab: 'dashboard' | 'fleets' | 'new-fleet' | 'plans' | 'infrastructure' | 'crm' | 'control-tower'
 }
 
 export function SidebarAdmin({ activeTab }: SidebarAdminProps) {
@@ -25,6 +27,8 @@ export function SidebarAdmin({ activeTab }: SidebarAdminProps) {
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard Maestro Global', route: '/admin/dashboard', icon: Globe },
+    { id: 'control-tower', label: 'Torre de Control (Meituan Style)', route: '/admin/control-tower', icon: Radio },
+    { id: 'crm', label: 'CRM Hyper-Local 360°', route: '/admin/crm', icon: Users },
     { id: 'fleets', label: 'Gestión de Tenants & Flotas', route: '/admin/fleets', icon: Building2 },
     { id: 'new-fleet', label: 'Alta Nueva Flota / Tenant', route: '/admin/new-fleet', icon: PlusCircle },
     { id: 'plans', label: 'Configuración de Planes SaaS', route: '/admin/plans', icon: CreditCard },

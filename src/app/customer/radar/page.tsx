@@ -1,11 +1,16 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { CustomerLayout } from '@/components/layout/CustomerLayout'
-import { Search, SlidersHorizontal, Utensils, Pill, Wrench, Heart, Clock, Star, MapPin } from 'lucide-react'
+import { Search, Tag, Utensils, Pill, Wrench, Heart, Clock, Star, MapPin, X, Percent, Store, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
+import VamoMapLibre from '@/components/map/VamoMapLibre'
 
 export default function CustomerRadarPage() {
+  const [activeModal, setActiveModal] = useState<'NONE' | 'PROMOS' | 'CATEGORIES'>('NONE')
+  const [selectedTab, setSelectedTab] = useState<'STORES' | 'PROMOS'>('STORES')
+  const [searchQuery, setSearchQuery] = useState<string>('')
+
   const [selectedStore, setSelectedStore] = useState({
     id: 1,
     name: 'La Fonda Doña Rosa',
@@ -15,123 +20,496 @@ export default function CustomerRadarPage() {
     image: 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?w=500&auto=format&fit=crop'
   })
 
+  interface PromoItem {
+    id: string
+    title: string
+    store: string
+    storeId: number
+    discount: string
+    code: string
+    badge: string
+    image: string
+    description: string
+    validUntil: string
+  }
+
+  const [customPromos, setCustomPromos] = useState<PromoItem[]>([])
+  const [customMerchantStore, setCustomMerchantStore] = useState<any | null>(null)
+
+  useEffect(() => {
+    try {
+      const storedPromos = localStorage.getItem('vamo_merchant_custom_promos')
+      if (storedPromos) {
+        setCustomPromos(JSON.parse(storedPromos))
+      }
+      const storedProfile = localStorage.getItem('vamo_merchant_profile')
+      if (storedProfile) {
+        setCustomMerchantStore(JSON.parse(storedProfile))
+      }
+    } catch (e) {
+      console.error(e)
+    }
+  }, [])
+
+  const promoList: PromoItem[] = [
+    ...customPromos,
+    { 
+      id: 'p1', 
+      title: '2x1 en Tortas Cubanas Especiales', 
+      store: 'Tortería El Pariente', 
+      storeId: 101,
+      discount: '50% OFF', 
+      code: 'TORTAS2X1', 
+      badge: 'POPULAR',
+      image: 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?w=700&auto=format&fit=crop',
+      description: 'Llévate 2 Tortas Cubanas Gigantes con milanesa, pierna y queso fundido al precio de 1. ¡Incluye envío express en motomandado VAMO!',
+      validUntil: 'Válido hoy hasta las 11:00 PM'
+    },
+    { 
+      id: 'p2', 
+      title: 'Envío Gratis en Medicamentos & Botiquín', 
+      store: 'Farmacia San Gabriel', 
+      storeId: 301,
+      discount: 'ENVÍO $0', 
+      code: 'SALUDVAMO', 
+      badge: 'HOY',
+      image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=700&auto=format&fit=crop',
+      description: 'Flete gratis en la entrega de medicamentos con receta, analgésicos y artículos de cuidado personal. Llega en 10-15 minutos a tu domicilio.',
+      validUntil: 'Disponible todo el día'
+    },
+    { 
+      id: 'p3', 
+      title: '15% Desc. en Herramientas y Materiales', 
+      store: 'Ferretería La Central', 
+      storeId: 201,
+      discount: '15% OFF', 
+      code: 'FERRE15', 
+      badge: 'EXCLUSIVO',
+      image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=700&auto=format&fit=crop',
+      description: 'Descuento directo en taladros, juegos de llaves, pintura y plomería. Reparto de materiales livianos directo a tu obra o casa.',
+      validUntil: 'Válido este fin de semana'
+    },
+    { 
+      id: 'p4', 
+      title: 'Orden de Tacos al Pastor + Boing Gratis', 
+      store: 'Taquería El Pastor', 
+      storeId: 102,
+      discount: 'BEBIDA $0', 
+      code: 'TACOBOING', 
+      badge: 'COMBO',
+      image: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=700&auto=format&fit=crop',
+      description: 'En la compra de 5 tacos al pastor con piña y cilantro, te regalamos un refresco Boing de 500ml helado.',
+      validUntil: 'Oferta nocturna'
+    }
+  ]
+
+  const [selectedPromo, setSelectedPromo] = useState<PromoItem | null>(null)
+
+  // Lista de Categorías y Comercios Afiliados con Coordenadas GPS
+  const categoriesData = [
+    {
+      category: 'Torterías & Loncherías',
+      icon: Utensils,
+      stores: [
+        ...(customMerchantStore ? [{
+          id: 999,
+          name: customMerchantStore.storeName || 'Mi Negocio VAMO',
+          address: customMerchantStore.address || 'Centro',
+          rating: '5.0 ★ (NUEVO)',
+          time: customMerchantStore.prepTime || '10 min',
+          lat: customMerchantStore.lat || 20.5230,
+          lng: customMerchantStore.lng || -100.8120
+        }] : []),
+        { id: 101, name: 'Tortería El Pariente', address: 'Calle 5 de Mayo #12', rating: '4.9 ★', time: '12 min', lat: 20.5230, lng: -100.8120 },
+        { id: 102, name: 'Tortas Ahogadas El Güero', address: 'Av. Tecnológico #88', rating: '4.7 ★', time: '15 min', lat: 20.5255, lng: -100.8160 }
+      ]
+    },
+    {
+      category: 'Ferreterías & Materiales',
+      icon: Wrench,
+      stores: [
+        { id: 201, name: 'Ferretería La Central', address: 'Blvd. López Mateos #45', rating: '4.8 ★', time: '20 min', lat: 20.5210, lng: -100.8240 },
+        { id: 202, name: 'El Clavo de Oro', address: 'Calle Zaragoza #102', rating: '4.6 ★', time: '18 min', lat: 20.5190, lng: -100.8110 }
+      ]
+    },
+    {
+      category: 'Farmacias & Salud',
+      icon: Pill,
+      stores: [
+        { id: 301, name: 'Farmacia San Gabriel', address: 'Zona Centro #5', rating: '5.0 ★', time: '10 min', lat: 20.5280, lng: -100.8200 },
+        { id: 302, name: 'Farmacia del Pueblo', address: 'Av. México #304', rating: '4.8 ★', time: '12 min', lat: 20.5165, lng: -100.8080 }
+      ]
+    }
+  ]
+
+  const activeWaypoints = categoriesData.flatMap(cat =>
+    cat.stores
+      .filter(st => searchQuery === '' || st.name.toLowerCase().includes(searchQuery.toLowerCase()) || cat.category.toLowerCase().includes(searchQuery.toLowerCase()))
+      .map(st => ({
+        id: String(st.id),
+        title: st.name,
+        lat: st.lat,
+        lng: st.lng,
+        type: 'ORIGIN' as const
+      }))
+  )
+
   return (
     <CustomerLayout>
-      <div className="relative w-full h-[80vh] md:h-[85vh] rounded-[32px] overflow-hidden border border-[#e5e2e1] shadow-xl flex flex-col">
+      <div className="flex flex-col lg:flex-row gap-6 w-full min-h-[650px]">
         
-        {/* Fondo de Mapa Urbano Ilustrado 1:1 de Stitch */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center w-full h-full z-0 opacity-90" 
-          style={{ backgroundImage: `url('https://lh3.googleusercontent.com/aida-public/AB6AXuBWHhEVZJ_J3JrqkOo5Drb7Gcg79xFoAEZvmieCn7x4vM_lhSmAANxVuCntjQvFqJ_cE_ZSmjcwF2ZtMRCgnX-8cJbxRr_erV3aVr4rERvo_yqvXFat1Fy5PFPufnMkE2r_hDIhIQbDiRSv0CmfmV34bEdRbWnApdY_-2_7z-G444M-7o2nJckA1F5GXsdJe4AUqWDzJSr-SVzSFyntImVHJdAEUamWsiI0Ym7x6T6leD74hTK77nn4')` }}
-        />
+        {/* COLUMNA IZQUIERDA EN PC / TABLETAS: PANEL DE BÚSQUEDA & COMERCIOS */}
+        <aside className="hidden lg:flex flex-col w-96 bg-white rounded-[32px] p-5 border border-[#e5e2e1] shadow-xl h-[680px] space-y-4">
 
-        {/* Buscador Superior y Filtros Flotantes */}
-        <div className="absolute top-0 inset-x-0 z-20 pt-6 px-4 md:px-8 flex flex-col gap-3 bg-gradient-to-b from-[#fcf9f8]/90 via-[#fcf9f8]/50 to-transparent pb-8">
-          
-          <div className="w-full bg-white rounded-full h-14 flex items-center px-5 shadow-lg border border-[#e5e2e1] max-w-xl mx-auto">
-            <Search className="w-5 h-5 text-[#737785] mr-3" />
-            <input 
-              type="text" 
-              placeholder="¿Qué se te antoja hoy?"
-              className="w-full bg-transparent text-sm font-extrabold outline-none text-[#1c1b1b]"
+          {/* Pestañas Superiores de Cambio de Tab en PC */}
+          <div className="flex gap-2 p-1 bg-[#f0eded] rounded-full shrink-0">
+            <button
+              onClick={() => setSelectedTab('STORES')}
+              className={`flex-1 py-2 rounded-full text-xs font-black transition-all ${
+                selectedTab === 'STORES' ? 'bg-[#0056d2] text-white shadow-md' : 'text-[#737785] hover:text-[#1c1b1b]'
+              }`}
+            >
+              🏬 Comercios ({activeWaypoints.length})
+            </button>
+            <button
+              onClick={() => setSelectedTab('PROMOS')}
+              className={`flex-1 py-2 rounded-full text-xs font-black transition-all ${
+                selectedTab === 'PROMOS' ? 'bg-[#161e00] text-[#c3f400] shadow-md' : 'text-[#737785] hover:text-[#1c1b1b]'
+              }`}
+            >
+              🏷️ Promos ({promoList.length})
+            </button>
+          </div>
+
+          {/* Buscador Integrado en Panel PC */}
+          <div className="bg-[#fcf9f8] px-4 py-2.5 rounded-full flex items-center gap-2 border border-[#e5e2e1] shrink-0">
+            <Search className="w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Filtrar por tortas, ferretería, farmacia..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-transparent text-xs font-extrabold outline-none text-[#1c1b1b] w-full"
             />
-            <button className="w-10 h-10 bg-[#0056d2] text-white rounded-full flex items-center justify-center hover:opacity-90 active:scale-95 transition-all ml-2 flex-shrink-0">
-              <SlidersHorizontal className="w-4 h-4" />
-            </button>
           </div>
 
-          {/* Chips de Categorías */}
-          <div className="w-full overflow-x-auto hide-scrollbar flex gap-2 justify-start md:justify-center max-w-xl mx-auto">
-            <button className="h-11 px-5 rounded-full bg-[#fddf33] text-[#726200] flex items-center gap-2 font-extrabold text-xs shadow-sm hover:opacity-90 transition-all flex-shrink-0">
-              <Utensils className="w-4 h-4" /> Comida
-            </button>
-            <button className="h-11 px-5 rounded-full bg-white text-[#424654] flex items-center gap-2 font-extrabold text-xs shadow-sm hover:bg-[#f6f3f2] transition-all flex-shrink-0 border border-[#e5e2e1]">
-              <Pill className="w-4 h-4 text-[#0056d2]" /> Farmacia
-            </button>
-            <button className="h-11 px-5 rounded-full bg-white text-[#424654] flex items-center gap-2 font-extrabold text-xs shadow-sm hover:bg-[#f6f3f2] transition-all flex-shrink-0 border border-[#e5e2e1]">
-              <Wrench className="w-4 h-4 text-[#726200]" /> Refacciones
-            </button>
-          </div>
+          {/* CONTENIDO DEL PANEL LATERAL PC: LISTA DE COMERCIOS O PROMOS */}
+          {selectedTab === 'PROMOS' ? (
+            <div className="space-y-3 flex-1 overflow-y-auto pr-1">
+              <h4 className="text-xs font-black text-[#161e00] uppercase tracking-wider block">Promociones Activas (Haz clic para ver foto)</h4>
+              {promoList.map(promo => (
+                <div 
+                  key={promo.id} 
+                  onClick={() => setSelectedPromo(promo)}
+                  className="bg-[#fcf9f8] p-4 rounded-2xl border border-[#e5e2e1] space-y-2 shadow-sm hover:border-[#0056d2] transition-all cursor-pointer group"
+                >
+                  <div className="flex justify-between items-start">
+                    <span className="bg-[#c3f400] text-[#161e00] text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
+                      {promo.badge}
+                    </span>
+                    <span className="bg-[#0056d2] text-white text-xs font-mono font-black px-2.5 py-1 rounded-lg">
+                      {promo.discount}
+                    </span>
+                  </div>
+                  <strong className="text-xs font-extrabold text-[#1c1b1b] group-hover:text-[#0056d2] transition-colors block">{promo.title}</strong>
+                  <span className="text-[11px] font-bold text-[#0056d2] block">{promo.store}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-5 flex-1 overflow-y-auto pr-1">
+              {categoriesData
+                .filter(c => searchQuery === '' || c.category.toLowerCase().includes(searchQuery.toLowerCase()) || c.stores.some(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())))
+                .map((cat, idx) => (
+                  <div key={idx} className="space-y-2">
+                    <h4 className="text-xs font-black text-[#0056d2] uppercase tracking-wider flex items-center gap-1.5">
+                      <cat.icon className="w-4 h-4 text-[#0056d2]" />
+                      {cat.category}
+                    </h4>
 
-        </div>
+                    <div className="space-y-2">
+                      {cat.stores
+                        .filter(st => searchQuery === '' || st.name.toLowerCase().includes(searchQuery.toLowerCase()) || cat.category.toLowerCase().includes(searchQuery.toLowerCase()))
+                        .map(st => (
+                          <div
+                            key={st.id}
+                            onClick={() => setSelectedStore({
+                              id: st.id,
+                              name: st.name,
+                              category: cat.category,
+                              time: st.time,
+                              rating: st.rating,
+                              image: 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?w=500&auto=format&fit=crop'
+                            })}
+                            className="bg-[#fcf9f8] p-3.5 rounded-2xl border border-[#e5e2e1] flex justify-between items-center hover:bg-[#0056d2]/10 transition-all cursor-pointer group"
+                          >
+                            <div>
+                              <strong className="text-xs font-extrabold text-[#1c1b1b] group-hover:text-[#0056d2] transition-colors block">{st.name}</strong>
+                              <span className="text-[10px] font-bold text-slate-500">{st.address}</span>
+                            </div>
 
-        {/* Pines / Marcadores de Ubicación Flotantes sobre el Mapa */}
-        <div className="absolute inset-0 z-10 pointer-events-none">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-bold text-[#726200] bg-[#fddf33]/30 px-2 py-0.5 rounded-full">
+                                {st.rating}
+                              </span>
+                              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-1 transition-transform" />
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+
+        </aside>
+
+        {/* COLUMNA DERECHA EN PC / CENTRAL: MAPA VECTORIAL PANORÁMICO */}
+        <div className="relative flex-1 h-[520px] lg:h-[680px] rounded-[32px] overflow-hidden border border-[#e5e2e1] shadow-xl">
           
-          {/* Pin 1: La Fonda (Seleccionado Animado) */}
-          <div 
-            onClick={() => setSelectedStore({ id: 1, name: 'La Fonda Doña Rosa', category: 'Comida Local', time: '15-20 min', rating: '4.8 ★', image: 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?w=500&auto=format&fit=crop' })}
-            className="absolute top-[42%] left-[45%] md:left-[48%] pointer-events-auto transform -translate-x-1/2 cursor-pointer group"
-          >
-            <div className="w-14 h-14 bg-[#0056d2] text-white rounded-full shadow-2xl flex items-center justify-center border-4 border-white relative z-10 animate-bounce">
-              <Utensils className="w-6 h-6" />
-            </div>
-            <div className="w-4 h-4 bg-[#0056d2] transform rotate-45 absolute -bottom-1 left-1/2 -translate-x-1/2 z-0 rounded-sm" />
+          {/* BARRA SUPERIOR MÓVIL EXCLUSIVA (Solo Celular) */}
+          <div className="lg:hidden absolute top-3 inset-x-3 z-30 flex gap-2 justify-center pointer-events-auto">
+            <button
+              type="button"
+              onClick={() => setActiveModal('PROMOS')}
+              className="bg-[#161e00] text-[#c3f400] px-3.5 py-2 rounded-full font-black text-[11px] shadow-lg border border-[#c3f400]/40 flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+            >
+              <Tag className="w-3.5 h-3.5 text-[#c3f400]" />
+              <span>Promos 🏷️</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveModal('CATEGORIES')}
+              className="bg-[#0056d2] text-white px-3.5 py-2 rounded-full font-black text-[11px] shadow-lg border border-white flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+            >
+              <Store className="w-3.5 h-3.5 text-[#c3f400]" />
+              <span>Comercios 🏬</span>
+            </button>
           </div>
 
-          {/* Pin 2: Farmacia */}
-          <div 
-            onClick={() => setSelectedStore({ id: 2, name: 'Farmacia del Pueblo', category: 'Salud', time: '10-15 min', rating: '4.9 ★', image: 'https://images.unsplash.com/photo-1586015555751-63bb77f4322a?w=500&auto=format&fit=crop' })}
-            className="absolute top-[30%] left-[25%] pointer-events-auto transform hover:scale-110 transition-transform cursor-pointer"
-          >
-            <div className="w-12 h-12 bg-white text-[#0056d2] rounded-full shadow-lg flex items-center justify-center border-2 border-[#0056d2] relative z-10">
-              <Pill className="w-5 h-5" />
-            </div>
-          </div>
+          {/* Mapa Vectorial VamoMapLibre con Marcadores Filtrados Dinámicamente */}
+          <VamoMapLibre
+            center={[20.5218, -100.8142]}
+            zoom={14}
+            theme="light"
+            mode3D={false}
+            waypoints={activeWaypoints}
+            className="w-full h-full"
+          />
 
-          {/* Pin 3: Tacos */}
-          <div 
-            onClick={() => setSelectedStore({ id: 3, name: 'Taquería El Pastor', category: 'Tacos', time: '12-18 min', rating: '5.0 ★', image: 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?w=500&auto=format&fit=crop' })}
-            className="absolute top-[60%] left-[70%] pointer-events-auto transform hover:scale-110 transition-transform cursor-pointer"
-          >
-            <div className="w-12 h-12 bg-white text-[#726200] rounded-full shadow-lg flex items-center justify-center border-2 border-[#fddf33] relative z-10">
-              <Utensils className="w-5 h-5" />
+          {/* Tarjeta Flotante Inferior de Comercio Seleccionado (Móvil y PC) */}
+          <div className="absolute bottom-4 inset-x-4 max-w-md mx-auto z-20 pointer-events-auto animate-fade-in">
+            <div className="bg-white/95 backdrop-blur-md rounded-[28px] p-3.5 shadow-2xl border border-[#e5e2e1] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <img src={selectedStore.image} alt={selectedStore.name} className="w-11 h-11 rounded-2xl object-cover border border-[#e5e2e1] shrink-0 shadow-xs" />
+                <div className="min-w-0">
+                  <h3 className="text-xs sm:text-sm font-black text-[#1c1b1b] truncate">{selectedStore.name}</h3>
+                  <span className="text-[11px] font-extrabold text-[#0056d2] block">⏱️ {selectedStore.time} &bull; {selectedStore.rating}</span>
+                </div>
+              </div>
+
+              <Link 
+                href={`/customer/store/${selectedStore.id}`}
+                className="bg-[#0056d2] hover:bg-[#0040a1] text-white rounded-full font-black text-xs px-4 py-2.5 shrink-0 shadow-md active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>Ver Productos & Catálogo 🛍️</span>
+              </Link>
             </div>
           </div>
 
         </div>
 
-        {/* Tarjeta Flotante Inferior de Comercio Seleccionado (1:1 Stitch) */}
-        <div className="absolute bottom-6 inset-x-4 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 z-30 w-full max-w-md">
-          <div className="bg-white rounded-[32px] p-5 shadow-2xl border border-[#e5e2e1] flex flex-col gap-4">
-            
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0 border-2 border-[#e5e2e1] bg-[#f0eded]">
-                <img src={selectedStore.image} alt={selectedStore.name} className="w-full h-full object-cover" />
+        {/* MODAL DESLIZANTE DE PROMOCIONES EN MÓVIL */}
+        {activeModal === 'PROMOS' && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-center items-end sm:items-center p-0 sm:p-4">
+            <div className="bg-white w-full max-w-lg rounded-t-[32px] sm:rounded-[32px] p-6 max-h-[85vh] overflow-y-auto shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom duration-300">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-full bg-[#161e00] text-[#c3f400] flex items-center justify-center font-black">
+                    🏷️
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-[#1c1b1b]">Promociones Exclusivas VAMO</h3>
+                    <p className="text-xs font-semibold text-[#737785]">Ofertas y cupones directo a tu domicilio</p>
+                  </div>
+                </div>
+
+                <button onClick={() => setActiveModal('NONE')} className="p-2 rounded-full bg-[#f0eded] text-[#1c1b1b]">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
+
+              <div className="space-y-3">
+                {promoList.map(promo => (
+                  <div 
+                    key={promo.id} 
+                    onClick={() => { setActiveModal('NONE'); setSelectedPromo(promo); }}
+                    className="bg-[#fcf9f8] p-4 rounded-2xl border border-[#e5e2e1] flex justify-between items-center shadow-sm hover:border-[#0056d2] transition-all cursor-pointer group"
+                  >
+                    <div>
+                      <span className="bg-[#c3f400] text-[#161e00] text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
+                        {promo.badge}
+                      </span>
+                      <strong className="text-sm font-extrabold text-[#1c1b1b] group-hover:text-[#0056d2] transition-colors block mt-1">{promo.title}</strong>
+                      <span className="text-xs font-bold text-[#0056d2]">{promo.store}</span>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="bg-[#0056d2] text-white text-xs font-mono font-black px-3 py-1.5 rounded-xl block">
+                        {promo.discount}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-bold block mt-1">Ver Foto 📸</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DESLIZANTE DE BÚSQUEDA DE COMERCIOS POR CATEGORÍA EN MÓVIL */}
+        {activeModal === 'CATEGORIES' && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-center items-end sm:items-center p-0 sm:p-4">
+            <div className="bg-white w-full max-w-lg rounded-t-[32px] sm:rounded-[32px] p-6 max-h-[85vh] overflow-y-auto shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom duration-300">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-full bg-[#0056d2] text-white flex items-center justify-center font-black">
+                    🏬
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-[#1c1b1b]">Directorio de Comercios en Lista</h3>
+                    <p className="text-xs font-semibold text-[#737785]">Encuentra torterías, ferreterías, farmacias y más</p>
+                  </div>
+                </div>
+
+                <button onClick={() => setActiveModal('NONE')} className="p-2 rounded-full bg-[#f0eded] text-[#1c1b1b]">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Buscador de Categoría */}
+              <div className="bg-[#f0eded] px-4 py-2.5 rounded-full flex items-center gap-2 border border-slate-200">
+                <Search className="w-4 h-4 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Ej. Torterías, Ferreterías, Farmacias..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-transparent text-xs font-extrabold outline-none text-[#1c1b1b] w-full"
+                />
+              </div>
+
+              <div className="space-y-4">
+                {categoriesData
+                  .filter(c => searchQuery === '' || c.category.toLowerCase().includes(searchQuery.toLowerCase()) || c.stores.some(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())))
+                  .map((cat, idx) => (
+                    <div key={idx} className="space-y-2">
+                      <h4 className="text-xs font-black text-[#0056d2] uppercase tracking-wider flex items-center gap-1.5">
+                        <cat.icon className="w-4 h-4 text-[#0056d2]" />
+                        {cat.category}
+                      </h4>
+
+                      <div className="space-y-2">
+                        {cat.stores
+                          .filter(st => searchQuery === '' || st.name.toLowerCase().includes(searchQuery.toLowerCase()) || cat.category.toLowerCase().includes(searchQuery.toLowerCase()))
+                          .map(st => (
+                            <Link
+                              key={st.id}
+                              href={`/customer/store/${st.id}`}
+                              className="bg-[#fcf9f8] p-3.5 rounded-2xl border border-[#e5e2e1] flex justify-between items-center hover:bg-[#e5e2e1]/40 transition-colors"
+                            >
+                              <div>
+                                <strong className="text-xs font-extrabold text-[#1c1b1b] block">{st.name}</strong>
+                                <span className="text-[10px] font-bold text-slate-500">{st.address}</span>
+                              </div>
+
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs font-bold text-[#726200] bg-[#fddf33]/30 px-2 py-0.5 rounded-full">
+                                  {st.rating}
+                                </span>
+                                <ChevronRight className="w-4 h-4 text-slate-400" />
+                              </div>
+                            </Link>
+                          ))}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL FLOTANTE DE DETALLE DE PROMOCIÓN CON FOTOGRAFÍA EN ALTA RESOLUCIÓN */}
+        {selectedPromo && (
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white rounded-[32px] max-w-md w-full overflow-hidden shadow-2xl border border-[#e5e2e1] space-y-0 relative animate-in zoom-in-95 duration-200">
               
-              <div className="flex-1 flex flex-col">
-                <h3 className="text-base font-extrabold text-[#1c1b1b] leading-tight mb-1">{selectedStore.name}</h3>
+              {/* Imagen de Impacto de la Promoción */}
+              <div className="relative h-52 w-full overflow-hidden bg-slate-900">
+                <img 
+                  src={selectedPromo.image} 
+                  alt={selectedPromo.title}
+                  className="w-full h-full object-cover opacity-90 hover:scale-105 transition-transform duration-700"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
                 
-                <div className="flex items-center gap-2 text-xs font-bold text-[#737785]">
-                  <span className="flex items-center gap-1 text-[#0056d2]">
-                    <Clock className="w-3.5 h-3.5" /> {selectedStore.time}
+                {/* Botón Cerrar X */}
+                <button 
+                  onClick={() => setSelectedPromo(null)}
+                  className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/40 hover:bg-black/80 text-white flex items-center justify-center backdrop-blur-xs transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Badges Flotantes sobre Foto */}
+                <div className="absolute top-3 left-3 flex gap-2">
+                  <span className="bg-[#c3f400] text-[#161e00] text-xs font-black px-3 py-1 rounded-full uppercase shadow-md">
+                    {selectedPromo.badge}
                   </span>
-                  <span>&bull;</span>
-                  <span className="flex items-center gap-1 text-[#726200]">
-                    <Star className="w-3.5 h-3.5 text-[#fddf33] fill-[#fddf33]" /> {selectedStore.rating}
+                  <span className="bg-[#0056d2] text-white text-xs font-mono font-black px-3 py-1 rounded-full shadow-md">
+                    {selectedPromo.discount}
                   </span>
                 </div>
 
-                <span className="bg-[#f0eded] text-[#424654] text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase w-fit mt-1.5">
-                  {selectedStore.category}
-                </span>
+                {/* Título en Footer de Foto */}
+                <div className="absolute bottom-3 left-4 right-4 text-white">
+                  <span className="text-[10px] font-extrabold uppercase text-[#c3f400] tracking-wider block">{selectedPromo.store}</span>
+                  <h3 className="text-lg font-black leading-snug">{selectedPromo.title}</h3>
+                </div>
               </div>
 
-              <button className="w-10 h-10 rounded-full bg-[#f6f3f2] hover:bg-[#e5e2e1] flex items-center justify-center text-[#1c1b1b] flex-shrink-0">
-                <Heart className="w-5 h-5 text-[#ba1a1a]" />
-              </button>
+              {/* Cuerpo del Modal */}
+              <div className="p-6 space-y-4">
+                <p className="text-xs sm:text-sm font-semibold text-[#424654] leading-relaxed">
+                  {selectedPromo.description}
+                </p>
+
+                {/* Código de Cupón Exclusivo */}
+                <div className="bg-[#f0eded] p-3.5 rounded-2xl border border-dashed border-[#0056d2]/40 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold text-[#737785] uppercase block">CÓDIGO DE DESCUENTO VAMO</span>
+                    <strong className="text-sm font-mono font-black text-[#0056d2] tracking-wider">{selectedPromo.code}</strong>
+                  </div>
+                  <span className="text-[10px] font-bold text-[#161e00] bg-[#c3f400] px-2.5 py-1 rounded-full">
+                    {selectedPromo.validUntil}
+                  </span>
+                </div>
+
+                {/* Botón Principal de Reclamar Promo */}
+                <Link
+                  href={`/customer/store/${selectedPromo.storeId}`}
+                  onClick={() => setSelectedPromo(null)}
+                  className="w-full bg-[#0056d2] hover:bg-[#0040a1] text-white py-3.5 rounded-full font-black text-xs sm:text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 text-center"
+                >
+                  <Tag className="w-4 h-4 text-[#c3f400]" />
+                  <span>APLICAR PROMO Y RECLAMAR PEDIDO 🚀</span>
+                </Link>
+              </div>
+
             </div>
-
-            <Link 
-              href={`/customer/store/${selectedStore.id}`}
-              className="w-full h-13 bg-[#0040a1] hover:bg-[#0056d2] text-white rounded-full font-black text-sm flex items-center justify-center shadow-md active:scale-95 transition-all py-3.5"
-            >
-              Ver Menú &amp; Productos
-            </Link>
-
           </div>
-        </div>
+        )}
 
       </div>
     </CustomerLayout>

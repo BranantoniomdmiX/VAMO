@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Polyline MapLibre + CARTO</title>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <style>
+    body { margin: 0; }
+    #map { width: 100vw; height: 100vh; }
+    #status { position: fixed; top: 10px; left: 10px; z-index: 999; background: black; color: lime; padding: 10px; font-family: monospace; font-size: 14px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="status">Cargando...</div>
+  <script>
+    const status = document.getElementById('status');
+
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: {
+        version: 8,
+        sources: {
+          'carto': {
+            type: 'raster',
+            tiles: ['https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png'],
+            tileSize: 256
+          }
+        },
+        layers: [{
+          id: 'carto-base',
+          type: 'raster',
+          source: 'carto'
+        }]
+      },
+      center: [-100.812, 20.524],
+      zoom: 15
+    });
+
+    map.on('load', function() {
+      status.textContent = 'Mapa cargado. Agregando línea...';
+
+      // Coordenadas reales de OSRM Celaya
+      const coords = [
+        [-100.814205, 20.52147],
+        [-100.814142, 20.521605],
+        [-100.81369, 20.52181],
+        [-100.813362, 20.521923],
+        [-100.81313, 20.521979],
+        [-100.812787, 20.522085],
+        [-100.812441, 20.522205],
+        [-100.811956, 20.522441],
+        [-100.81165, 20.52262],
+        [-100.811375, 20.522819],
+        [-100.811113, 20.523044],
+        [-100.810879, 20.523282],
+        [-100.810671, 20.523529],
+        [-100.810481, 20.523788],
+        [-100.810311, 20.524054],
+        [-100.810163, 20.524326],
+        [-100.810038, 20.524599],
+        [-100.809934, 20.524871],
+        [-100.809851, 20.525138],
+        [-100.809788, 20.525397],
+        [-100.809744, 20.525643],
+        [-100.809717, 20.525871],
+        [-100.809002, 20.525941]
+      ];
+
+      map.addSource('test-route', {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: [{
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'LineString',
+              coordinates: coords
+            }
+          }]
+        }
+      });
+
+      map.addLayer({
+        id: 'test-route-bg',
+        type: 'line',
+        source: 'test-route',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': '#ffffff', 'line-width': 14, 'line-opacity': 0.9 }
+      });
+
+      map.addLayer({
+        id: 'test-route-line',
+        type: 'line',
+        source: 'test-route',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': '#0056D2', 'line-width': 8, 'line-opacity': 1 }
+      });
+
+      status.textContent = 'Línea agregada: ' + coords.length + ' puntos. ¿Se ve la línea azul?';
+
+      // Fit bounds
+      const bounds = new maplibregl.LngLatBounds();
+      coords.forEach(c => bounds.extend(c));
+      map.fitBounds(bounds, { padding: 60 });
+    });
+  </script>
+</body>
+</html>

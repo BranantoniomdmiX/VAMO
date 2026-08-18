@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 @layer base {
   :root {
     --background: #fcf9f8;
@@ -28,6 +32,35 @@
     --on-surface-variant: #424654;
     --outline: #737785;
     --outline-variant: #c3c6d6;
+  }
+
+  .dark {
+    --background: #0f172a;
+    --on-background: #f8fafc;
+    --primary: #2563eb;
+    --primary-container: #1d4ed8;
+    --on-primary: #ffffff;
+    --on-primary-container: #dbeafe;
+    --secondary: #eab308;
+    --secondary-container: #fddf33;
+    --on-secondary-container: #726200;
+    --tertiary: #a3e635;
+    --tertiary-container: #65a30d;
+    --tertiary-fixed: #c3f400;
+    --on-tertiary-fixed: #161e00;
+    --surface: #0f172a;
+    --surface-dim: #1e293b;
+    --surface-bright: #0f172a;
+    --surface-container-lowest: #1e293b;
+    --surface-container-low: #1e293b;
+    --surface-container: #334155;
+    --surface-container-high: #475569;
+    --surface-container-highest: #64748b;
+    --surface-variant: #334155;
+    --on-surface: #f8fafc;
+    --on-surface-variant: #cbd5e1;
+    --outline: #94a3b8;
+    --outline-variant: #475569;
   }
 }
 
@@ -71,13 +104,21 @@
 .text-outline-variant { color: #c3c6d6 !important; }
 
 /* Custom Google Stitch Geometry & Typography */
-.font-display-lg { font-family: 'Quicksand', sans-serif; font-size: 48px; font-weight: 700; line-height: 56px; }
-.font-headline-lg { font-family: 'Quicksand', sans-serif; font-size: 32px; font-weight: 700; line-height: 40px; }
-.font-headline-lg-mobile { font-family: 'Quicksand', sans-serif; font-size: 28px; font-weight: 700; line-height: 36px; }
-.font-title-md { font-family: 'Quicksand', sans-serif; font-size: 20px; font-weight: 600; line-height: 28px; }
-.font-body-lg { font-family: 'Quicksand', sans-serif; font-size: 18px; font-weight: 500; line-height: 26px; }
-.font-body-md { font-family: 'Quicksand', sans-serif; font-size: 16px; font-weight: 500; line-height: 24px; }
-.font-label-lg { font-family: 'Quicksand', sans-serif; font-size: 14px; font-weight: 700; line-height: 20px; }
+.font-display-lg { font-family: var(--font-quicksand), sans-serif; font-size: 48px; font-weight: 700; line-height: 56px; }
+.font-headline-lg { font-family: var(--font-quicksand), sans-serif; font-size: 32px; font-weight: 700; line-height: 40px; }
+.font-headline-lg-mobile { font-family: var(--font-quicksand), sans-serif; font-size: 28px; font-weight: 700; line-height: 36px; }
+.font-title-md { font-family: var(--font-quicksand), sans-serif; font-size: 20px; font-weight: 600; line-height: 28px; }
+.font-body-lg { font-family: var(--font-quicksand), sans-serif; font-size: 18px; font-weight: 500; line-height: 26px; }
+.font-body-md { font-family: var(--font-quicksand), sans-serif; font-size: 16px; font-weight: 500; line-height: 24px; }
+.font-label-lg { font-family: var(--font-quicksand), sans-serif; font-size: 14px; font-weight: 700; line-height: 20px; }
 
 .stitch-card { border-radius: 2rem !important; }
 .stitch-pill { border-radius: 9999px !important; }
+
+/* Uniform VAMO Brand Background Standard con Soporte Dual Claro / Oscuro */
+body {
+  background-color: var(--background) !important;
+  color: var(--on-background);
+  font-family: var(--font-quicksand), sans-serif;
+}
+

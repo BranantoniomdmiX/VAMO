@@ -2,7 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { Home, Compass, ShoppingBag, MapPin, User, Search, Bell } from 'lucide-react'
+import { Home, Compass, ShoppingBag, MapPin, User, Search, Bell, Tag, ListFilter } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
 
@@ -12,32 +12,37 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { id: 'home', label: 'Inicio', route: '/customer/home', icon: Home },
     { id: 'radar', label: 'Radar Urbano', route: '/customer/radar', icon: Compass },
-    { id: 'quote', label: 'Cotizar Envío', route: '/customer/quote', icon: MapPin },
-    { id: 'tracking', label: 'Seguimiento', route: '/customer/tracking/1', icon: ShoppingBag }
+    { id: 'promos', label: 'Promos 🏷️', route: '/customer/radar?tab=promos', icon: Tag },
+    { id: 'categories', label: 'Comercios 🏬', route: '/customer/radar?tab=categories', icon: ListFilter },
+    { id: 'quote', label: 'Cotizar', route: '/customer/quote', icon: MapPin },
+    { id: 'tracking', label: 'Envíos', route: '/customer/tracking/1', icon: ShoppingBag }
   ]
 
   const isHome = pathname === '/customer/home'
 
   return (
-    <div className="min-h-screen bg-[#f5fff6] text-[#1c1b1b] font-sans flex flex-col selection:bg-[#0056d2] selection:text-white">
+    <div className="min-h-screen bg-[#fcf9f8] text-[#1c1b1b] font-sans flex flex-col selection:bg-[#0056d2] selection:text-white">
       {/* Header Superior Omnicanal con Boton de Retroceso */}
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-[#e5e2e1] px-4 md:px-8 py-3.5 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-3">
           {!isHome && <BackButton label="Atrás" fallbackRoute="/customer/home" />}
-          <Link href="/" className="text-xl md:text-2xl font-black text-[#0056d2] tracking-tight">
-            VAMO <span className="text-[#c3f400] text-sm bg-[#161e00] px-2 py-0.5 rounded-full font-bold">Cliente</span>
+          <Link href="/" className="flex items-center gap-2">
+            <img src="/logo-vamo.svg" alt="VAMO" className="h-10 sm:h-12 w-auto object-contain" />
+            <span className="text-[#c3f400] text-xs bg-[#161e00] px-2.5 py-0.5 rounded-full font-black uppercase">Cliente</span>
           </Link>
         </div>
 
-        {/* Buscador Rápido en PC */}
-        <div className="hidden sm:flex items-center gap-2 bg-[#f0eded] px-4 py-2 rounded-full w-full max-w-md border border-transparent focus-within:border-[#0056d2] transition-colors">
-          <Search className="w-4 h-4 text-[#737785]" />
-          <input 
-            type="text" 
-            placeholder="Buscar tacos, farmacias, mandados o tiendas..."
-            className="bg-transparent text-xs font-semibold w-full outline-none text-[#1c1b1b]"
-          />
-        </div>
+        {/* Buscador Rápido en PC (Oculto en /customer/radar porque ya tiene su propio buscador en el panel izquierdo) */}
+        {!pathname.includes('/customer/radar') && (
+          <div className="hidden sm:flex items-center gap-2 bg-[#f0eded] px-4 py-2 rounded-full w-full max-w-md border border-transparent focus-within:border-[#0056d2] transition-colors">
+            <Search className="w-4 h-4 text-[#737785]" />
+            <input 
+              type="text" 
+              placeholder="Buscar tacos, farmacias, mandados o tiendas..."
+              className="bg-transparent text-xs font-semibold w-full outline-none text-[#1c1b1b]"
+            />
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           <button className="w-10 h-10 rounded-full bg-[#f0eded] hover:bg-[#e5e2e1] text-[#1c1b1b] flex items-center justify-center transition-colors">

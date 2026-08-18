@@ -19,7 +19,7 @@ export function MobileDriverLayout({ children }: { children: React.ReactNode }) 
   const isHome = pathname === '/driver/home'
 
   return (
-    <div className="min-h-screen bg-[#f5fff6] flex flex-col items-center justify-center p-0 sm:p-4 font-sans selection:bg-[#c3f400] selection:text-[#161e00]">
+    <div className="min-h-screen bg-[#fcf9f8] flex flex-col items-center justify-center p-0 sm:p-4 font-sans selection:bg-[#c3f400] selection:text-[#161e00]">
       <div className="w-full max-w-[440px] h-screen sm:h-[860px] bg-white sm:rounded-[40px] border-0 sm:border-8 border-[#e5e2e1] shadow-[0_25px_60px_-15px_rgba(0,86,210,0.15)] flex flex-col relative overflow-hidden">
         
         {/* Subheader Movil con Boton de Retroceso */}

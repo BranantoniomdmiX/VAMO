@@ -115,6 +115,74 @@ export default function BizFinancesPage() {
 
           </div>
 
+          {/* Análisis de Horas Pico & Volumen de Pedidos */}
+          <div className="bg-white rounded-[28px] p-6 border border-[#e5e2e1] shadow-sm space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-extrabold text-[#1c1b1b]">Métricas de Horas Pico</h3>
+                <p className="text-xs font-semibold text-[#737785]">Distribución de demanda por horario de cocina</p>
+              </div>
+              <span className="bg-[#0056d2]/10 text-[#0056d2] text-xs font-bold px-3 py-1 rounded-full">
+                Pico Máximo: 14:00 - 15:30 hrs 🔥
+              </span>
+            </div>
+
+            <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 pt-2 text-center">
+              {[
+                { time: '11:00', orders: 12, height: 'h-12', color: 'bg-slate-200' },
+                { time: '13:00', orders: 28, height: 'h-24', color: 'bg-[#0056d2]' },
+                { time: '14:00', orders: 45, height: 'h-36', color: 'bg-[#fddf33]' },
+                { time: '15:00', orders: 38, height: 'h-32', color: 'bg-[#0056d2]' },
+                { time: '19:00', orders: 30, height: 'h-24', color: 'bg-[#0056d2]' },
+                { time: '21:00', orders: 22, height: 'h-16', color: 'bg-slate-200' },
+              ].map((bar, i) => (
+                <div key={i} className="flex flex-col items-center justify-end gap-1">
+                  <span className="text-[10px] font-bold text-[#1c1b1b]">{bar.orders} ped.</span>
+                  <div className={`w-full ${bar.height} ${bar.color} rounded-lg shadow-xs transition-all`} />
+                  <span className="text-[10px] font-semibold text-[#737785]">{bar.time}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Directorio de Clientes Frecuentes */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-extrabold text-[#1c1b1b]">Directorio de Clientes Frecuentes</h2>
+              <span className="text-xs font-bold text-[#0056d2]">Fidelización 360°</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[
+                { name: 'María Fernanda L.', orders: 18, total: '$2,850 MXN', address: 'Av. Constituyentes 450, Col. Centro', phone: '442-123-4567' },
+                { name: 'Roberto Gómez P.', orders: 14, total: '$1,980 MXN', address: 'Calle 5 de Mayo #12, Fracc. Las Rosas', phone: '442-987-6543' },
+                { name: 'Dra. Claudia Ramos', orders: 22, total: '$4,120 MXN', address: 'Clínica Quirúrgica, Consultorio 4', phone: '442-555-8899' },
+              ].map((client, idx) => (
+                <div key={idx} className="bg-white rounded-[24px] p-5 border border-[#e5e2e1] shadow-sm space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div className="w-10 h-10 rounded-full bg-[#0056d2] text-white flex items-center justify-center font-bold text-sm">
+                      {client.name.split(' ')[0][0]}{client.name.split(' ')[1]?.[0] || ''}
+                    </div>
+                    <span className="bg-[#c3f400] text-[#161e00] text-[10px] font-black px-2.5 py-0.5 rounded-full">
+                      {client.orders} PEDIDOS
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-extrabold text-[#1c1b1b]">{client.name}</h4>
+                    <p className="text-xs text-[#737785]">{client.address}</p>
+                    <p className="text-xs font-bold text-[#0056d2] mt-1">Acumulado: {client.total}</p>
+                  </div>
+                  <a 
+                    href={`tel:${client.phone}`}
+                    className="w-full bg-[#f6f3f2] hover:bg-[#0056d2] hover:text-white text-[#1c1b1b] text-xs font-bold py-2 rounded-xl flex items-center justify-center gap-2 transition-colors block text-center"
+                  >
+                    📞 Llamar / Contactar 1-Click
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Lista de Órdenes Liquidadas Recientes */}
           <div className="space-y-4 pt-4">
             <h2 className="text-xl font-extrabold text-[#1c1b1b] flex items-center gap-2">

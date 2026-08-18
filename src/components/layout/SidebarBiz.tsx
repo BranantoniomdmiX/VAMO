@@ -13,25 +13,84 @@ import {
   X
 } from 'lucide-react'
 
+import { NewOrderModal } from '@/components/biz/NewOrderModal'
+
 interface SidebarBizProps {
-  activeTab: 'kds' | 'catalog' | 'finances' | 'history'
+  activeTab: 'hub' | 'kds' | 'catalog' | 'finances' | 'history' | 'settings' | 'manager' | 'simple' | 'pharmacy' | 'hardware'
 }
 
 export function SidebarBiz({ activeTab }: SidebarBizProps) {
   const [isOpen, setIsOpen] = React.useState(false)
+  const [isNewOrderOpen, setIsNewOrderOpen] = React.useState(false)
+  const [isFoodCategory, setIsFoodCategory] = React.useState(true)
+  const [storeName, setStoreName] = React.useState('Centro de Comercio VAMO')
+
+  React.useEffect(() => {
+    try {
+      const stored = localStorage.getItem('vamo_merchant_profile')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (parsed.storeName) setStoreName(parsed.storeName)
+        const cat = parsed.category || 'Comida'
+        if (cat.includes('Farmacia') || cat.includes('Ferretería') || cat.includes('Abarrotes') || cat.includes('Ropa') || cat.includes('Servicios')) {
+          setIsFoodCategory(false)
+        } else {
+          setIsFoodCategory(true)
+        }
+      }
+    } catch (e) {
+      console.error(e)
+    }
+  }, [])
 
   const navItems = [
     {
+      id: 'hub',
+      label: '🏪 Centro de Comercio (Inicio)',
+      route: '/biz',
+      icon: Store
+    },
+    {
+      id: 'simple',
+      label: '🌮 Modo Callejero / Taquero',
+      route: '/biz/simple',
+      icon: Store
+    },
+    {
+      id: 'manager',
+      label: '🖥️ Caja & Gerencia (Dueño)',
+      route: '/biz/manager',
+      icon: Store
+    },
+    {
       id: 'kds',
-      label: 'Tablero KDS (Pedidos)',
+      label: isFoodCategory ? '👨‍🍳 Pantalla KDS (Cocina)' : '📦 Tablero de Mostrador (ODS)',
       route: '/biz/kds',
-      icon: ClipboardList
+      icon: isFoodCategory ? ClipboardList : Package
+    },
+    {
+      id: 'pharmacy',
+      label: '💊 Modo Farmacia & Recetas',
+      route: '/biz/pharmacy',
+      icon: Package
+    },
+    {
+      id: 'hardware',
+      label: '🔧 Modo Ferretería & Carga',
+      route: '/biz/hardware',
+      icon: Package
     },
     {
       id: 'catalog',
       label: 'Productos & Catálogo',
       route: '/biz/catalog',
       icon: Package
+    },
+    {
+      id: 'settings',
+      label: 'Perfil & Configuración de Local',
+      route: '/biz/settings',
+      icon: Store
     },
     {
       id: 'finances',
@@ -70,74 +129,220 @@ export function SidebarBiz({ activeTab }: SidebarBizProps) {
 
       {/* Sidebar Principal (Celulares, Tabletas y PC) */}
       <aside className={`
-        fixed md:sticky top-0 left-0 z-50 h-screen w-72 bg-white border-r border-[#e5e2e1] 
-        p-6 flex flex-col justify-between shadow-sm transition-transform duration-300
+        fixed md:sticky top-0 left-0 z-50 h-screen max-h-screen w-72 bg-white border-r border-[#e5e2e1] 
+        p-4 sm:p-5 flex flex-col justify-between shadow-sm transition-transform duration-300
         ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
-        <div className="space-y-6">
+        {/* PARTE SUPERIOR FIJA: HEADER Y BOTÓN NUEVO PEDIDO */}
+        <div className="space-y-4 shrink-0">
           {/* Header del Comercio */}
-          <div className="flex items-center gap-3 pb-4 border-b border-[#f0eded]">
-            <div className="w-12 h-12 rounded-full bg-[#0056d2] text-white flex items-center justify-center shadow-md flex-shrink-0">
-              <Store className="w-6 h-6" />
+          <div className="flex items-center gap-3 pb-3 border-b border-[#f0eded]">
+            <div className="w-11 h-11 rounded-2xl bg-[#0056d2] text-white flex items-center justify-center shadow-md shrink-0">
+              <Store className="w-5 h-5" />
             </div>
-            <div>
-              <h2 className="font-extrabold text-base text-[#0056d2] leading-tight">
-                Centro de Comercio VAMO
+            <div className="min-w-0">
+              <h2 className="font-extrabold text-sm sm:text-base text-[#0056d2] leading-tight truncate">
+                {storeName}
               </h2>
-              <p className="text-xs font-semibold text-[#737785]">Centro de Operaciones</p>
+              <p className="text-[11px] font-semibold text-[#737785]">Centro de Operaciones</p>
             </div>
           </div>
 
-          {/* Botón Acción Principal */}
-          <Link
-            href="/biz/kds"
-            onClick={() => setIsOpen(false)}
-            className="w-full bg-[#0056d2] hover:bg-[#0040a1] text-white h-12 rounded-full font-extrabold text-sm flex items-center justify-center gap-2 shadow-md shadow-[#0056d2]/20 active:scale-95 transition-all"
+          {/* Botón Acción Principal (+ Nuevo Pedido POS) */}
+          <button
+            onClick={() => {
+              setIsOpen(false)
+              setIsNewOrderOpen(true)
+            }}
+            className="w-full bg-[#0056d2] hover:bg-[#0040a1] text-white h-11 rounded-2xl font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md shadow-[#0056d2]/20 active:scale-95 transition-all cursor-pointer"
           >
-            <PlusCircle className="w-5 h-5" />
+            <PlusCircle className="w-4 h-4 text-[#c3f400]" />
             <span>+ Nuevo Pedido</span>
-          </Link>
-
-          {/* Enlaces de Navegación Nativos */}
-          <nav className="space-y-2 pt-2">
-            {navItems.map((item) => {
-              const Icon = item.icon
-              const isActive = activeTab === item.id
-              return (
-                <Link
-                  key={item.id}
-                  href={item.route}
-                  onClick={() => setIsOpen(false)}
-                  className={`
-                    flex items-center justify-between p-3.5 rounded-2xl font-bold text-xs sm:text-sm transition-all
-                    ${isActive 
-                      ? 'bg-[#fddf33] text-[#726200] shadow-sm font-extrabold' 
-                      : 'text-[#424654] hover:bg-[#f6f3f2] hover:text-[#0056d2]'}
-                  `}
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon className={`w-5 h-5 ${isActive ? 'text-[#726200]' : 'text-[#0056d2]'}`} />
-                    <span>{item.label}</span>
-                  </div>
-                  {isActive && <ChevronRight className="w-4 h-4 text-[#726200]" />}
-                </Link>
-              )
-            })}
-          </nav>
+          </button>
         </div>
 
-        {/* Footer Sidebar: Cerrar Sesión */}
-        <div className="pt-4 border-t border-[#e5e2e1]">
+        {/* PARTE MEDIA: NAVEGACIÓN SCROLLABLE INTERNA */}
+        <div className="flex-1 overflow-y-auto my-3 pr-1 space-y-1.5 scrollbar-thin">
+          
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-3 block pt-1">
+            Menú Principal
+          </span>
+
+          {/* Enlace Inicio Hub */}
+          <Link
+            href="/biz"
+            onClick={() => setIsOpen(false)}
+            className={`
+              flex items-center justify-between p-2.5 rounded-xl font-bold text-xs transition-all
+              ${activeTab === 'hub' 
+                ? 'bg-[#0056d2] text-white shadow-xs font-black' 
+                : 'text-[#424654] hover:bg-[#f6f3f2] hover:text-[#0056d2]'}
+            `}
+          >
+            <div className="flex items-center gap-2.5">
+              <Store className={`w-4 h-4 ${activeTab === 'hub' ? 'text-[#c3f400]' : 'text-[#0056d2]'}`} />
+              <span>🏪 Inicio (Centro de Comercio)</span>
+            </div>
+          </Link>
+
+          {/* Productos & Catálogo */}
+          <Link
+            href="/biz/catalog"
+            onClick={() => setIsOpen(false)}
+            className={`
+              flex items-center justify-between p-2.5 rounded-xl font-bold text-xs transition-all
+              ${activeTab === 'catalog' 
+                ? 'bg-[#0056d2] text-white shadow-xs font-black' 
+                : 'text-[#424654] hover:bg-[#f6f3f2] hover:text-[#0056d2]'}
+            `}
+          >
+            <div className="flex items-center gap-2.5">
+              <Package className={`w-4 h-4 ${activeTab === 'catalog' ? 'text-[#c3f400]' : 'text-[#0056d2]'}`} />
+              <span>📋 Catálogo & Lista Rápida</span>
+            </div>
+          </Link>
+
+          {/* Perfil & Configuración de Local */}
+          <Link
+            href="/biz/settings"
+            onClick={() => setIsOpen(false)}
+            className={`
+              flex items-center justify-between p-2.5 rounded-xl font-bold text-xs transition-all
+              ${activeTab === 'settings' 
+                ? 'bg-[#0056d2] text-white shadow-xs font-black' 
+                : 'text-[#424654] hover:bg-[#f6f3f2] hover:text-[#0056d2]'}
+            `}
+          >
+            <div className="flex items-center gap-2.5">
+              <Store className={`w-4 h-4 ${activeTab === 'settings' ? 'text-[#c3f400]' : 'text-[#0056d2]'}`} />
+              <span>⚙️ Configuración & Giro</span>
+            </div>
+          </Link>
+
+          {/* Finanzas & Ganancias */}
+          <Link
+            href="/biz/finances"
+            onClick={() => setIsOpen(false)}
+            className={`
+              flex items-center justify-between p-2.5 rounded-xl font-bold text-xs transition-all
+              ${activeTab === 'finances' 
+                ? 'bg-[#0056d2] text-white shadow-xs font-black' 
+                : 'text-[#424654] hover:bg-[#f6f3f2] hover:text-[#0056d2]'}
+            `}
+          >
+            <div className="flex items-center gap-2.5">
+              <Wallet className={`w-4 h-4 ${activeTab === 'finances' ? 'text-[#c3f400]' : 'text-[#0056d2]'}`} />
+              <span>💰 Finanzas & Ganancias</span>
+            </div>
+          </Link>
+
+          {/* SECCIÓN MODOS ADAPTATIVOS ESPECIALIZADOS */}
+          <div className="pt-2 border-t border-slate-100">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-3 block mb-1">
+              Modos de Mostrador / Giro
+            </span>
+
+            <Link
+              href="/biz/manager"
+              onClick={() => setIsOpen(false)}
+              className={`
+                flex items-center justify-between p-2 rounded-xl font-bold text-xs transition-all
+                ${activeTab === 'manager' 
+                  ? 'bg-blue-50 text-[#0056d2] font-black border border-blue-200/60 shadow-2xs' 
+                  : 'text-[#424654] hover:bg-[#f6f3f2] hover:text-[#0056d2]'}
+              `}
+            >
+              <div className="flex items-center gap-2">
+                <span>🖥️</span>
+                <span>Caja & Gerencia (Dueño)</span>
+              </div>
+            </Link>
+
+            <Link
+              href="/biz/simple"
+              onClick={() => setIsOpen(false)}
+              className={`
+                flex items-center justify-between p-2 rounded-xl font-bold text-xs transition-all
+                ${activeTab === 'simple' 
+                  ? 'bg-blue-50 text-[#0056d2] font-black border border-blue-200/60 shadow-2xs' 
+                  : 'text-[#424654] hover:bg-[#f6f3f2] hover:text-[#0056d2]'}
+              `}
+            >
+              <div className="flex items-center gap-2">
+                <span>🌮</span>
+                <span>Modo Callejero / Taquero</span>
+              </div>
+            </Link>
+
+            <Link
+              href="/biz/kds"
+              onClick={() => setIsOpen(false)}
+              className={`
+                flex items-center justify-between p-2 rounded-xl font-bold text-xs transition-all
+                ${activeTab === 'kds' 
+                  ? 'bg-blue-50 text-[#0056d2] font-black border border-blue-200/60 shadow-2xs' 
+                  : 'text-[#424654] hover:bg-[#f6f3f2] hover:text-[#0056d2]'}
+              `}
+            >
+              <div className="flex items-center gap-2">
+                <span>👨‍🍳</span>
+                <span>Pantalla KDS (Cocina)</span>
+              </div>
+            </Link>
+
+            <Link
+              href="/biz/pharmacy"
+              onClick={() => setIsOpen(false)}
+              className={`
+                flex items-center justify-between p-2 rounded-xl font-bold text-xs transition-all
+                ${activeTab === 'pharmacy' 
+                  ? 'bg-blue-50 text-[#0056d2] font-black border border-blue-200/60 shadow-2xs' 
+                  : 'text-[#424654] hover:bg-[#f6f3f2] hover:text-[#0056d2]'}
+              `}
+            >
+              <div className="flex items-center gap-2">
+                <span>💊</span>
+                <span>Modo Farmacia & Recetas</span>
+              </div>
+            </Link>
+
+            <Link
+              href="/biz/hardware"
+              onClick={() => setIsOpen(false)}
+              className={`
+                flex items-center justify-between p-2 rounded-xl font-bold text-xs transition-all
+                ${activeTab === 'hardware' 
+                  ? 'bg-blue-50 text-[#0056d2] font-black border border-blue-200/60 shadow-2xs' 
+                  : 'text-[#424654] hover:bg-[#f6f3f2] hover:text-[#0056d2]'}
+              `}
+            >
+              <div className="flex items-center gap-2">
+                <span>🔧</span>
+                <span>Modo Ferretería & Carga</span>
+              </div>
+            </Link>
+          </div>
+
+        </div>
+
+        {/* PARTE INFERIOR FIJA: BOTÓN CERRAR SESIÓN SIEMPRE VISIBLE */}
+        <div className="pt-3 border-t border-[#e5e2e1] shrink-0 bg-white">
           <Link
             href="/"
             onClick={() => setIsOpen(false)}
-            className="flex items-center gap-3 p-3.5 rounded-2xl font-bold text-xs sm:text-sm text-[#ba1a1a] hover:bg-[#ffdad6]/60 transition-all"
+            className="flex items-center justify-center gap-2.5 p-3 rounded-2xl font-black text-xs sm:text-sm text-white bg-[#ba1a1a] hover:bg-[#93000a] shadow-sm active:scale-95 transition-all w-full cursor-pointer"
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut className="w-4 h-4" />
             <span>Cerrar Sesión</span>
           </Link>
         </div>
       </aside>
+
+      {/* Modal POS Venta Manual */}
+      <NewOrderModal 
+        isOpen={isNewOrderOpen} 
+        onClose={() => setIsNewOrderOpen(false)} 
+      />
     </>
   )
 }

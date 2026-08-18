@@ -74,6 +74,41 @@ export default function OwnerDashboardPage() {
               <p className="text-xs font-semibold text-[#737785]">Contratos B2B con tarifa preferencial</p>
             </div>
           </div>
+          {/* Telemetría de Salud de Motos & Mantenimiento Preventivo Meituan */}
+          <div className="bg-white p-6 rounded-[32px] border border-[#e5e2e1] shadow-sm space-y-4">
+            <div className="flex justify-between items-center border-b border-[#f0eded] pb-3">
+              <h3 className="text-base font-extrabold text-[#1c1b1b]">Telemetría de Salud de Motos & Mantenimiento Preventivo</h3>
+              <span className="text-xs font-bold text-[#0056d2] bg-[#0056d2]/10 px-3 py-1 rounded-full">
+                18 Vehículos Monitoreados
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-[#f6f3f2] p-4 rounded-2xl border border-[#e5e2e1] space-y-1">
+                <span className="text-[10px] font-black text-[#737785] uppercase">MOTO #04 &bull; YAMAHA YBR</span>
+                <p className="text-sm font-extrabold text-[#1c1b1b]">12,450 km Recorridos</p>
+                <span className="text-[10px] font-bold text-[#ba1a1a] bg-[#ffdad6] px-2 py-0.5 rounded-full block w-fit">
+                  ⚠️ Requiere Cambio de Aceite (En 50 km)
+                </span>
+              </div>
+
+              <div className="bg-[#f6f3f2] p-4 rounded-2xl border border-[#e5e2e1] space-y-1">
+                <span className="text-[10px] font-black text-[#737785] uppercase">MOTO #09 &bull; ITALIKA FT150</span>
+                <p className="text-sm font-extrabold text-[#1c1b1b]">8,200 km Recorridos</p>
+                <span className="text-[10px] font-bold text-[#161e00] bg-[#c3f400] px-2 py-0.5 rounded-full block w-fit">
+                  🟢 Estado Óptimo (Llantas ok)
+                </span>
+              </div>
+
+              <div className="bg-[#f6f3f2] p-4 rounded-2xl border border-[#e5e2e1] space-y-1">
+                <span className="text-[10px] font-black text-[#737785] uppercase">MOTO #12 &bull; HONDA CARGO</span>
+                <p className="text-sm font-extrabold text-[#1c1b1b]">15,100 km Recorridos</p>
+                <span className="text-[10px] font-bold text-[#726200] bg-[#fddf33] px-2 py-0.5 rounded-full block w-fit">
+                  ⚡ Servicio Programado Viernes
+                </span>
+              </div>
+            </div>
+          </div>
         </main>
       </div>
     </div>

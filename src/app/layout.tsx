@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Quicksand } from "next/font/google";
-import Script from "next/script";
 import "./globals.css";
 
 const quicksand = Quicksand({
@@ -10,9 +9,14 @@ const quicksand = Quicksand({
 });
 
 export const metadata: Metadata = {
-  title: "VAMO — Inicio",
-  description: "Sistema Operativo SaaS para Flotas de Motomandados.",
+  title: "VAMO — Tú Pides. Nosotros Vamos.",
+  description: "Sistema Operativo SaaS para Flotas de Motomandados y Logística Urbana.",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/icono-vamo.svg",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -36,6 +40,7 @@ export default function RootLayout({
   return (
     <html lang="es" className={`${quicksand.variable} h-full antialiased font-sans`}>
       <head>
+        <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
         <link
           rel="stylesheet"
           href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -49,10 +54,6 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-[#fcf9f8] text-[#1c1b1b] selection:bg-[#0056d2] selection:text-white">
         {children}
-        <Script
-          src="https://cdn.tailwindcss.com?plugins=forms,container-queries"
-          strategy="beforeInteractive"
-        />
       </body>
     </html>
   );
