@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import Link from 'next/link'
 import { CustomerLayout } from '@/components/layout/CustomerLayout'
 import { Wallet, CreditCard, PlusCircle, ArrowUpRight, ArrowDownLeft, Gift, ShieldCheck, Zap } from 'lucide-react'
 
@@ -58,10 +59,13 @@ export default function CustomerWalletPage() {
                 ${balance.toFixed(2)} <span className="text-base text-white font-bold">MXN</span>
               </p>
             </div>
-            <div className="bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full text-xs font-black flex items-center gap-1.5 border border-white/20">
+            <Link 
+              href="/customer/rewards"
+              className="bg-white/10 hover:bg-white/20 backdrop-blur-md px-3.5 py-1.5 rounded-full text-xs font-black flex items-center gap-1.5 border border-white/20 active:scale-95 transition-all cursor-pointer"
+            >
               <Gift className="w-4 h-4 text-[#c3f400]" />
-              <span>{points} Puntos VAMO</span>
-            </div>
+              <span>{points} Puntos &bull; Canjear 🎁</span>
+            </Link>
           </div>
 
           <div className="flex items-center gap-3 pt-2 relative z-10">
