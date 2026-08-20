@@ -35,7 +35,9 @@ interface VamoMapLibreProps {
   waypoints?: MapWaypoint[]
   routeCoordinates?: LngLat[]
   className?: string
+  enableGeolocate?: boolean
   onToggle3D?: (is3D: boolean) => void
+  onMapClick?: (coords: { lat: number; lng: number }) => void
 }
 
 const MAP_STYLE_BRIGHT = 'https://tiles.openfreemap.org/styles/bright'
@@ -52,7 +54,9 @@ export default function VamoMapLibre({
   waypoints = [],
   routeCoordinates = [],
   className = 'w-full h-full min-h-[450px]',
-  onToggle3D
+  enableGeolocate = true,
+  onToggle3D,
+  onMapClick
 }: VamoMapLibreProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
@@ -103,6 +107,25 @@ export default function VamoMapLibre({
     })
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right')
+
+    // Control de Geolocalización GPS Nativo (Celular, Tableta, PC)
+    if (enableGeolocate !== false) {
+      const geolocateControl = new maplibregl.GeolocateControl({
+        positionOptions: {
+          enableHighAccuracy: true,
+          timeout: 6000
+        },
+        trackUserLocation: true,
+        showUserLocation: true
+      })
+      map.addControl(geolocateControl, 'top-right')
+    }
+
+    map.on('click', (e) => {
+      if (onMapClick) {
+        onMapClick({ lat: e.lngLat.lat, lng: e.lngLat.lng })
+      }
+    })
 
     map.on('dragstart', () => setIsUserInteracting(true))
     map.on('zoomstart', () => setIsUserInteracting(true))

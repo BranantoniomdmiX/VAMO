@@ -10,6 +10,41 @@ export default function CustomerRadarPage() {
   const [activeModal, setActiveModal] = useState<'NONE' | 'PROMOS' | 'CATEGORIES'>('NONE')
   const [selectedTab, setSelectedTab] = useState<'STORES' | 'PROMOS'>('STORES')
   const [searchQuery, setSearchQuery] = useState<string>('')
+  const [userLocation, setUserLocation] = useState<[number, number]>([20.5218, -100.8142])
+  const [hasGps, setHasGps] = useState<boolean>(false)
+  const [selectedPinAddress, setSelectedPinAddress] = useState<string | null>(null)
+  const [pinnedCoords, setPinnedCoords] = useState<{ lat: number; lng: number } | null>(null)
+
+  // Autodetección de GPS en Celular / Tableta / Navegador
+  useEffect(() => {
+    if (typeof window !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude]
+          setUserLocation(coords)
+          setHasGps(true)
+          localStorage.setItem('vamo_user_gps', JSON.stringify({ lat: coords[0], lng: coords[1] }))
+        },
+        (err) => {
+          console.log('GPS no disponible o denegado, usando ubicación de mapa:', err)
+          const cached = localStorage.getItem('vamo_user_gps')
+          if (cached) {
+            try {
+              const parsed = JSON.parse(cached)
+              setUserLocation([parsed.lat, parsed.lng])
+            } catch (e) {}
+          }
+        },
+        { enableHighAccuracy: true, timeout: 6000 }
+      )
+    }
+  }, [])
+
+  const handleMapClick = (coords: { lat: number; lng: number }) => {
+    setPinnedCoords(coords)
+    setSelectedPinAddress(`Ubicación seleccionada (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`)
+    localStorage.setItem('vamo_selected_destination', JSON.stringify(coords))
+  }
 
   const [selectedStore, setSelectedStore] = useState({
     id: 1,
@@ -288,17 +323,44 @@ export default function CustomerRadarPage() {
             </button>
           </div>
 
-          {/* Mapa Vectorial VamoMapLibre con Marcadores Filtrados Dinámicamente */}
+          {/* Mapa Vectorial VamoMapLibre con Marcadores Filtrados Dinámicamente y GPS Automático */}
           <div className="w-full h-full min-h-[480px] relative">
             <VamoMapLibre
-              center={[20.5218, -100.8142]}
-              zoom={14}
+              center={userLocation}
+              zoom={14.5}
               theme="light"
               mode3D={false}
-              waypoints={activeWaypoints}
+              waypoints={[
+                ...activeWaypoints,
+                ...(pinnedCoords ? [{
+                  id: 'PINNED-LOCATION',
+                  title: '📍 Mi Destino Seleccionado',
+                  lat: pinnedCoords.lat,
+                  lng: pinnedCoords.lng,
+                  type: 'DESTINATION' as const
+                }] : [])
+              ]}
+              enableGeolocate={true}
+              onMapClick={handleMapClick}
               className="w-full h-full min-h-[480px]"
             />
           </div>
+
+          {/* Banner Flotante si se selecciona un punto en PC / Celular */}
+          {selectedPinAddress && (
+            <div className="absolute top-16 inset-x-4 max-w-sm mx-auto z-30 pointer-events-auto bg-[#0040A1] text-white p-3 rounded-2xl shadow-xl flex items-center justify-between gap-2 border border-blue-400 animate-fade-in">
+              <div className="flex items-center gap-2 min-w-0">
+                <MapPin className="w-4 h-4 text-[#c3f400] shrink-0" />
+                <span className="text-xs font-bold truncate">{selectedPinAddress}</span>
+              </div>
+              <Link
+                href={`/customer/quote?destLat=${pinnedCoords?.lat}&destLng=${pinnedCoords?.lng}`}
+                className="bg-[#c3f400] text-[#161e00] px-3 py-1.5 rounded-xl text-xs font-black shrink-0 hover:bg-[#abd600] active:scale-95 transition-all"
+              >
+                Pedir Moto Aquí ⚡
+              </Link>
+            </div>
+          )}
 
           {/* Tarjeta Flotante Inferior de Comercio Seleccionado (Móvil y PC) */}
           <div className="absolute bottom-4 inset-x-4 max-w-md mx-auto z-20 pointer-events-auto animate-fade-in">
