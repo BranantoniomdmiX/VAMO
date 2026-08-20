@@ -6,18 +6,62 @@ import { Activity, CheckCircle2, Server, Database, Radio, Cpu, HardDrive, Wifi, 
 
 export default function AdminInfrastructurePage() {
   const [oracleMetrics, setOracleMetrics] = React.useState({
-    cpuCores: 4, // Máximo 4 OCPUs Ampere A1
-    cpuUsagePercent: 24.5, // > 15-20% para evitar reclamación de Oracle
-    ramGb: 24, // Máximo 24 GB RAM
-    ramUsedGb: 8.2,
-    diskGb: 200, // Máximo 200 GB Block Storage
-    diskUsedGb: 48.6,
-    bandwidthMonthlyTb: 10, // 10 TB límite mensual
-    bandwidthUsedTb: 0.42, // Usado este mes
-    publicIpsUsed: 1, // Máximo 2 IPs gratis
-    dokployStatus: 'RUNNING (Dokploy Keep-Alive Active)',
-    antiReclaimStatus: 'PROTEGIDO (Uso CPU > 20% Constante)'
+    cpuCores: 3,
+    cpuUsagePercent: 15.2,
+    ramGb: 17.5,
+    ramUsedGb: 1.25,
+    diskGb: 45,
+    diskUsedGb: 8,
+    bandwidthMonthlyTb: 10,
+    bandwidthUsedTb: 0.001,
+    publicIpsUsed: 1,
+    dokployStatus: 'RUNNING (Dokploy Traefik v3)',
+    antiReclaimStatus: 'PROTEGIDO (Dokploy + Always Free Guard)',
+    serverName: 'instance-20260810-1032',
+    uptime: 'Activo'
   })
+
+  const [isLoadingMetrics, setIsLoadingMetrics] = React.useState(false)
+
+  const fetchLiveMetrics = React.useCallback(async () => {
+    try {
+      setIsLoadingMetrics(true)
+      const res = await fetch('http://163.192.147.231:3001/api/metrics', {
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-store'
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data && data.alwaysFreeLimits) {
+          setOracleMetrics({
+            cpuCores: data.alwaysFreeLimits.cpu.coresAllocated,
+            cpuUsagePercent: data.alwaysFreeLimits.cpu.usagePercent,
+            ramGb: data.alwaysFreeLimits.ram.allocatedGb,
+            ramUsedGb: data.alwaysFreeLimits.ram.usedGb,
+            diskGb: data.alwaysFreeLimits.disk.allocatedGb,
+            diskUsedGb: data.alwaysFreeLimits.disk.usedGb,
+            bandwidthMonthlyTb: data.alwaysFreeLimits.bandwidth.maxFreeMonthlyTb,
+            bandwidthUsedTb: data.alwaysFreeLimits.bandwidth.usedTbThisMonth,
+            publicIpsUsed: data.alwaysFreeLimits.publicIps.used,
+            dokployStatus: 'RUNNING (Dokploy Traefik v3)',
+            antiReclaimStatus: data.antiReclaimStatus || 'PROTEGIDO (Always Free Guard)',
+            serverName: data.server || 'instance-20260810-1032',
+            uptime: data.uptime || 'Activo'
+          })
+        }
+      }
+    } catch (err) {
+      console.warn('Usando telemetría local o VPS offline:', err)
+    } finally {
+      setIsLoadingMetrics(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    fetchLiveMetrics()
+    const interval = setInterval(fetchLiveMetrics, 15000)
+    return () => clearInterval(interval)
+  }, [fetchLiveMetrics])
 
   const [interactions, setInteractions] = React.useState({
     activeSockets: 42,
