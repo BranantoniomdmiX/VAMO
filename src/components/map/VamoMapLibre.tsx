@@ -110,6 +110,9 @@ export default function VamoMapLibre({
     map.on('load', () => {
       console.log('✨ [VAMO MAP 3D] Mapa Vectorial OpenFreeMap cargado al 100%')
       map.resize()
+      setTimeout(() => {
+        try { map.resize() } catch (e) {}
+      }, 250)
 
       // Capa de Edificios 3D (fill-extrusion)
       try {

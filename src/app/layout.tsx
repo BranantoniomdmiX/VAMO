@@ -43,6 +43,11 @@ export default function RootLayout({
         <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
         <link
           rel="stylesheet"
+          href="https://unpkg.com/maplibre-gl@5.18.0/dist/maplibre-gl.css"
+          crossOrigin=""
+        />
+        <link
+          rel="stylesheet"
           href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
           crossOrigin=""

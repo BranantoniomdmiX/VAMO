@@ -265,7 +265,7 @@ export default function CustomerRadarPage() {
         </aside>
 
         {/* COLUMNA DERECHA EN PC / CENTRAL: MAPA VECTORIAL PANORÁMICO */}
-        <div className="relative flex-1 h-[520px] lg:h-[680px] rounded-[32px] overflow-hidden border border-[#e5e2e1] shadow-xl">
+        <div className="relative flex-1 min-h-[480px] h-[520px] lg:h-[680px] w-full rounded-[32px] overflow-hidden border border-[#e5e2e1] shadow-xl bg-slate-100">
           
           {/* BARRA SUPERIOR MÓVIL EXCLUSIVA (Solo Celular) */}
           <div className="lg:hidden absolute top-3 inset-x-3 z-30 flex gap-2 justify-center pointer-events-auto">
@@ -289,14 +289,16 @@ export default function CustomerRadarPage() {
           </div>
 
           {/* Mapa Vectorial VamoMapLibre con Marcadores Filtrados Dinámicamente */}
-          <VamoMapLibre
-            center={[20.5218, -100.8142]}
-            zoom={14}
-            theme="light"
-            mode3D={false}
-            waypoints={activeWaypoints}
-            className="w-full h-full"
-          />
+          <div className="w-full h-full min-h-[480px] relative">
+            <VamoMapLibre
+              center={[20.5218, -100.8142]}
+              zoom={14}
+              theme="light"
+              mode3D={false}
+              waypoints={activeWaypoints}
+              className="w-full h-full min-h-[480px]"
+            />
+          </div>
 
           {/* Tarjeta Flotante Inferior de Comercio Seleccionado (Móvil y PC) */}
           <div className="absolute bottom-4 inset-x-4 max-w-md mx-auto z-20 pointer-events-auto animate-fade-in">
