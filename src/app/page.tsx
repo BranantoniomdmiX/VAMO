@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
-import { User, Store, Bike, LayoutDashboard, Building2, ShieldCheck, ArrowRight, Sparkles, LogIn, CheckCircle2, ChevronRight, ArrowLeft } from 'lucide-react'
+import { User, Store, Bike, LayoutDashboard, Building2, ShieldCheck, ArrowRight, Sparkles, LogIn, CheckCircle2, ChevronRight, ArrowLeft, Globe } from 'lucide-react'
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'welcome' | 'portals'>('welcome')
@@ -57,6 +57,16 @@ export default function Home() {
       iconBg: 'bg-[#0056d2] text-white',
       cardBg: 'bg-white border-[#0056d2]/30 hover:border-[#0056d2]',
       shadow: 'shadow-[0_8px_24px_rgba(0,86,210,0.08)]'
+    },
+    {
+      id: 'regional',
+      title: 'Supervisión Regional',
+      subtitle: 'Portal 6 &bull; Índice ISF / ICV',
+      route: '/regional/dashboard',
+      icon: Globe,
+      iconBg: 'bg-[#0040a1] text-[#c3f400]',
+      cardBg: 'bg-white border-[#0040a1]/30 hover:border-[#0040a1]',
+      shadow: 'shadow-[0_8px_24px_rgba(0,64,161,0.08)]'
     },
     {
       id: 'admin',
