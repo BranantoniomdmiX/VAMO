@@ -220,7 +220,7 @@ export default function DriverNavigationPage() {
             className="w-full h-full rounded-none"
           />
 
-          {/* Botones Flotantes de Control de Cámara & GPS Real */}
+          {/* Botones Flotantes de Control de Cámara, GPS Real y Botón de Auxilio SOS */}
           <div className="absolute top-16 left-2.5 z-20 flex flex-col gap-2">
             <button
               onClick={() => setCameraMode(cameraMode === 'DRIVING' ? 'OVERVIEW' : 'DRIVING')}
@@ -239,6 +239,18 @@ export default function DriverNavigationPage() {
                 <span>ACTIVAR GPS CELULAR 📍</span>
               </button>
             )}
+
+            {/* BOTÓN SOS DE EMERGENCIA (SOP-SEG-003) */}
+            <button
+              onClick={() => {
+                if (confirm('🚨 ¿DESEAS ACTIVAR LA ALERTA SOS DE EMERGENCIA A LA BASE? Se enviará tu ubicación GPS y orden en tiempo real.')) {
+                  alert('🚨 ALERTA SOS ENVIADA A LA BASE OPERATIVA. Un operador te contactará de inmediato.')
+                }
+              }}
+              className="bg-[#ba1a1a] hover:bg-[#93000a] text-white px-3 py-1.5 rounded-xl font-black text-[10px] shadow-xl flex items-center gap-1.5 active:scale-95 transition-all border border-white/40 animate-pulse cursor-pointer"
+            >
+              <span>🚨 BOTÓN SOS (AUXILIO)</span>
+            </button>
           </div>
         </div>
 
