@@ -58,6 +58,37 @@ export default function DriverHomePage() {
 
   const currentZone = hotZones.find(z => z.id === selectedZoneId) || hotZones[0]
 
+  const [showShiftChecklist, setShowShiftChecklist] = useState(false)
+  const [checklist, setChecklist] = useState({
+    motoDoc: false,
+    fuelCheck: false,
+    phoneCharge: false,
+    thermalBag: false,
+    safetyHelmet: false
+  })
+
+  const isChecklistComplete = Object.values(checklist).every(Boolean)
+
+  const handleToggleAvailable = () => {
+    if (!isAvailable) {
+      // Si va a ponerse disponible y no ha completado el checklist, mostrar modal SOP-RID-002
+      if (!isChecklistComplete) {
+        setShowShiftChecklist(true)
+        return
+      }
+      setIsAvailable(true)
+    } else {
+      setIsAvailable(false)
+    }
+  }
+
+  const handleConfirmShiftStart = () => {
+    if (isChecklistComplete) {
+      setIsAvailable(true)
+      setShowShiftChecklist(false)
+    }
+  }
+
   return (
     <MobileDriverLayout>
       <div className="p-5 space-y-6">
@@ -85,7 +116,7 @@ export default function DriverHomePage() {
 
         {/* Switch Gigante DISPONIBLE / NO DISPONIBLE (Verde VAMO Oficial + Cero Desbordes) */}
         <div 
-          onClick={() => setIsAvailable(!isAvailable)}
+          onClick={handleToggleAvailable}
           className={`
             p-5 rounded-[28px] cursor-pointer transition-all duration-300 shadow-md flex items-center justify-between border-2 active:scale-98
             ${isAvailable 
@@ -104,7 +135,7 @@ export default function DriverHomePage() {
                 {isAvailable ? 'ESTÁS DISPONIBLE' : 'NO DISPONIBLE'}
               </span>
               <span className="text-xs font-bold opacity-90 block">
-                {isAvailable ? 'Recibiendo pedidos en tiempo real' : 'Toca para conectarte al radar'}
+                {isAvailable ? 'Recibiendo pedidos en tiempo real' : 'Toca para iniciar turno con checklist'}
               </span>
             </div>
           </div>
@@ -114,6 +145,93 @@ export default function DriverHomePage() {
             <div className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-md transition-all duration-200 ${isAvailable ? 'right-1' : 'left-1'}`} />
           </div>
         </div>
+
+        {/* Modal de Inicio de Turno SOP-RID-002 */}
+        {showShiftChecklist && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white rounded-[32px] max-w-sm w-full p-6 space-y-4 shadow-2xl border border-[#e5e2e1]">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#0040a1] text-[#c3f400] flex items-center justify-center font-black">
+                  📋
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">Checklist Inicio de Turno</h3>
+                  <span className="text-[10px] font-bold text-slate-500">SOP-RID-002 &bull; Protocolo Oficial VAMO</span>
+                </div>
+              </div>
+
+              <div className="space-y-2.5 text-xs font-bold text-slate-700">
+                <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:bg-blue-50/40 transition-colors">
+                  <input 
+                    type="checkbox" 
+                    checked={checklist.motoDoc}
+                    onChange={(e) => setChecklist({ ...checklist, motoDoc: e.target.checked })}
+                    className="w-4 h-4 text-[#0056d2] rounded focus:ring-0" 
+                  />
+                  <span>Licencia y póliza de seguro vigentes</span>
+                </label>
+
+                <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:bg-blue-50/40 transition-colors">
+                  <input 
+                    type="checkbox" 
+                    checked={checklist.fuelCheck}
+                    onChange={(e) => setChecklist({ ...checklist, fuelCheck: e.target.checked })}
+                    className="w-4 h-4 text-[#0056d2] rounded focus:ring-0" 
+                  />
+                  <span>Combustible y presión de llantas revisadas</span>
+                </label>
+
+                <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:bg-blue-50/40 transition-colors">
+                  <input 
+                    type="checkbox" 
+                    checked={checklist.phoneCharge}
+                    onChange={(e) => setChecklist({ ...checklist, phoneCharge: e.target.checked })}
+                    className="w-4 h-4 text-[#0056d2] rounded focus:ring-0" 
+                  />
+                  <span>Celular con &gt;50% de batería y datos móviles</span>
+                </label>
+
+                <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:bg-blue-50/40 transition-colors">
+                  <input 
+                    type="checkbox" 
+                    checked={checklist.thermalBag}
+                    onChange={(e) => setChecklist({ ...checklist, thermalBag: e.target.checked })}
+                    className="w-4 h-4 text-[#0056d2] rounded focus:ring-0" 
+                  />
+                  <span>Mochila térmica limpia y desinfectada</span>
+                </label>
+
+                <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:bg-blue-50/40 transition-colors">
+                  <input 
+                    type="checkbox" 
+                    checked={checklist.safetyHelmet}
+                    onChange={(e) => setChecklist({ ...checklist, safetyHelmet: e.target.checked })}
+                    className="w-4 h-4 text-[#0056d2] rounded focus:ring-0" 
+                  />
+                  <span>Casco de seguridad colocado y abrochado</span>
+                </label>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  disabled={!isChecklistComplete}
+                  onClick={handleConfirmShiftStart}
+                  className="flex-1 bg-[#c3f400] hover:bg-[#abd600] disabled:bg-slate-200 disabled:text-slate-400 text-[#161e00] py-3 rounded-full text-xs font-black active:scale-95 transition-all cursor-pointer shadow-sm"
+                >
+                  CONFIRMAR & CONECTAR 🚀
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowShiftChecklist(false)}
+                  className="px-4 bg-[#f0eded] text-slate-700 py-3 rounded-full text-xs font-bold"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Banner Informativo COD & Billetera */}
         <div className="bg-white p-4 rounded-[24px] border border-slate-200 flex items-center justify-between shadow-xs">

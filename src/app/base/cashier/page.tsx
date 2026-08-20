@@ -36,20 +36,39 @@ export default function BaseCashierPage() {
     }))
   }
 
-  const handleProcessCut = async (driverId: string, driverName: string, amount: number) => {
+  const [selectedDriverForAudit, setSelectedDriverForAudit] = useState<{ id: string; name: string; codCash: number } | null>(null)
+  const [cashCounted, setCashCounted] = useState<string>('')
+  const [cutNotes, setCutNotes] = useState<string>('')
+
+  const handleOpenAuditModal = (d: { id: string; name: string; codCash: number }) => {
+    setSelectedDriverForAudit(d)
+    setCashCounted(d.codCash.toString())
+    setCutNotes('')
+  }
+
+  const handleProcessCut = async () => {
+    if (!selectedDriverForAudit) return
+    const amountCounted = parseFloat(cashCounted) || 0
+    const difference = amountCounted - selectedDriverForAudit.codCash
+
     let receiptNum = `REC-${Math.floor(10000 + Math.random() * 90000)}`
     
-    if (driverId === 'driver-carlos-1') {
-      const res = await WalletService.settleCodAtBase(driverId, 'base-admin-1')
+    if (selectedDriverForAudit.id === 'driver-carlos-1') {
+      const res = await WalletService.settleCodAtBase(selectedDriverForAudit.id, 'base-admin-1')
       receiptNum = res.receiptNumber
       setDriverWallet({ ...res.wallet })
     }
 
-    setTotalBaseCash(prev => prev + amount)
-    setProcessedDriver({ name: driverName, amount, receipt: receiptNum })
+    setTotalBaseCash(prev => prev + amountCounted)
+    setProcessedDriver({ 
+      name: selectedDriverForAudit.name, 
+      amount: amountCounted, 
+      receipt: receiptNum 
+    })
 
     // Remover o actualizar de la lista de cortes pendientes
-    setDriversList(prev => prev.filter(d => d.id !== driverId))
+    setDriversList(prev => prev.filter(d => d.id !== selectedDriverForAudit.id))
+    setSelectedDriverForAudit(null)
 
     setTimeout(() => {
       setProcessedDriver(null)
@@ -154,21 +173,98 @@ export default function BaseCashierPage() {
                     </div>
 
                     <button 
-                      onClick={() => handleProcessCut(d.id, d.name, d.codCash)}
-                      className={`px-6 py-3 rounded-full text-xs font-black shadow-sm active:scale-95 transition-all flex items-center gap-2 ${
+                      onClick={() => handleOpenAuditModal({ id: d.id, name: d.name, codCash: d.codCash })}
+                      className={`px-6 py-3 rounded-full text-xs font-black shadow-sm active:scale-95 transition-all flex items-center gap-2 cursor-pointer ${
                         d.isBlocked 
                           ? 'bg-[#ba1a1a] hover:bg-[#93000a] text-white animate-pulse' 
                           : 'bg-[#c3f400] hover:bg-[#abd600] text-[#161e00]'
                       }`}
                     >
                       <Unlock className="w-4 h-4" />
-                      <span>RECIBIR ${d.codCash.toFixed(2)} & DESBLOQUEAR</span>
+                      <span>ARQUEAR & DESBLOQUEAR</span>
                     </button>
                   </div>
                 ))}
               </div>
             )}
           </div>
+
+          {/* Modal SOP-BASE-004: Procedimiento de Corte de Efectivo */}
+          {selectedDriverForAudit && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+              <div className="bg-white rounded-[32px] max-w-md w-full p-6 space-y-4 shadow-2xl border border-[#e5e2e1]">
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                  <div className="w-10 h-10 rounded-2xl bg-[#0040a1] text-[#c3f400] flex items-center justify-center font-black">
+                    💵
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">Arqueo y Corte de Caja COD</h3>
+                    <span className="text-[10px] font-bold text-slate-500">SOP-BASE-004 &bull; Conciliación Física vs. Sistema</span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                  <div className="flex justify-between text-xs font-bold">
+                    <span className="text-slate-500">Repartidor:</span>
+                    <strong className="text-slate-900">{selectedDriverForAudit.name}</strong>
+                  </div>
+                  <div className="flex justify-between text-xs font-bold">
+                    <span className="text-slate-500">Saldo Sistema (COD):</span>
+                    <strong className="text-[#0056d2]">${selectedDriverForAudit.codCash.toFixed(2)} MXN</strong>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 block">Efectivo Físico Contado en Mostrador ($ MXN):</label>
+                  <input
+                    type="number"
+                    step="0.50"
+                    value={cashCounted}
+                    onChange={(e) => setCashCounted(e.target.value)}
+                    className="w-full text-lg font-black text-[#0056d2] p-3 rounded-xl border border-slate-300 focus:border-[#0056d2] outline-none"
+                    placeholder="0.00"
+                  />
+                  {parseFloat(cashCounted) !== selectedDriverForAudit.codCash && (
+                    <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold flex items-center justify-between">
+                      <span>Diferencia detectada:</span>
+                      <strong className="font-mono">
+                        {(parseFloat(cashCounted) - selectedDriverForAudit.codCash > 0 ? '+' : '')}
+                        {(parseFloat(cashCounted) - selectedDriverForAudit.codCash || 0).toFixed(2)} MXN
+                      </strong>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-500 block">Notas de Bitácora / Observaciones (Opcional):</label>
+                  <input
+                    type="text"
+                    value={cutNotes}
+                    onChange={(e) => setCutNotes(e.target.value)}
+                    placeholder="Ej. Billetes completos, cambio entregado..."
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:border-[#0056d2] outline-none"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleProcessCut}
+                    className="flex-1 bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3 rounded-full text-xs font-black active:scale-95 transition-all shadow-sm cursor-pointer"
+                  >
+                    REGISTRAR CORTE & EMITIR RECIBO 🖨️
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDriverForAudit(null)}
+                    className="px-4 bg-[#f0eded] text-slate-700 py-3 rounded-full text-xs font-bold"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>
