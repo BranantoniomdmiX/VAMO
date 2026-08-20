@@ -2,7 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { Home, Compass, ShoppingBag, MapPin, User, Search, Bell, Tag, ListFilter } from 'lucide-react'
+import { Home, Compass, ShoppingBag, MapPin, User, Search, Bell, Tag, ListFilter, Package, Wallet } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
 
@@ -11,9 +11,8 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { id: 'home', label: 'Inicio', route: '/customer/home', icon: Home },
-    { id: 'radar', label: 'Radar', route: '/customer/radar', icon: Compass },
-    { id: 'tracking', label: 'Pedidos', route: '/customer/tracking', icon: ShoppingBag },
-    { id: 'wallet', label: 'Billetera', route: '/customer/wallet', icon: Tag },
+    { id: 'tracking', label: 'Pedidos', route: '/customer/tracking', icon: Package },
+    { id: 'wallet', label: 'Billetera', route: '/customer/wallet', icon: Wallet },
     { id: 'profile', label: 'Perfil', route: '/customer/profile', icon: User }
   ]
 

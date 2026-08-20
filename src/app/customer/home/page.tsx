@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
+import { CustomerLayout } from '@/components/layout/CustomerLayout'
 import { Truck, ShoppingBag, Route, Compass, Bell, ArrowRight, ChevronRight, Package, Wallet, User, Home, Star, CheckCircle2 } from 'lucide-react'
 
 function RatingModalSection() {
@@ -105,32 +106,8 @@ function RatingModalSection() {
 
 export default function CustomerHomePage() {
   return (
-    <div className="min-h-screen bg-[#fcf9f8] text-[#1c1b1b] font-sans flex flex-col justify-between selection:bg-[#0056d2] selection:text-white pb-28 md:pb-12">
-      
-      {/* Header Superior Original de Stitch: Avatar + VAMO + Notificaciones */}
-      <header className="w-full sticky top-0 z-40 bg-[#fcf9f8]/90 backdrop-blur-md border-b border-[#e5e2e1]/60">
-        <div className="flex justify-between items-center px-6 h-16 w-full max-w-7xl mx-auto">
-          {/* Leading: Avatar */}
-          <Link href="/auth/login" className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#e5e2e1] hover:opacity-80 transition-opacity active:scale-95">
-            <img 
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRtRo9d9XDyLBUhXGR9uWb6M35vctBZYnvTs5USq-jv2heq_tBYS0ZIq3FxsEtRcmZ4zF6syHbTGE4v7WnyuFXIgL0KYjFcZhfnpGsiwGH3Fl-lrJdMb_OaYapgZtcsN0MQJ_Icrh7_q7W3Mvge2ii6kuX0c3zH_U25OfAYDmLE5lfVTOmUqGm92Z2xBE-jVeJEXlT5vdgqa6vaiKosF3PKrCFYARzs_enoOtO4Tsmkm3uJnx3xweM" 
-              alt="Foto de Perfil" 
-              className="w-full h-full object-cover"
-            />
-          </Link>
-
-          {/* Headline Central VAMO */}
-          <h1 className="text-2xl font-extrabold text-[#0040a1] tracking-tight">VAMO</h1>
-
-          {/* Trailing: Notificaciones */}
-          <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-[#e5e2e1] transition-colors text-[#0040a1] active:scale-95">
-            <Bell className="w-6 h-6" />
-          </button>
-        </div>
-      </header>
-
-      {/* Main Content Canvas */}
-      <main className="w-full max-w-4xl mx-auto px-6 pt-6 flex flex-col gap-6">
+    <CustomerLayout>
+      <div className="w-full max-w-4xl mx-auto flex flex-col gap-6">
         
         {/* Header Section Saludo */}
         <section className="space-y-1">
@@ -278,36 +255,7 @@ export default function CustomerHomePage() {
           </Link>
         </section>
 
-      </main>
-
-      {/* Bottom Navigation Bar 1:1 de Stitch */}
-      <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-3 shadow-[0_-4px_20px_rgba(0,86,210,0.08)] bg-white border-t border-[#e5e2e1] md:hidden">
-        
-        {/* Tab 1: Inicio (Activo) */}
-        <Link href="/customer/home" className="flex flex-col items-center justify-center bg-[#fddf33] text-[#726200] rounded-full px-6 py-2 active:scale-90 transition-all">
-          <Home className="w-6 h-6 mb-0.5" />
-          <span className="text-xs font-bold">Inicio</span>
-        </Link>
-
-        {/* Tab 2: Pedidos */}
-        <Link href="/customer/tracking" className="flex flex-col items-center justify-center text-[#424654] p-2 hover:bg-[#f0eded] rounded-full active:scale-90 transition-all">
-          <Package className="w-6 h-6 mb-0.5" />
-          <span className="text-xs font-semibold">Pedidos</span>
-        </Link>
-
-        {/* Tab 3: Billetera */}
-        <Link href="/customer/wallet" className="flex flex-col items-center justify-center text-[#424654] p-2 hover:bg-[#f0eded] rounded-full active:scale-90 transition-all">
-          <Wallet className="w-6 h-6 mb-0.5" />
-          <span className="text-xs font-semibold">Billetera</span>
-        </Link>
-
-        {/* Tab 4: Perfil */}
-        <Link href="/customer/profile" className="flex flex-col items-center justify-center text-[#424654] p-2 hover:bg-[#f0eded] rounded-full active:scale-90 transition-all">
-          <User className="w-6 h-6 mb-0.5" />
-          <span className="text-xs font-semibold">Perfil</span>
-        </Link>
-
-      </nav>
-    </div>
+      </div>
+    </CustomerLayout>
   )
 }
