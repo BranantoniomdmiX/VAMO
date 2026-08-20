@@ -28,6 +28,7 @@ export function SidebarAdmin({ activeTab }: SidebarAdminProps) {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard Maestro Global', route: '/admin/dashboard', icon: Globe },
     { id: 'control-tower', label: 'Torre de Control (Meituan Style)', route: '/admin/control-tower', icon: Radio },
+    { id: 'clearing', label: 'VAMO Clearing & Ledger', route: '/admin/clearing', icon: CreditCard },
     { id: 'crm', label: 'CRM Hyper-Local 360°', route: '/admin/crm', icon: Users },
     { id: 'fleets', label: 'Gestión de Tenants & Flotas', route: '/admin/fleets', icon: Building2 },
     { id: 'new-fleet', label: 'Alta Nueva Flota / Tenant', route: '/admin/new-fleet', icon: PlusCircle },
