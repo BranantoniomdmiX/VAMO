@@ -290,19 +290,19 @@ export default function CustomerHomePage() {
         </Link>
 
         {/* Tab 2: Pedidos */}
-        <Link href="/customer/tracking/1" className="flex flex-col items-center justify-center text-[#424654] p-2 hover:bg-[#f0eded] rounded-full active:scale-90 transition-all">
+        <Link href="/customer/tracking" className="flex flex-col items-center justify-center text-[#424654] p-2 hover:bg-[#f0eded] rounded-full active:scale-90 transition-all">
           <Package className="w-6 h-6 mb-0.5" />
           <span className="text-xs font-semibold">Pedidos</span>
         </Link>
 
         {/* Tab 3: Billetera */}
-        <Link href="/customer/home" className="flex flex-col items-center justify-center text-[#424654] p-2 hover:bg-[#f0eded] rounded-full active:scale-90 transition-all">
+        <Link href="/customer/wallet" className="flex flex-col items-center justify-center text-[#424654] p-2 hover:bg-[#f0eded] rounded-full active:scale-90 transition-all">
           <Wallet className="w-6 h-6 mb-0.5" />
           <span className="text-xs font-semibold">Billetera</span>
         </Link>
 
         {/* Tab 4: Perfil */}
-        <Link href="/auth/login" className="flex flex-col items-center justify-center text-[#424654] p-2 hover:bg-[#f0eded] rounded-full active:scale-90 transition-all">
+        <Link href="/customer/profile" className="flex flex-col items-center justify-center text-[#424654] p-2 hover:bg-[#f0eded] rounded-full active:scale-90 transition-all">
           <User className="w-6 h-6 mb-0.5" />
           <span className="text-xs font-semibold">Perfil</span>
         </Link>

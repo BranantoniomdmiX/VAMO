@@ -11,11 +11,10 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { id: 'home', label: 'Inicio', route: '/customer/home', icon: Home },
-    { id: 'radar', label: 'Radar Urbano', route: '/customer/radar', icon: Compass },
-    { id: 'promos', label: 'Promos 🏷️', route: '/customer/radar?tab=promos', icon: Tag },
-    { id: 'categories', label: 'Comercios 🏬', route: '/customer/radar?tab=categories', icon: ListFilter },
-    { id: 'quote', label: 'Cotizar', route: '/customer/quote', icon: MapPin },
-    { id: 'tracking', label: 'Envíos', route: '/customer/tracking/1', icon: ShoppingBag }
+    { id: 'radar', label: 'Radar', route: '/customer/radar', icon: Compass },
+    { id: 'tracking', label: 'Pedidos', route: '/customer/tracking', icon: ShoppingBag },
+    { id: 'wallet', label: 'Billetera', route: '/customer/wallet', icon: Tag },
+    { id: 'profile', label: 'Perfil', route: '/customer/profile', icon: User }
   ]
 
   const isHome = pathname === '/customer/home'
