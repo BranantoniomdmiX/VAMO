@@ -162,20 +162,20 @@ export default function CustomerProfilePage() {
           <span className="text-[10px] font-black text-[#737785] uppercase tracking-wider px-2 block">
             HERRAMIENTAS DE TRABAJO VAMO
           </span>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             <Link
               href="/driver/home"
               onClick={() => {
                 try { localStorage.setItem('vamo_active_role', 'driver') } catch {}
               }}
-              className="bg-white p-4 rounded-2xl border border-[#c3f400]/50 hover:border-[#c3f400] shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-2 group"
+              className="bg-white p-3 rounded-2xl border border-[#c3f400]/50 hover:border-[#c3f400] shadow-xs hover:shadow-md transition-all flex flex-col items-center text-center gap-1.5 group"
             >
-              <div className="w-10 h-10 rounded-xl bg-[#c3f400] text-[#161e00] flex items-center justify-center font-black group-hover:scale-110 transition-transform">
+              <div className="w-9 h-9 rounded-xl bg-[#c3f400] text-[#161e00] flex items-center justify-center font-black group-hover:scale-110 transition-transform text-base">
                 🛵
               </div>
               <div>
-                <strong className="text-xs font-black text-[#1c1b1b] block">Modo Conductor</strong>
-                <span className="text-[10px] text-[#737785] font-semibold">Entrar a Repartir</span>
+                <strong className="text-[11px] font-black text-[#1c1b1b] block">Conductor</strong>
+                <span className="text-[9px] text-[#737785] font-semibold">Repartir</span>
               </div>
             </Link>
 
@@ -184,27 +184,51 @@ export default function CustomerProfilePage() {
               onClick={() => {
                 try { localStorage.setItem('vamo_active_role', 'merchant') } catch {}
               }}
-              className="bg-white p-4 rounded-2xl border border-[#fddf33]/50 hover:border-[#fddf33] shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-2 group"
+              className="bg-white p-3 rounded-2xl border border-[#fddf33]/50 hover:border-[#fddf33] shadow-xs hover:shadow-md transition-all flex flex-col items-center text-center gap-1.5 group"
             >
-              <div className="w-10 h-10 rounded-xl bg-[#fddf33] text-[#726200] flex items-center justify-center font-black group-hover:scale-110 transition-transform">
+              <div className="w-9 h-9 rounded-xl bg-[#fddf33] text-[#726200] flex items-center justify-center font-black group-hover:scale-110 transition-transform text-base">
                 🏪
               </div>
               <div>
-                <strong className="text-xs font-black text-[#1c1b1b] block">Modo Comercio</strong>
-                <span className="text-[10px] text-[#737785] font-semibold">Gestionar Local</span>
+                <strong className="text-[11px] font-black text-[#1c1b1b] block">Comercio</strong>
+                <span className="text-[9px] text-[#737785] font-semibold">Mi Negocio</span>
+              </div>
+            </Link>
+
+            <Link
+              href="/owner/dashboard"
+              onClick={() => {
+                try { localStorage.setItem('vamo_active_role', 'fleet_owner') } catch {}
+              }}
+              className="bg-white p-3 rounded-2xl border border-amber-300 hover:border-amber-500 shadow-xs hover:shadow-md transition-all flex flex-col items-center text-center gap-1.5 group"
+            >
+              <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black group-hover:scale-110 transition-transform text-base">
+                👑
+              </div>
+              <div>
+                <strong className="text-[11px] font-black text-[#1c1b1b] block">Flotilla</strong>
+                <span className="text-[9px] text-[#737785] font-semibold">Dueño Motos</span>
               </div>
             </Link>
           </div>
         </div>
 
         {/* Botón Cerrar Sesión */}
-        <Link
-          href="/auth/login"
-          className="w-full bg-[#ba1a1a] hover:bg-[#93000a] text-white py-3.5 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all"
+        <button
+          type="button"
+          onClick={() => {
+            try {
+              localStorage.removeItem('vamo_active_role')
+              localStorage.removeItem('vamo_user_session')
+            } catch {}
+            window.location.href = '/customer/home'
+          }}
+          className="w-full bg-[#ba1a1a] hover:bg-[#93000a] text-white py-3.5 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all cursor-pointer"
         >
           <LogOut className="w-4 h-4" />
-          Cerrar Sesión
-        </Link>
+          <span>Cerrar Sesión</span>
+        </button>
+
 
       </div>
     </CustomerLayout>

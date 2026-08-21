@@ -323,19 +323,45 @@ export function SidebarBiz({ activeTab }: SidebarBizProps) {
             </Link>
           </div>
 
+          {/* ACCESO RÁPIDO A MODO CLIENTE DESDE COMERCIO */}
+          <div className="pt-2 border-t border-slate-100">
+            <span className="text-[10px] font-black text-[#737785] uppercase tracking-wider px-2 block mb-1">
+              CAMBIAR DE MODO
+            </span>
+            <Link
+              href="/customer/home"
+              onClick={() => {
+                setIsOpen(false)
+                try { localStorage.setItem('vamo_active_role', 'customer') } catch {}
+              }}
+              className="flex items-center gap-2.5 p-2.5 rounded-xl font-bold text-xs bg-blue-50 text-[#0056d2] hover:bg-blue-100 transition-all cursor-pointer"
+            >
+              <span>👤</span>
+              <span className="font-extrabold">Modo Cliente (Comprar)</span>
+            </Link>
+          </div>
+
         </div>
 
         {/* PARTE INFERIOR FIJA: BOTÓN CERRAR SESIÓN SIEMPRE VISIBLE */}
         <div className="pt-3 border-t border-[#e5e2e1] shrink-0 bg-white">
-          <Link
-            href="/"
-            onClick={() => setIsOpen(false)}
+          <button
+            type="button"
+            onClick={() => {
+              setIsOpen(false)
+              try {
+                localStorage.removeItem('vamo_active_role')
+                localStorage.removeItem('vamo_user_session')
+              } catch {}
+              window.location.href = '/customer/home'
+            }}
             className="flex items-center justify-center gap-2.5 p-3 rounded-2xl font-black text-xs sm:text-sm text-white bg-[#ba1a1a] hover:bg-[#93000a] shadow-sm active:scale-95 transition-all w-full cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
             <span>Cerrar Sesión</span>
-          </Link>
+          </button>
         </div>
+
       </aside>
 
       {/* Modal POS Venta Manual */}

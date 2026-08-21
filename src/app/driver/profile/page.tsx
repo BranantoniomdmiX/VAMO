@@ -204,14 +204,62 @@ export default function DriverProfilePage() {
           </div>
         </div>
 
+        {/* SECCIÓN CAMBIAR DE ROL / HERRAMIENTAS (MODO CLIENTE & DUEÑO DE FLOTA) */}
+        <div className="space-y-2">
+          <span className="text-[10px] font-black text-[#737785] uppercase tracking-wider px-2 block">
+            CAMBIAR DE ROL OPERATIVO
+          </span>
+          <div className="grid grid-cols-2 gap-2.5">
+            <Link
+              href="/customer/home"
+              onClick={() => {
+                try { localStorage.setItem('vamo_active_role', 'customer') } catch {}
+              }}
+              className="bg-white p-3.5 rounded-2xl border border-blue-200 hover:border-[#0056d2] shadow-xs flex flex-col items-center text-center gap-1.5 group active:scale-95 transition-all"
+            >
+              <div className="w-9 h-9 rounded-xl bg-[#0056d2] text-white flex items-center justify-center font-black group-hover:scale-110 transition-transform">
+                👤
+              </div>
+              <div>
+                <strong className="text-xs font-black text-[#1c1b1b] block">Modo Cliente</strong>
+                <span className="text-[9px] text-[#737785] font-semibold">Pedir y Comprar</span>
+              </div>
+            </Link>
+
+            <Link
+              href="/owner/dashboard"
+              onClick={() => {
+                try { localStorage.setItem('vamo_active_role', 'fleet_owner') } catch {}
+              }}
+              className="bg-white p-3.5 rounded-2xl border border-amber-200 hover:border-amber-500 shadow-xs flex flex-col items-center text-center gap-1.5 group active:scale-95 transition-all"
+            >
+              <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black group-hover:scale-110 transition-transform">
+                👑
+              </div>
+              <div>
+                <strong className="text-xs font-black text-[#1c1b1b] block">Dueño de Flota</strong>
+                <span className="text-[9px] text-[#737785] font-semibold">Mis Motos & Finanzas</span>
+              </div>
+            </Link>
+          </div>
+        </div>
+
         {/* Botón Cerrar Sesión */}
-        <Link
-          href="/"
-          className="w-full bg-[#ba1a1a] hover:bg-[#93000a] text-white py-3.5 rounded-2xl font-black text-xs sm:text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2"
+        <button
+          type="button"
+          onClick={() => {
+            try {
+              localStorage.removeItem('vamo_active_role')
+              localStorage.removeItem('vamo_user_session')
+            } catch {}
+            window.location.href = '/customer/home'
+          }}
+          className="w-full bg-[#ba1a1a] hover:bg-[#93000a] text-white py-3.5 rounded-2xl font-black text-xs sm:text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
         >
           <LogOut className="w-4 h-4" />
-          <span>Cerrar Sesión del Conductor</span>
-        </Link>
+          <span>Cerrar Sesión</span>
+        </button>
+
 
       </div>
     </MobileDriverLayout>
