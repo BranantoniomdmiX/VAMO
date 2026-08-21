@@ -135,8 +135,22 @@ export default function VamoMapLibre({
       map.resize()
       setTimeout(() => {
         try { map.resize() } catch (e) {}
-      }, 250)
+      }, 100)
+      setTimeout(() => {
+        try { map.resize() } catch (e) {}
+      }, 500)
+    })
 
+    // ResizeObserver para asegurar que cuando el layout móvil termine de calcular dimensiones el mapa se pinte
+    let resizeObserver: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined' && mapContainer.current) {
+      resizeObserver = new ResizeObserver(() => {
+        try { map.resize() } catch (e) {}
+      })
+      resizeObserver.observe(mapContainer.current)
+    }
+
+    map.on('load', () => {
       // Capa de Edificios 3D (fill-extrusion)
       try {
         if (map.getSource('openmaptiles') && !map.getLayer('3d-buildings')) {

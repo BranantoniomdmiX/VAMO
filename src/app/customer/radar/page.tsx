@@ -324,7 +324,7 @@ export default function CustomerRadarPage() {
           </div>
 
           {/* Mapa Vectorial VamoMapLibre con Marcadores Filtrados Dinámicamente y GPS Automático */}
-          <div className="w-full h-full min-h-[480px] relative">
+          <div className="w-full h-full min-h-[500px] relative flex-1">
             <VamoMapLibre
               center={userLocation}
               zoom={14.5}
@@ -342,9 +342,10 @@ export default function CustomerRadarPage() {
               ]}
               enableGeolocate={true}
               onMapClick={handleMapClick}
-              className="w-full h-full min-h-[480px]"
+              className="w-full h-full min-h-[500px]"
             />
           </div>
+
 
           {/* Banner Flotante si se selecciona un punto en PC / Celular */}
           {selectedPinAddress && (
