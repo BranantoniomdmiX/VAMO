@@ -80,6 +80,49 @@ class AudioNotificationService {
   }
 
   /**
+   * Tono de Alerta de Llegada a 50 metros (Timbre Ding-Dong de alta audibilidad + Voz)
+   */
+  playArrivalProximityAlert() {
+    const ctx = this.getContext()
+    if (ctx) {
+      const now = ctx.currentTime
+      // Ding (Sol5 - 783.99 Hz) -> Dong (Mi5 - 659.25 Hz)
+      const chimes = [
+        { freq: 783.99, start: 0, dur: 0.6 },
+        { freq: 659.25, start: 0.4, dur: 0.8 }
+      ]
+
+      chimes.forEach(({ freq, start, dur }) => {
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+
+        osc.type = 'sine'
+        osc.frequency.setValueAtTime(freq, now + start)
+
+        gain.gain.setValueAtTime(0.01, now + start)
+        gain.gain.exponentialRampToValueAtTime(0.4, now + start + 0.03)
+        gain.gain.exponentialRampToValueAtTime(0.001, now + start + dur)
+
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+
+        osc.start(now + start)
+        osc.stop(now + start + dur + 0.05)
+      })
+    }
+
+    // Alerta de voz por SpeechSynthesis si el navegador lo soporta
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        const utterance = new SpeechSynthesisUtterance('¡Tu repartidor VAMO está llegando a tu domicilio!')
+        utterance.lang = 'es-MX'
+        utterance.rate = 1.05
+        window.speechSynthesis.speak(utterance)
+      } catch (e) {}
+    }
+  }
+
+  /**
    * Tono de Entrega Exitosa (Fanfarria corta)
    */
   playDeliveredFanfare() {
@@ -113,3 +156,4 @@ class AudioNotificationService {
 }
 
 export const audioService = new AudioNotificationService()
+

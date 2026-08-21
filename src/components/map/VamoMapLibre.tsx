@@ -493,16 +493,17 @@ export default function VamoMapLibre({
     >
       <div ref={mapContainer} className="w-full h-full" style={{ minHeight: '100%', height: '100%', width: '100%' }} />
 
-      {/* Botón Flotante Conmutador 2D / 3D con Máximo Contraste VAMO */}
+      {/* Botón Flotante Conmutador 2D / 3D en la Parte Superior Izquierda (Sin encimarse con Zoom/Brújula) */}
       <button
         onClick={toggle3DMode}
-        className={`absolute top-24 right-2.5 z-20 px-3.5 py-2 rounded-xl font-black text-[11px] shadow-2xl flex items-center gap-2 border-2 active:scale-95 transition-all cursor-pointer pointer-events-auto ${
+        className={`absolute top-3 left-3 z-20 px-3.5 py-2 rounded-xl font-black text-[11px] shadow-2xl flex items-center gap-2 border-2 active:scale-95 transition-all cursor-pointer pointer-events-auto ${
           is3D
             ? 'bg-[#0056D2] text-white border-white shadow-blue-500/30'
             : 'bg-white text-[#0056D2] border-[#0056D2] shadow-slate-400/30 dark:bg-slate-900 dark:text-[#c3f400] dark:border-[#c3f400]'
         }`}
         title="Alternar vista entre plano 2D y perspectiva 3D"
       >
+
         {is3D ? (
           <>
             <Box className="w-4 h-4 text-[#c3f400] animate-pulse shrink-0" />

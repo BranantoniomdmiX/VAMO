@@ -10,21 +10,58 @@ import { orderRealtimeService, ServiceOrderPayload } from '@/lib/services/orderR
 import { audioService } from '@/lib/services/audioService'
 import { AntiFraudService } from '@/lib/services/antiFraudService'
 
+// Función matemática Haversine para calcular distancia en metros entre dos coordenadas GPS
+function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3 // Radio de la Tierra en metros
+  const φ1 = (lat1 * Math.PI) / 180
+  const φ2 = (lat2 * Math.PI) / 180
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return Math.round(R * c)
+}
+
 export default function CustomerTrackingPage() {
   const [driverPos, setDriverPos] = useState<{ lat: number; lng: number; heading: number }>({
     lat: 20.5218,
     lng: -100.8142,
     heading: 45
   })
+  const [customerLocation, setCustomerLocation] = useState<{ lat: number; lng: number }>({
+    lat: 20.5225,
+    lng: -100.8138
+  })
+  const [distanceMeters, setDistanceMeters] = useState<number | null>(null)
+  const [hasAlerted50m, setHasAlerted50m] = useState<boolean>(false)
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const [orderStatus, setOrderStatus] = useState<string>('EN CAMINO')
   const [pinCode, setPinCode] = useState<string>('8492')
 
+  // 1. Obtener GPS Real del Cliente en Celular
   useEffect(() => {
     setPinCode(AntiFraudService.getOrderPin('V-9042'))
+
+    if (typeof window !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setCustomerLocation({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude
+          })
+        },
+        (err) => {
+          console.log('GPS del cliente usando ubicación de entrega registrada:', err)
+        },
+        { enableHighAccuracy: true, timeout: 6000 }
+      )
+    }
   }, [])
 
-  // Suscribirse a la posición en vivo del repartidor y a cambios de la orden por Realtime
+  // 2. Suscribirse a la posición en vivo del repartidor y calcular distancia a 50m
   useEffect(() => {
     const unsubscribeGps = gpsSocketService.subscribeLivePositions((payload) => {
       setDriverPos({
@@ -32,6 +69,21 @@ export default function CustomerTrackingPage() {
         lng: payload.lng,
         heading: payload.heading
       })
+
+      // Calcular distancia en tiempo real entre el repartidor y el cliente
+      const dist = calculateDistanceMeters(
+        payload.lat,
+        payload.lng,
+        customerLocation.lat,
+        customerLocation.lng
+      )
+      setDistanceMeters(dist)
+
+      // Si está a 50 metros o menos y no ha sonado, sonar timbre Ding-Dong + Voz
+      if (dist <= 50 && !hasAlerted50m) {
+        audioService.playArrivalProximityAlert()
+        setHasAlerted50m(true)
+      }
     })
 
     const unsubscribeRealtime = orderRealtimeService.subscribeToOrders(
@@ -51,7 +103,7 @@ export default function CustomerTrackingPage() {
       unsubscribeGps()
       unsubscribeRealtime()
     }
-  }, [])
+  }, [customerLocation, hasAlerted50m])
 
   const drivers: DriverMarkerData[] = [
     {
@@ -64,8 +116,20 @@ export default function CustomerTrackingPage() {
     }
   ]
 
+  // Waypoints para que se vea también el pin de la casa del cliente en el mapa
+  const customerWaypoints = [
+    {
+      id: 'CUSTOMER-HOUSE',
+      title: '📍 Mi Domicilio (Punto de Entrega)',
+      lat: customerLocation.lat,
+      lng: customerLocation.lng,
+      type: 'DESTINATION' as const
+    }
+  ]
+
   // Solo mostramos la posición de la moto en el mapa cuando el pedido YA fue recogido en el local y está en camino
   const isOrderPickedUp = orderStatus === 'EN CAMINO' || orderStatus === 'EN_REPARTO' || orderStatus === 'EN_CAMINO_CLIENTE'
+
 
   return (
     <CustomerLayout>
@@ -109,15 +173,30 @@ export default function CustomerTrackingPage() {
           <div className="space-y-0.5">
             <span className="text-[10px] font-black uppercase tracking-wider text-blue-200 block">GARANTÍA DE TIEMPO LÍMITE VAMO</span>
             <p className="text-xs font-bold text-white">
-              {isOrderPickedUp ? 'Repartidor en camino hacia tu domicilio' : 'El local está preparando tu pedido'}
+              {isOrderPickedUp 
+                ? (distanceMeters !== null ? `Repartidor a ${distanceMeters}m de tu puerta` : 'Repartidor en camino hacia tu domicilio')
+                : 'El local está preparando tu pedido'}
             </p>
           </div>
           <div className="bg-[#c3f400] text-[#161e00] px-3.5 py-1.5 rounded-full font-black text-xs font-mono shadow-xs">
-            ⏱️ 13:45 min
+            {distanceMeters !== null && distanceMeters <= 50 ? '🔔 ¡EN TU PUERTA!' : '⏱️ 13:45 min'}
           </div>
         </div>
 
-        {/* Mapa Vectorial MapLibre GL JS Limpio (Sin líneas estorbosas) */}
+        {/* ALERTA DE PROXIMIDAD A 50 METROS (Visual + Animación de Salida) */}
+        {distanceMeters !== null && distanceMeters <= 50 && (
+          <div className="bg-[#c3f400] text-[#161e00] p-4 rounded-[24px] border-2 border-[#161e00] shadow-xl flex items-center gap-3 animate-bounce">
+            <div className="w-10 h-10 rounded-full bg-[#161e00] text-[#c3f400] flex items-center justify-center font-black text-lg shrink-0">
+              🔔
+            </div>
+            <div>
+              <strong className="text-xs sm:text-sm font-black block">¡EL REPARTIDOR ESTÁ A MENOS DE 50 METROS!</strong>
+              <p className="text-[11px] font-bold opacity-90">Ten listo tu PIN ({pinCode}) y sal a recibir tu paquete.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Mapa Vectorial MapLibre GL JS Limpio (Sin líneas estorbosas + Ubicación de la Casa y la Moto) */}
         {isOrderPickedUp ? (
           <div className="h-72 rounded-[32px] overflow-hidden relative shadow-md">
             <VamoMapLibre
@@ -126,6 +205,8 @@ export default function CustomerTrackingPage() {
               theme={theme}
               mode3D={false}
               drivers={drivers}
+              waypoints={customerWaypoints}
+              enableGeolocate={true}
               className="w-full h-full"
             />
           </div>
@@ -140,6 +221,7 @@ export default function CustomerTrackingPage() {
             </p>
           </div>
         )}
+
 
 
         {/* Detalles del Conductor y Estado */}
