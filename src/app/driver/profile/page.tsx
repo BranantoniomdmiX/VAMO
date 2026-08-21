@@ -58,28 +58,66 @@ export default function DriverProfilePage() {
               alt="Foto Conductor" 
               className="w-full h-full rounded-full object-cover border-4 border-[#0056d2] shadow-md"
             />
-            <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[#c3f400] text-[#161e00] flex items-center justify-center font-black text-xs shadow-xs border-2 border-white">
-              ★
-            </div>
+            <span className="absolute bottom-0 right-0 bg-[#c3f400] text-[#161e00] text-[10px] font-black px-2 py-0.5 rounded-full border border-[#161e00] shadow-xs">
+              4.9 ★
+            </span>
           </div>
 
           <div>
             <h2 className="text-lg font-black text-slate-900">{driverData.name}</h2>
-            <p className="text-xs font-bold text-slate-500">{driverData.baseFleet}</p>
+            <p className="text-xs font-bold text-slate-500">{driverData.phone} &bull; {driverData.baseFleet}</p>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-center">
-            <div className="bg-[#f0f4ff] p-2.5 rounded-2xl">
-              <span className="text-[10px] font-bold text-slate-500 block uppercase">Nivel</span>
-              <strong className="text-xs font-black text-[#0056d2]">ORO 🏆</strong>
+          <div className="flex justify-center gap-2">
+            <span className="bg-[#0040a1] text-white text-xs font-black px-3 py-1 rounded-full uppercase">
+              {driverData.level}
+            </span>
+            <span className="bg-emerald-50 text-emerald-700 text-xs font-black px-3 py-1 rounded-full border border-emerald-200">
+              {driverData.status}
+            </span>
+          </div>
+        </div>
+
+        {/* MÓDULO LLAVE DE RECOMENDACIÓN & BONOS POR LOCALES AFILIADOS */}
+        <div className="bg-[#161e00] text-white p-5 rounded-[28px] border border-[#c3f400]/40 shadow-md space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-black bg-[#c3f400] text-[#161e00] px-2.5 py-0.5 rounded-full uppercase">
+              PROGRAMA DE RECOMENDACIÓN
+            </span>
+            <span className="text-xs font-black text-[#c3f400]">+$150 MXN / LOCAL</span>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-black text-white">Tu Llave de Recomendación de Locales</h3>
+            <p className="text-[11px] text-slate-300 font-semibold mt-0.5">
+              Recomienda taquerías, farmacias o comercios. Cuando se afilien con tu código, ganas <strong className="text-[#c3f400]">$150 MXN en efectivo + 50 Puntos VAMO</strong>.
+            </p>
+          </div>
+
+          <div className="bg-white/10 p-3 rounded-2xl border border-white/20 flex items-center justify-between">
+            <div>
+              <span className="text-[9px] font-bold text-slate-300 block uppercase">CÓDIGO EXCLUSIVO:</span>
+              <strong className="font-mono text-base font-black text-[#c3f400]">MOTO-CARLOS-77</strong>
             </div>
-            <div className="bg-[#f0f4ff] p-2.5 rounded-2xl">
-              <span className="text-[10px] font-bold text-slate-500 block uppercase">Rating</span>
-              <strong className="text-xs font-black text-amber-600">{driverData.rating}</strong>
+            <button
+              onClick={() => {
+                navigator.clipboard?.writeText('MOTO-CARLOS-77')
+                alert('¡Código MOTO-CARLOS-77 copiado! Compártelo con el dueño del negocio.')
+              }}
+              className="bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] text-xs font-black px-3.5 py-2 rounded-full active:scale-95 transition-transform"
+            >
+              Copiar Código 📋
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-center text-xs font-bold pt-1">
+            <div className="bg-white/5 p-2 rounded-xl border border-white/10">
+              <span className="text-[#c3f400] text-base font-black block">2 Locales</span>
+              <span className="text-[10px] text-slate-300">Afiliados por ti</span>
             </div>
-            <div className="bg-[#f0f4ff] p-2.5 rounded-2xl">
-              <span className="text-[10px] font-bold text-slate-500 block uppercase">Viajes</span>
-              <strong className="text-xs font-black text-slate-900">{driverData.totalTrips}</strong>
+            <div className="bg-white/5 p-2 rounded-xl border border-white/10">
+              <span className="text-[#c3f400] text-base font-black block">$300.00 MXN</span>
+              <span className="text-[10px] text-slate-300">Ganados en Bonos</span>
             </div>
           </div>
         </div>
