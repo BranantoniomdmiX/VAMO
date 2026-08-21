@@ -64,15 +64,17 @@ export default function CustomerTrackingPage() {
     }
   ]
 
+  // GeoJSON LineString en MapLibre requiere [longitud, latitud]
   const route: [number, number][] = [
-    [20.5218, -100.8142],
-    [20.5235, -100.8120],
-    [20.5260, -100.8090]
+    [-100.8142, 20.5218],
+    [-100.8120, 20.5235],
+    [-100.8090, 20.5260]
   ]
 
   return (
     <CustomerLayout>
       <div className="max-w-2xl mx-auto space-y-6">
+
         
         {/* Header Tracking */}
         <header className="flex justify-between items-center">
