@@ -154,6 +154,39 @@ class GpsSocketService {
     }
   }
 
+  /**
+   * Desconectar repartidor por completo:
+   * 1. Apaga el GPS y los intervalos de transmisión.
+   * 2. Emite el evento OFFLINE al VPS y actualiza la base de datos para que la Base Operativa lo retire del radar.
+   */
+  public setDriverOffline(driverId: string = 'MOTO-01') {
+    this.stopGpsTransmitter()
+
+    const offlinePayload = {
+      driverId,
+      id_moto: driverId,
+      status: 'OFFLINE',
+      timestamp: new Date().toISOString()
+    }
+
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('repartidor:estado', offlinePayload)
+      this.socket.emit('repartidor:desconectar', offlinePayload)
+    }
+
+    try {
+      this.supabase
+        .from('drivers')
+        .update({ status: 'OFFLINE', is_available: false, updated_at: new Date().toISOString() })
+        .eq('id', driverId)
+        .then(() => {})
+        .catch(() => {})
+    } catch (e) {}
+
+    console.log(`📴 [GPS Socket] Repartidor ${driverId} puesto en OFFLINE y desconectado de la Base Operativa.`)
+  }
+
+
   // 2. Suscribirse a ubicación en tiempo real
   public subscribeLivePositions(callback: (payload: GpsLocationPayload) => void) {
     return this.subscribeToDriverPosition('MOTO-01', callback)

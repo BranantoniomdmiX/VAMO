@@ -1,18 +1,39 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { MobileDriverLayout } from '@/components/layout/MobileDriverLayout'
 import { Bike, Power, Wallet, Trophy, ArrowRight, ShieldCheck, MapPin, Flame, Award, Layers } from 'lucide-react'
 import Link from 'next/link'
 import VamoMapLibre from '@/components/map/VamoMapLibre'
+import { gpsSocketService } from '@/lib/services/gpsSocketService'
 
 export default function DriverHomePage() {
+
   const [isAvailable, setIsAvailable] = useState(true)
   const [viewMode, setViewMode] = useState<'dashboard' | 'heatmap'>('dashboard')
   const [selectedZoneId, setSelectedZoneId] = useState<string>('HOT-01')
   const [isNavigatingToZone, setIsNavigatingToZone] = useState<boolean>(false)
   const [mapCenter, setMapCenter] = useState<[number, number]>([20.5260, -100.8090])
   const [mapTheme, setMapTheme] = useState<'light' | 'dark'>('light') // 'light' por defecto para alta visibilidad bajo el sol
+
+  // Desconexión inteligente de GPS y Estado en la Base Operativa
+  useEffect(() => {
+    if (isAvailable) {
+      // Iniciar transmisión de GPS en vivo a la Base Operativa y VPS
+      gpsSocketService.startGpsTransmitter('MOTO-01', (pos) => {
+        setMapCenter([pos.lat, pos.lng])
+      })
+    } else {
+      // Apagar GPS de inmediato para que la Base Operativa no lo vea en ruta
+      gpsSocketService.setDriverOffline('MOTO-01')
+    }
+
+    // Al cerrar la pestaña, cambiar de rol o salir de la app, desconectar automáticamente
+    return () => {
+      gpsSocketService.setDriverOffline('MOTO-01')
+    }
+  }, [isAvailable])
+
 
   const hotZones = [
     {
