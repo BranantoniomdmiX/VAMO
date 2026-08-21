@@ -157,6 +157,46 @@ export default function CustomerProfilePage() {
 
         </div>
 
+        {/* SECCIÓN CAMBIAR DE MODO OPERATIVO (ESTILO UBER / RAPPI) */}
+        <div className="space-y-2">
+          <span className="text-[10px] font-black text-[#737785] uppercase tracking-wider px-2 block">
+            HERRAMIENTAS DE TRABAJO VAMO
+          </span>
+          <div className="grid grid-cols-2 gap-3">
+            <Link
+              href="/driver/home"
+              onClick={() => {
+                try { localStorage.setItem('vamo_active_role', 'driver') } catch {}
+              }}
+              className="bg-white p-4 rounded-2xl border border-[#c3f400]/50 hover:border-[#c3f400] shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-2 group"
+            >
+              <div className="w-10 h-10 rounded-xl bg-[#c3f400] text-[#161e00] flex items-center justify-center font-black group-hover:scale-110 transition-transform">
+                🛵
+              </div>
+              <div>
+                <strong className="text-xs font-black text-[#1c1b1b] block">Modo Conductor</strong>
+                <span className="text-[10px] text-[#737785] font-semibold">Entrar a Repartir</span>
+              </div>
+            </Link>
+
+            <Link
+              href="/biz"
+              onClick={() => {
+                try { localStorage.setItem('vamo_active_role', 'merchant') } catch {}
+              }}
+              className="bg-white p-4 rounded-2xl border border-[#fddf33]/50 hover:border-[#fddf33] shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-2 group"
+            >
+              <div className="w-10 h-10 rounded-xl bg-[#fddf33] text-[#726200] flex items-center justify-center font-black group-hover:scale-110 transition-transform">
+                🏪
+              </div>
+              <div>
+                <strong className="text-xs font-black text-[#1c1b1b] block">Modo Comercio</strong>
+                <span className="text-[10px] text-[#737785] font-semibold">Gestionar Local</span>
+              </div>
+            </Link>
+          </div>
+        </div>
+
         {/* Botón Cerrar Sesión */}
         <Link
           href="/auth/login"
