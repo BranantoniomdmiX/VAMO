@@ -1,0 +1,23 @@
+{
+  "name": "VAMO Comercios — Menú & KDS",
+  "short_name": "VAMO Comercios",
+  "description": "Panel de gestión de pedidos, catálogo y pantalla de cocina para negocios VAMO.",
+  "start_url": "/biz",
+  "display": "standalone",
+  "background_color": "#FCF9F8",
+  "theme_color": "#FDDF33",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/logos/logo-merchant.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-merchant-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
