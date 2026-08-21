@@ -13,9 +13,9 @@ export const metadata: Metadata = {
   description: "Sistema Operativo SaaS para Flotas de Motomandados y Logística Urbana.",
   manifest: "/manifest.json",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
-    apple: "/logos/logo-customer.png",
+    icon: "/logo-vamo.svg",
+    shortcut: "/logo-vamo.svg",
+    apple: "/logo-vamo.svg",
   },
   appleWebApp: {
     capable: true,
@@ -23,6 +23,7 @@ export const metadata: Metadata = {
     title: "VAMO",
   },
 };
+
 
 export const viewport: Viewport = {
   themeColor: "#fcf9f8",
