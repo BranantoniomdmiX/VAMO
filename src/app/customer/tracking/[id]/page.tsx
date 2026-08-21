@@ -196,9 +196,9 @@ export default function CustomerTrackingPage() {
           </div>
         )}
 
-        {/* Mapa Vectorial MapLibre GL JS Limpio (Sin líneas estorbosas + Ubicación de la Casa y la Moto) */}
+        {/* Mapa Vectorial MapLibre GL JS Limpio y Panorámico (Sin líneas estorbosas + Ubicación de la Casa y la Moto) */}
         {isOrderPickedUp ? (
-          <div className="h-72 rounded-[32px] overflow-hidden relative shadow-md">
+          <div className="h-96 sm:h-[420px] rounded-[32px] overflow-hidden relative shadow-md">
             <VamoMapLibre
               center={[driverPos.lat, driverPos.lng]}
               zoom={15.5}
@@ -207,10 +207,11 @@ export default function CustomerTrackingPage() {
               drivers={drivers}
               waypoints={customerWaypoints}
               enableGeolocate={true}
-              className="w-full h-full"
+              className="w-full h-full min-h-[380px]"
             />
           </div>
         ) : (
+
           <div className="bg-slate-50 dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-800 p-8 rounded-[32px] text-center space-y-2">
             <div className="w-12 h-12 rounded-2xl bg-[#0056d2]/10 text-[#0056d2] flex items-center justify-center font-black mx-auto text-xl">
               🍳

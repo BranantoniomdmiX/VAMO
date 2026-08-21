@@ -498,16 +498,17 @@ export default function VamoMapLibre({
       />
 
 
-      {/* Botón Flotante Conmutador 2D / 3D en la Parte Superior Izquierda (Sin encimarse con Zoom/Brújula) */}
+      {/* Botón Flotante Conmutador 2D / 3D en la Parte Inferior Izquierda (100% libre de colisiones con herramientas superiores) */}
       <button
         onClick={toggle3DMode}
-        className={`absolute top-3 left-3 z-20 px-3.5 py-2 rounded-xl font-black text-[11px] shadow-2xl flex items-center gap-2 border-2 active:scale-95 transition-all cursor-pointer pointer-events-auto ${
+        className={`absolute bottom-4 left-3 z-20 px-3.5 py-2 rounded-xl font-black text-[11px] shadow-2xl flex items-center gap-2 border-2 active:scale-95 transition-all cursor-pointer pointer-events-auto ${
           is3D
             ? 'bg-[#0056D2] text-white border-white shadow-blue-500/30'
             : 'bg-white text-[#0056D2] border-[#0056D2] shadow-slate-400/30 dark:bg-slate-900 dark:text-[#c3f400] dark:border-[#c3f400]'
         }`}
         title="Alternar vista entre plano 2D y perspectiva 3D"
       >
+
 
         {is3D ? (
           <>

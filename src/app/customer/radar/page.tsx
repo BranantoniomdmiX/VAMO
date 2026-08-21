@@ -299,8 +299,8 @@ export default function CustomerRadarPage() {
 
         </aside>
 
-        {/* COLUMNA DERECHA EN PC / CENTRAL: MAPA VECTORIAL PANORÁMICO */}
-        <div className="relative flex-1 min-h-[480px] h-[520px] lg:h-[680px] w-full rounded-[32px] overflow-hidden border border-[#e5e2e1] shadow-xl bg-slate-100">
+        {/* COLUMNA DERECHA EN PC / CENTRAL: MAPA VECTORIAL PANORÁMICO DE GRAN TAMAÑO */}
+        <div className="relative flex-1 min-h-[580px] h-[calc(100vh-210px)] min-h-[580px] lg:h-[700px] w-full rounded-[32px] overflow-hidden border border-[#e5e2e1] shadow-xl bg-slate-100">
           
           {/* BARRA SUPERIOR MÓVIL EXCLUSIVA (Solo Celular) */}
           <div className="lg:hidden absolute top-3 inset-x-3 z-30 flex gap-2 justify-center pointer-events-auto">
@@ -324,7 +324,7 @@ export default function CustomerRadarPage() {
           </div>
 
           {/* Mapa Vectorial VamoMapLibre con Marcadores Filtrados Dinámicamente y GPS Automático */}
-          <div className="w-full h-full min-h-[500px] relative flex-1">
+          <div className="w-full h-full min-h-[580px] relative flex-1">
             <VamoMapLibre
               center={userLocation}
               zoom={14.5}
@@ -342,9 +342,10 @@ export default function CustomerRadarPage() {
               ]}
               enableGeolocate={true}
               onMapClick={handleMapClick}
-              className="w-full h-full min-h-[500px]"
+              className="w-full h-full min-h-[580px]"
             />
           </div>
+
 
 
           {/* Banner Flotante si se selecciona un punto en PC / Celular */}
