@@ -652,7 +652,10 @@ export default function BizCatalogPage() {
               ))}
 
             {/* Tarjeta de Acción Rápida */}
-            <div className="bg-[#f0eded] rounded-[32px] p-6 shadow-sm flex flex-col items-center justify-center text-center hover:bg-[#e5e2e1] cursor-pointer transition-all duration-300 border-2 border-dashed border-[#0056d2]/30 min-h-[280px]">
+            <div 
+              onClick={() => setShowAddQuickModal(true)}
+              className="bg-[#f0eded] rounded-[32px] p-6 shadow-sm flex flex-col items-center justify-center text-center hover:bg-[#e5e2e1] active:scale-95 cursor-pointer transition-all duration-300 border-2 border-dashed border-[#0056d2]/30 min-h-[280px]"
+            >
               <div className="w-14 h-14 rounded-full bg-[#0056d2] text-white flex items-center justify-center mb-3 shadow-md">
                 <Plus className="w-7 h-7" />
               </div>
