@@ -489,9 +489,14 @@ export default function VamoMapLibre({
   return (
     <div
       className={`rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-inner relative z-0 ${className}`}
-      style={{ minHeight: '100%', height: '100%', width: '100%' }}
+      style={{ minHeight: '480px', height: '100%', width: '100%', position: 'relative' }}
     >
-      <div ref={mapContainer} className="w-full h-full" style={{ minHeight: '100%', height: '100%', width: '100%' }} />
+      <div 
+        ref={mapContainer} 
+        className="w-full h-full" 
+        style={{ minHeight: '480px', height: '100%', width: '100%', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} 
+      />
+
 
       {/* Botón Flotante Conmutador 2D / 3D en la Parte Superior Izquierda (Sin encimarse con Zoom/Brújula) */}
       <button
