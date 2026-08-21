@@ -115,10 +115,21 @@
 .stitch-card { border-radius: 2rem !important; }
 .stitch-pill { border-radius: 9999px !important; }
 
+/* iOS Safe Area Insets (Notch & Dynamic Island Support) */
+.ios-safe-bottom {
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+.ios-safe-top {
+  padding-top: calc(0.5rem + env(safe-area-inset-top, 0px)) !important;
+}
+
 /* Uniform VAMO Brand Background Standard con Soporte Dual Claro / Oscuro */
 body {
   background-color: var(--background) !important;
   color: var(--on-background);
   font-family: var(--font-quicksand), sans-serif;
+  padding-top: env(safe-area-inset-top, 0px);
 }
+
 

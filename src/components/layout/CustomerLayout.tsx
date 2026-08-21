@@ -57,8 +57,8 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {/* Navigation Bar Inferior Móvil / Tablet Sticky */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-[#e5e2e1] px-4 py-2 flex justify-around items-center z-50 rounded-t-3xl shadow-[0_-4px_15px_rgba(0,0,0,0.05)]">
+      {/* Navigation Bar Inferior Móvil / Tablet Sticky con Safe Area para iOS */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-[#e5e2e1] px-4 py-2 ios-safe-bottom flex justify-around items-center z-50 rounded-t-3xl shadow-[0_-4px_15px_rgba(0,0,0,0.05)]">
         {navItems.map(item => {
           const Icon = item.icon
           const isActive = pathname === item.route || pathname.startsWith(item.route)

@@ -15,11 +15,11 @@ export const metadata: Metadata = {
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
-    apple: "/icono-vamo.svg",
+    apple: "/logos/logo-customer.png",
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "VAMO",
   },
 };
@@ -30,7 +30,9 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover",
 };
+
 
 export default function RootLayout({
   children,
