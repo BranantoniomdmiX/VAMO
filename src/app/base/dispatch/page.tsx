@@ -129,9 +129,16 @@ export default function BaseDispatchPage() {
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-white dark:bg-slate-900 border-b border-[#e5e2e1] dark:border-slate-800 px-4 md:px-8 py-4 flex justify-between items-center shadow-xs">
-          <div>
-            <h1 className="text-xl md:text-2xl font-extrabold text-[#0040a1]">Consola de Despacho & Desborde Inteligente</h1>
-            <p className="text-xs text-slate-500 font-semibold">Supervisión en vivo, auto-despacho y desborde entre flotas (3 min)</p>
+          <div className="flex items-center gap-3">
+            <img 
+              src="/logos/logo-base-corporate.png" 
+              alt="VAMO Base" 
+              className="w-10 h-10 rounded-xl object-contain shadow-xs bg-slate-900 p-1 shrink-0" 
+            />
+            <div>
+              <h1 className="text-xl md:text-2xl font-extrabold text-[#0040a1]">Consola de Despacho & Desborde Inteligente</h1>
+              <p className="text-xs text-slate-500 font-semibold">Supervisión en vivo, auto-despacho y desborde entre flotas (3 min)</p>
+            </div>
           </div>
 
           <button

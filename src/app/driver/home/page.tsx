@@ -93,15 +93,17 @@ export default function DriverHomePage() {
     <MobileDriverLayout>
       <div className="p-5 space-y-6">
         
-        {/* Header Rider */}
+        {/* Header Rider con Logo Oficial de la Moto */}
         <header className="flex justify-between items-center pt-2">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#c3f400] text-[#161e00] flex items-center justify-center font-black text-lg shadow-sm border border-[#a7d600]">
-              <Bike className="w-6 h-6" />
-            </div>
+            <img 
+              src="/logos/logo-driver.png" 
+              alt="VAMO Conductor" 
+              className="w-12 h-12 rounded-2xl object-cover shadow-sm border border-[#0056d2]/20" 
+            />
             <div>
-              <h1 className="text-lg font-extrabold text-slate-900 leading-tight">
-                ¡Hola, Carlos! 🏍️
+              <h1 className="text-lg font-extrabold text-slate-900 leading-tight flex items-center gap-1.5">
+                ¡Hola, Carlos! <span className="text-xs bg-[#c3f400] text-[#161e00] px-2 py-0.5 rounded-full font-black">MOTO</span>
               </h1>
               <p className="text-xs font-bold text-slate-500 flex items-center gap-1">
                 <MapPin className="w-3 h-3 text-[#0056d2]" /> Zona Centro &bull; Socio VAMO

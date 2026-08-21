@@ -44,12 +44,16 @@ export default function DriverLoginPage() {
     <div className="min-h-screen bg-[#fcf9f8] text-[#1c1b1b] p-4 flex items-center justify-center font-sans">
       <div className="bg-white max-w-md w-full p-6 sm:p-8 rounded-[32px] border border-[#e5e2e1] shadow-lg space-y-6">
         
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <div className="w-16 h-16 rounded-2xl bg-[#c3f400] text-[#161e00] flex items-center justify-center font-black mx-auto shadow-sm border border-[#a7d600]">
-            <Bike className="w-8 h-8" />
+        {/* Header con Logo Oficial Conductor */}
+        <div className="text-center space-y-3">
+          <div className="flex justify-center">
+            <img 
+              src="/logos/logo-driver.png" 
+              alt="VAMO Conductor" 
+              className="h-24 sm:h-28 w-auto object-contain rounded-2xl shadow-md border border-[#0056d2]/20" 
+            />
           </div>
-          <span className="bg-[#0040a1] text-white text-[10px] font-black px-3 py-1 rounded-full uppercase inline-block">
+          <span className="bg-[#0040a1] text-white text-[10px] font-black px-3.5 py-1 rounded-full uppercase inline-block shadow-sm">
             VAMO CONDUCTOR &bull; ACCESO EXCLUSIVO
           </span>
           <h1 className="text-2xl font-black text-slate-900">Iniciar Turno</h1>

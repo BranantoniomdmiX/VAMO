@@ -111,19 +111,26 @@ export default function BizMainHubPage() {
           
           {/* Header Superior con Switch de Estado y Nombre del Local */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 sm:p-8 rounded-[32px] border border-[#e5e2e1] shadow-xs">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="bg-[#0056d2] text-white text-[10px] font-black px-3 py-0.5 rounded-full uppercase tracking-wider">
-                  CENTRO DE COMERCIO VAMO
-                </span>
-                <span className="text-xs font-bold text-slate-500">• {category}</span>
+            <div className="flex items-center gap-4">
+              <img 
+                src="/logos/logo-merchant.png" 
+                alt="VAMO Comercio" 
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-contain shadow-xs border border-[#fddf33]/40 bg-[#fcf9f8] p-1 shrink-0" 
+              />
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="bg-[#0056d2] text-white text-[10px] font-black px-3 py-0.5 rounded-full uppercase tracking-wider">
+                    CENTRO DE COMERCIO VAMO
+                  </span>
+                  <span className="text-xs font-bold text-slate-500">• {category}</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                  {storeName}
+                </h1>
+                <p className="text-xs sm:text-sm font-semibold text-slate-500">
+                  Panel maestro de operaciones, comandas y despacho a motomandados
+                </p>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                {storeName}
-              </h1>
-              <p className="text-xs sm:text-sm font-semibold text-slate-500">
-                Panel maestro de operaciones, comandas y despacho a motomandados
-              </p>
             </div>
 
             {/* Switch Abierto / Cerrado */}
