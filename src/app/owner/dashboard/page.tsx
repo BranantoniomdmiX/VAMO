@@ -109,61 +109,66 @@ export default function OwnerDashboardPage() {
               </div>
             </div>
           </div>
-          {/* MÓDULO FRANQUICIATARIO: GENERADOR DE LLAVES DE ACTIVACIÓN PARA CHOFERES Y BASES */}
+          {/* MÓDULO SOCIO OPERADOR: GENERADOR DE LLAVES Y CÓDIGOS DE EQUIPO */}
           <div className="bg-[#0040a1] text-white p-6 sm:p-8 rounded-[32px] border border-blue-800 shadow-md space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-blue-700/60 pb-4">
               <div>
                 <span className="bg-[#c3f400] text-[#161e00] text-[10px] font-black px-3 py-0.5 rounded-full uppercase tracking-wider">
-                  CONTROL DE ACCESO EXCLUSIVO &bull; FRANQUICIA
+                  CONTROL SOCIO OPERADOR &bull; EQUIPO
                 </span>
-                <h3 className="text-xl font-black text-white mt-1">Llaves de Activación (Nuevos Choferes y Turnos)</h3>
+                <h3 className="text-xl font-black text-white mt-1">Generador de Códigos de Alta (Choferes & Bases)</h3>
                 <p className="text-xs text-blue-200 font-semibold">
-                  Genera códigos de 6 dígitos para que los choferes u operadores puedan entrar a su app vinculados a tu ciudad.
+                  Genera códigos alfanuméricos o enlaces directos para vincular a tus choferes de inmediato a tu flotilla.
                 </p>
               </div>
 
-              <button
-                onClick={() => {
-                  const randomDigits = Math.floor(1000 + Math.random() * 9000)
-                  const newKey = `CEL-${randomDigits}`
-                  navigator.clipboard?.writeText(newKey)
-                  alert(`🔑 ¡Llave generada con éxito: ${newKey}!\nCopiada al portapapeles. Compártela con el nuevo conductor.`)
-                }}
-                className="bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] px-5 py-3 rounded-full text-xs font-black shadow-md flex items-center gap-2 active:scale-95 transition-all cursor-pointer shrink-0"
-              >
-                <span>+ GENERAR LLAVE CHOFER 🔑</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const randomDigits = Math.floor(1000 + Math.random() * 9000)
+                    const newKey = `VAMO-FLT-${randomDigits}`
+                    navigator.clipboard?.writeText(newKey)
+                    alert(`🔑 ¡Código de Chofer generado: ${newKey}!\nCopiado al portapapeles. Compártelo con el nuevo conductor para que se dé de alta.`)
+                  }}
+                  className="bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] px-5 py-3 rounded-full text-xs font-black shadow-md flex items-center gap-2 active:scale-95 transition-all cursor-pointer shrink-0"
+                >
+                  <span>+ GENERAR CÓDIGO CHOFER 🔑</span>
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-              <div className="bg-white/10 p-3.5 rounded-2xl border border-white/20 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-bold text-blue-200 uppercase block">Llave Disponible:</span>
-                  <strong className="font-mono text-base font-black text-[#c3f400]">CEL-4982</strong>
+              <div className="bg-white/10 p-4 rounded-2xl border border-white/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-blue-200 uppercase">Código Disponible:</span>
+                  <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black px-2 py-0.5 rounded-full">
+                    LISTA PARA USAR
+                  </span>
                 </div>
-                <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black px-2 py-0.5 rounded-full">
-                  LISTA PARA USAR
-                </span>
+                <strong className="font-mono text-xl font-black text-[#c3f400] block">VAMO-CEL-4982</strong>
+                <p className="text-[11px] text-blue-200 font-semibold">Válido para 1 conductor nuevo</p>
               </div>
 
-              <div className="bg-white/10 p-3.5 rounded-2xl border border-white/20 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-bold text-blue-200 uppercase block">Llave Asignada:</span>
-                  <strong className="font-mono text-base font-black text-slate-300">CEL-7120</strong>
+              <div className="bg-white/10 p-4 rounded-2xl border border-white/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-blue-200 uppercase">Código Asignado:</span>
+                  <span className="bg-white/20 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
+                    ROBERTO M.
+                  </span>
                 </div>
-                <span className="bg-white/20 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
-                  ROBERTO M.
-                </span>
+                <strong className="font-mono text-xl font-black text-slate-300 block">VAMO-CEL-7120</strong>
+                <p className="text-[11px] text-blue-200 font-semibold">Moto #04 &bull; Activo hoy</p>
               </div>
 
-              <div className="bg-white/10 p-3.5 rounded-2xl border border-white/20 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-bold text-blue-200 uppercase block">Llave Asignada:</span>
-                  <strong className="font-mono text-base font-black text-slate-300">CEL-9041</strong>
+              <div className="bg-white/10 p-4 rounded-2xl border border-white/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-blue-200 uppercase">Código Asignado:</span>
+                  <span className="bg-white/20 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
+                    CARLOS M.
+                  </span>
                 </div>
-                <span className="bg-white/20 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
-                  CARLOS M.
-                </span>
+                <strong className="font-mono text-xl font-black text-slate-300 block">VAMO-CEL-9041</strong>
+                <p className="text-[11px] text-blue-200 font-semibold">Moto #09 &bull; Activo hoy</p>
               </div>
             </div>
           </div>

@@ -2,28 +2,69 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
-import { User, Lock, ArrowRight, ShieldCheck, ArrowLeft, Bike, Store, Building2, LayoutDashboard, Loader2 } from 'lucide-react'
-
+import { User, Lock, ArrowRight, ShieldCheck, ArrowLeft, Bike, Store, Building2, LayoutDashboard, Loader2, AlertCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 export default function AuthLoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [selectedRole, setSelectedRole] = useState<'customer' | 'biz' | 'driver' | 'base' | 'owner' | 'admin'>('customer')
   const [isLoading, setIsLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const router = useRouter()
+  const supabase = createClient()
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    setTimeout(() => {
-      if (selectedRole === 'customer') router.push('/customer/home')
-      else if (selectedRole === 'biz') router.push('/biz/kds')
-      else if (selectedRole === 'driver') router.push('/driver/home')
-      else if (selectedRole === 'base') router.push('/base/radar')
-      else if (selectedRole === 'owner') router.push('/owner/dashboard')
-      else if (selectedRole === 'admin') router.push('/admin/dashboard')
-    }, 600)
+    setErrorMessage(null)
+
+    try {
+      // 1. Intento de autenticación real con Supabase
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password,
+      })
+
+      if (error) {
+        // Si hay error en Supabase, verificamos si es credencial inválida
+        console.warn('⚠️ [Auth Login] Supabase response:', error.message)
+        setErrorMessage(error.message === 'Invalid login credentials' 
+          ? 'Correo o contraseña incorrectos. Verifica tus datos.' 
+          : `Error de inicio de sesión: ${error.message}`)
+        setIsLoading(false)
+        return
+      }
+
+      if (data?.user) {
+        // 2. Extraer rol desde app_metadata o user_metadata
+        const appMetadata = data.user.app_metadata || {}
+        const userRole = (appMetadata.user_role || data.user.user_metadata?.role || selectedRole) as string
+        const isMaster = appMetadata.is_master === true
+
+        // 3. Redirección automática según el rol verificado
+        if (userRole === 'superadmin' || userRole === 'master' || isMaster) {
+          router.push('/admin/dashboard')
+        } else if (userRole === 'fleet_owner') {
+          router.push('/owner/dashboard')
+        } else if (userRole === 'dispatcher' || userRole === 'base_ops') {
+          router.push('/base/radar')
+        } else if (userRole === 'merchant' || userRole === 'biz') {
+          router.push('/biz/kds')
+        } else if (userRole === 'driver') {
+          router.push('/driver/home')
+        } else {
+          router.push('/customer/home')
+        }
+        return
+      }
+    } catch (err: any) {
+      console.error('🚨 [Auth Login Error]:', err)
+      setErrorMessage('Ocurrió un error inesperado al conectar con el servidor.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -51,6 +92,13 @@ export default function AuthLoginPage() {
         {/* Formulario Login */}
         <form onSubmit={handleLogin} className="bg-white p-6 sm:p-8 rounded-[32px] border border-[#e5e2e1] shadow-sm space-y-5">
           
+          {errorMessage && (
+            <div className="bg-red-50 border border-red-200 text-red-700 p-3.5 rounded-2xl text-xs font-bold flex items-center gap-2.5 animate-shake">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
           {/* Selector de Rol */}
           <div className="space-y-1.5">
             <label className="text-xs font-extrabold text-[#1c1b1b] uppercase">Selecciona tu Rol de Acceso</label>

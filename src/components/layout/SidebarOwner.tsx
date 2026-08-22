@@ -41,7 +41,7 @@ export function SidebarOwner({ activeTab }: SidebarOwnerProps) {
           <div className="w-9 h-9 rounded-full bg-[#0056d2] text-white flex items-center justify-center font-bold">
             <Building2 className="w-5 h-5" />
           </div>
-          <span className="font-extrabold text-base text-[#0056d2]">VAMO Flotilla Owner</span>
+          <span className="font-extrabold text-base text-[#0056d2]">Socio Operador VAMO</span>
         </div>
         <button 
           onClick={() => setIsOpen(!isOpen)}
@@ -58,7 +58,7 @@ export function SidebarOwner({ activeTab }: SidebarOwnerProps) {
         />
       )}
 
-      {/* Sidebar Dueño de Flota */}
+      {/* Sidebar Socio Operador */}
       <aside className={`
         fixed md:sticky top-0 left-0 z-50 h-screen w-72 bg-white border-r border-[#e5e2e1] 
         p-6 flex flex-col justify-between shadow-sm transition-transform duration-300
@@ -71,9 +71,9 @@ export function SidebarOwner({ activeTab }: SidebarOwnerProps) {
             </div>
             <div>
               <h2 className="font-extrabold text-base text-[#0056d2] leading-tight">
-                Administración de Flotilla
+                Socio Operador
               </h2>
-              <p className="text-xs font-semibold text-[#737785]">Panel Corporativo VAMO</p>
+              <p className="text-xs font-semibold text-[#737785]">Panel de Flota & Negocio</p>
             </div>
           </div>
 

@@ -174,14 +174,14 @@ class GpsSocketService {
       this.socket.emit('repartidor:desconectar', offlinePayload)
     }
 
-    try {
-      this.supabase
-        .from('drivers')
-        .update({ status: 'OFFLINE', is_available: false, updated_at: new Date().toISOString() })
-        .eq('id', driverId)
-        .then(() => {})
-        .catch(() => {})
-    } catch (e) {}
+    void (async () => {
+      try {
+        await this.supabase
+          .from('drivers')
+          .update({ status: 'OFFLINE', is_available: false, updated_at: new Date().toISOString() })
+          .eq('id', driverId)
+      } catch (_) {}
+    })()
 
     console.log(`📴 [GPS Socket] Repartidor ${driverId} puesto en OFFLINE y desconectado de la Base Operativa.`)
   }

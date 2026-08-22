@@ -1,5 +1,11 @@
 import type { NextConfig } from "next";
 
+// =====================================================================
+// 🛡️ VAMO — Cabeceras HTTP de Seguridad (OWASP) en next.config.ts
+// Nota: Content-Security-Policy se aplica por-request en middleware.ts
+//       para poder ser más granular según la ruta.
+// =====================================================================
+
 const nextConfig: NextConfig = {
   async headers() {
     return [
@@ -16,15 +22,17 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Referrer-Policy',
-            value: 'origin-when-cross-origin',
+            value: 'strict-origin-when-cross-origin',
           },
           {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
-          },
-          {
+            // HSTS mejorado: 2 años + preload para registro en navegadores
             key: 'Strict-Transport-Security',
-            value: 'max-age=31536000; includeSubDomains',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
+          {
+            // Limita acceso a APIs del navegador
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=(self), payment=()',
           },
         ],
       },
@@ -33,3 +41,4 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+

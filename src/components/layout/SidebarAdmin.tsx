@@ -14,12 +14,13 @@ import {
   Menu, 
   X,
   Users,
-  Radio
+  Radio,
+  Inbox
 } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 
 interface SidebarAdminProps {
-  activeTab: 'dashboard' | 'fleets' | 'new-fleet' | 'plans' | 'infrastructure' | 'crm' | 'control-tower'
+  activeTab: 'dashboard' | 'requests' | 'fleets' | 'new-fleet' | 'plans' | 'infrastructure' | 'crm' | 'control-tower'
 }
 
 export function SidebarAdmin({ activeTab }: SidebarAdminProps) {
@@ -27,6 +28,7 @@ export function SidebarAdmin({ activeTab }: SidebarAdminProps) {
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard Maestro Global', route: '/admin/dashboard', icon: Globe },
+    { id: 'requests', label: 'Bandeja de Solicitudes & KYC', route: '/admin/requests', icon: Inbox },
     { id: 'control-tower', label: 'Torre de Control (Meituan Style)', route: '/admin/control-tower', icon: Radio },
     { id: 'clearing', label: 'VAMO Clearing & Ledger', route: '/admin/clearing', icon: CreditCard },
     { id: 'crm', label: 'CRM Hyper-Local 360°', route: '/admin/crm', icon: Users },
