@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { SidebarBiz } from '@/components/layout/SidebarBiz'
 import { Store, MapPin, Clock, Phone, Camera, Save, CheckCircle2, ShieldCheck, Sparkles, Navigation, Globe, Lock, QrCode, Printer } from 'lucide-react'
 import { SupabaseImageUploader } from '@/components/ui/SupabaseImageUploader'
+import { CancellationService } from '@/lib/services/cancellationService'
 
 export default function BizSettingsPage() {
   const [storeName, setStoreName] = useState('Tortería El Pariente')
@@ -20,6 +21,9 @@ export default function BizSettingsPage() {
   const [lng, setLng] = useState(-100.8120)
   const [logoUrl, setLogoUrl] = useState('https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?w=500&auto=format&fit=crop')
   const [savedSuccess, setSavedSuccess] = useState(false)
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [cancelReason, setCancelReason] = useState('CIERRE_NEGOCIO')
+
 
   useEffect(() => {
     try {
@@ -489,10 +493,80 @@ export default function BizSettingsPage() {
               <span>GUARDAR Y PUBLICAR EN RADAR DE CLIENTES 🚀</span>
             </button>
 
+            {/* SECCIÓN ZONA DE PELIGRO: DAR DE BAJA COMERCIO */}
+            <div className="pt-6 border-t border-slate-200 text-center space-y-2">
+              <button
+                type="button"
+                onClick={() => setShowCancelModal(true)}
+                className="text-rose-600 hover:text-rose-700 text-xs font-black transition-colors cursor-pointer hover:underline"
+              >
+                ⚠️ Dar de Baja Mi Comercio / Salir de la Plataforma VAMO
+              </button>
+            </div>
+
           </form>
+
+          {/* Modal de Cancelación Definitiva Comercio */}
+          {showCancelModal && (
+            <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-[32px] max-w-sm w-full p-6 space-y-4 shadow-2xl border border-[#e5e2e1] animate-fade-in text-left">
+                <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center font-black mx-auto text-xl">
+                  🏪
+                </div>
+
+                <div className="text-center space-y-1">
+                  <h3 className="text-base font-black text-slate-900">¿Deseas dar de baja este comercio?</h3>
+                  <p className="text-xs text-slate-500 font-semibold">
+                    Tu tienda será retirada del radar de clientes, se cancelarán los accesos KDS de cocina y se desvinculará tu catálogo.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-500 uppercase">Motivo del Cierre / Baja</label>
+                  <select
+                    value={cancelReason}
+                    onChange={e => setCancelReason(e.target.value)}
+                    className="w-full bg-[#f6f3f2] border border-[#e5e2e1] rounded-xl p-3 text-xs font-bold outline-none"
+                  >
+                    <option value="CIERRE_NEGOCIO">Cierre definitivo del negocio</option>
+                    <option value="CAMBIO_GIRO">Cambio de giro comercial</option>
+                    <option value="OTRA_PLATAFORMA">Uso de otro canal de venta</option>
+                    <option value="OTRO">Otro motivo</option>
+                  </select>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowCancelModal(false)}
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-full text-xs font-black"
+                  >
+                    Cancelar
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await CancellationService.cancelAccount({
+                        userId: 'biz-merchant-1',
+                        role: 'merchant',
+                        reason: cancelReason
+                      })
+                      alert('El comercio ha sido dado de baja exitosamente del sistema VAMO.')
+                      window.location.href = '/customer/home'
+                    }}
+                    className="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-full text-xs font-black shadow-md cursor-pointer active:scale-95 transition-all"
+                  >
+                    CONFIRMAR BAJA
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
         </main>
       </div>
     </div>
   )
 }
+

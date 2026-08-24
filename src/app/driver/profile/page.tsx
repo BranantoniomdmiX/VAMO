@@ -21,8 +21,7 @@ import {
 
 import Link from 'next/link'
 import { PayoutService } from '@/lib/services/payoutService'
-
-
+import { CancellationService } from '@/lib/services/cancellationService'
 
 export default function DriverProfilePage() {
   const [driverData, setDriverData] = useState({
@@ -37,6 +36,10 @@ export default function DriverProfilePage() {
     baseFleet: 'Flota Centro Titular',
     status: 'Activo / Certificado'
   })
+
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [cancelReason, setCancelReason] = useState('CAMBIO_TRABAJO')
+
 
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [heavyCargoEnabled, setHeavyCargoEnabled] = useState(true)
@@ -434,24 +437,97 @@ export default function DriverProfilePage() {
           </div>
         </div>
 
-        {/* Botón Cerrar Sesión */}
-        <button
-          type="button"
-          onClick={() => {
-            try {
-              localStorage.removeItem('vamo_active_role')
-              localStorage.removeItem('vamo_user_session')
-            } catch {}
-            window.location.href = '/customer/home'
-          }}
-          className="w-full bg-[#ba1a1a] hover:bg-[#93000a] text-white py-3.5 rounded-2xl font-black text-xs sm:text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
-        >
-          <LogOut className="w-4 h-4" />
-          <span>Cerrar Sesión</span>
-        </button>
+        {/* Botón Cerrar Sesión & Botón Darse de Baja */}
+        <div className="space-y-2 pt-1">
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                localStorage.removeItem('vamo_active_role')
+                localStorage.removeItem('vamo_user_session')
+              } catch {}
+              window.location.href = '/customer/home'
+            }}
+            className="w-full bg-[#f0eded] hover:bg-[#e5e2e1] text-slate-800 py-3.5 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Cerrar Sesión</span>
+          </button>
 
+          <button
+            type="button"
+            onClick={() => setShowCancelModal(true)}
+            className="w-full text-rose-600 hover:text-rose-700 py-2.5 text-xs font-black text-center transition-colors cursor-pointer hover:underline"
+          >
+            ⚠️ Darse de Baja como Conductor VAMO
+          </button>
+        </div>
+
+        {/* Modal de Cancelación Definitiva Conductor */}
+        {showCancelModal && (
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-[32px] max-w-sm w-full p-6 space-y-4 shadow-2xl border border-[#e5e2e1] animate-fade-in text-left">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center font-black mx-auto text-xl">
+                🛵
+              </div>
+
+              <div className="text-center space-y-1">
+                <h3 className="text-base font-black text-slate-900">¿Deseas darte de baja como repartidor?</h3>
+                <p className="text-xs text-slate-500 font-semibold">
+                  Se cancelará tu membresía de conductor, se apagará tu señal satelital y se liberará tu plaza en la Base Operativa.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-500 uppercase">Motivo de la Baja</label>
+                <select
+                  value={cancelReason}
+                  onChange={e => setCancelReason(e.target.value)}
+                  className="w-full bg-[#f6f3f2] border border-[#e5e2e1] rounded-xl p-3 text-xs font-bold outline-none"
+                >
+                  <option value="CAMBIO_TRABAJO">Conseguí otro trabajo / actividad</option>
+                  <option value="VENTA_MOTO">Ya no cuento con motocicleta</option>
+                  <option value="CAMBIO_CIUDAD">Cambio de residencia</option>
+                  <option value="OTRO">Otro motivo personal</option>
+                </select>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCancelModal(false)}
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-full text-xs font-black"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const res = await CancellationService.cancelAccount({
+                      userId: 'driver-carlos-1',
+                      role: 'driver',
+                      reason: cancelReason,
+                      codBalance: 0 // Verificación de 0 efectivo retenido
+                    })
+                    if (res.success) {
+                      alert('Tu baja como conductor ha sido procesada exitosamente.')
+                      window.location.href = '/customer/home'
+                    } else {
+                      alert(res.message)
+                    }
+                  }}
+                  className="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-full text-xs font-black shadow-md cursor-pointer active:scale-95 transition-all"
+                >
+                  CONFIRMAR BAJA
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </MobileDriverLayout>
   )
 }
+
