@@ -196,32 +196,33 @@ export default function CustomerTrackingPage() {
           </div>
         )}
 
-        {/* Mapa Vectorial MapLibre GL JS Limpio y Panorámico (Sin líneas estorbosas + Ubicación de la Casa y la Moto) */}
-        {isOrderPickedUp ? (
-          <div className="h-96 sm:h-[420px] rounded-[32px] overflow-hidden relative shadow-md">
-            <VamoMapLibre
-              center={[driverPos.lat, driverPos.lng]}
-              zoom={15.5}
-              theme={theme}
-              mode3D={false}
-              drivers={drivers}
-              waypoints={customerWaypoints}
-              enableGeolocate={true}
-              className="w-full h-full min-h-[380px]"
-            />
-          </div>
-        ) : (
+        {/* Mapa Vectorial MapLibre GL JS Persistente y Panorámico con Alta Disponibilidad */}
+        <div className="h-96 sm:h-[420px] rounded-[32px] overflow-hidden relative shadow-md border border-[#e5e2e1] dark:border-slate-800 bg-slate-100 dark:bg-slate-900">
+          <VamoMapLibre
+            center={[driverPos?.lat || 20.5218, driverPos?.lng || -100.8142]}
+            zoom={15.5}
+            theme={theme}
+            mode3D={false}
+            drivers={drivers}
+            waypoints={customerWaypoints}
+            enableGeolocate={true}
+            className="w-full h-full min-h-[380px]"
+          />
 
-          <div className="bg-slate-50 dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-800 p-8 rounded-[32px] text-center space-y-2">
-            <div className="w-12 h-12 rounded-2xl bg-[#0056d2]/10 text-[#0056d2] flex items-center justify-center font-black mx-auto text-xl">
-              🍳
+          {/* Overlay Flotante si el pedido aún está en cocina/preparación */}
+          {!isOrderPickedUp && (
+            <div className="absolute top-4 left-4 right-4 z-20 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-3.5 rounded-2xl border border-[#e5e2e1] dark:border-slate-800 shadow-md flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#0056d2] text-white flex items-center justify-center font-black text-base shrink-0 shadow-xs">
+                🍳
+              </div>
+              <div className="min-w-0">
+                <strong className="text-xs font-black text-slate-900 dark:text-white block">Pedido en Preparación</strong>
+                <p className="text-[11px] font-semibold text-slate-500 truncate">El comercio está empacando tus productos. Verás la moto moverse en cuanto salga.</p>
+              </div>
             </div>
-            <h3 className="text-sm font-extrabold text-[#1c1b1b] dark:text-white">Pedido en Preparación</h3>
-            <p className="text-xs text-[#737785] max-w-xs mx-auto">
-              El restaurante está empacando tus productos. En cuanto el repartidor recoja el paquete, verás su moto en el mapa en vivo.
-            </p>
-          </div>
-        )}
+          )}
+        </div>
+
 
 
 

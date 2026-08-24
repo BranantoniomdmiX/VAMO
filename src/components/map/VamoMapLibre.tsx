@@ -43,6 +43,57 @@ interface VamoMapLibreProps {
 const MAP_STYLE_BRIGHT = 'https://tiles.openfreemap.org/styles/bright'
 const MAP_STYLE_DARK = 'https://tiles.openfreemap.org/styles/dark'
 
+// Fallbacks de Alta Disponibilidad Inmutables (OSM & CartoDB)
+const OSM_RASTER_FALLBACK: maplibregl.StyleSpecification = {
+  version: 8,
+  sources: {
+    'osm-raster-tiles': {
+      type: 'raster',
+      tiles: [
+        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+      ],
+      tileSize: 256,
+      attribution: '&copy; OpenStreetMap Contributors'
+    }
+  },
+  layers: [
+    {
+      id: 'osm-raster-layer',
+      type: 'raster',
+      source: 'osm-raster-tiles',
+      minzoom: 0,
+      maxzoom: 19
+    }
+  ]
+}
+
+const CARTO_DARK_FALLBACK: maplibregl.StyleSpecification = {
+  version: 8,
+  sources: {
+    'carto-dark-tiles': {
+      type: 'raster',
+      tiles: [
+        'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+        'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+        'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+      ],
+      tileSize: 256,
+      attribution: '&copy; CartoDB &copy; OpenStreetMap'
+    }
+  },
+  layers: [
+    {
+      id: 'carto-dark-layer',
+      type: 'raster',
+      source: 'carto-dark-tiles',
+      minzoom: 0,
+      maxzoom: 19
+    }
+  ]
+}
+
 export default function VamoMapLibre({
   center = [20.5218, -100.8142],
   zoom = 15.5,
@@ -71,7 +122,7 @@ export default function VamoMapLibre({
 
   const routeLayerCreatedRef = useRef(false)
 
-  // 1. Inicialización del Mapa Vectorial OpenFreeMap
+  // 1. Inicialización del Mapa Vectorial con Fallback Anti-Blanco
   useEffect(() => {
     if (!mapContainer.current) return
 
@@ -96,19 +147,58 @@ export default function VamoMapLibre({
     routeLayerCreatedRef.current = false
     const styleUrl = theme === 'dark' ? MAP_STYLE_DARK : MAP_STYLE_BRIGHT
 
-    const map = new maplibregl.Map({
-      container: mapContainer.current,
-      style: styleUrl,
-      center: [center[1], center[0]] as [number, number],
-      zoom,
-      pitch: is3D ? 55 : 0,
-      bearing,
-      attributionControl: false
+    let map: maplibregl.Map
+    try {
+      map = new maplibregl.Map({
+        container: mapContainer.current,
+        style: styleUrl,
+        center: [center[1], center[0]] as [number, number],
+        zoom,
+        pitch: is3D ? 55 : 0,
+        bearing,
+        attributionControl: false
+      })
+    } catch (err) {
+      console.warn('⚠️ [VAMO Map] Error inicializando estilo vectorial, usando raster fallback:', err)
+      map = new maplibregl.Map({
+        container: mapContainer.current,
+        style: theme === 'dark' ? CARTO_DARK_FALLBACK : OSM_RASTER_FALLBACK,
+        center: [center[1], center[0]] as [number, number],
+        zoom,
+        pitch: 0,
+        bearing,
+        attributionControl: false
+      })
+    }
+
+    // Watchdog Anti-Pantalla en Blanco: Si en 3.5s no cargó el estilo vectorial, aplicar OSM raster
+    let fallbackApplied = false
+    const fallbackTimer = setTimeout(() => {
+      if (!fallbackApplied && !map.isStyleLoaded()) {
+        console.warn('🛡️ [VAMO Map Watchdog] Activando Fallback OSM Raster de Alta Disponibilidad')
+        fallbackApplied = true
+        try {
+          map.setStyle(theme === 'dark' ? CARTO_DARK_FALLBACK : OSM_RASTER_FALLBACK)
+          setTimeout(() => {
+            try { map.resize() } catch (e) {}
+          }, 200)
+        } catch (e) {}
+      }
+    }, 3500)
+
+    map.on('error', (e) => {
+      const errorMsg = e.error?.message || ''
+      if (!fallbackApplied && (errorMsg.includes('style') || errorMsg.includes('Failed to fetch') || errorMsg.includes('404') || errorMsg.includes('NetworkError'))) {
+        console.warn('🛡️ [VAMO Map Error] Fallo de vector tiles detectado. Aplicando OSM Raster:', errorMsg)
+        fallbackApplied = true
+        try {
+          map.setStyle(theme === 'dark' ? CARTO_DARK_FALLBACK : OSM_RASTER_FALLBACK)
+        } catch (err) {}
+      }
     })
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right')
 
-    // Control de Geolocalización GPS Nativo (Celular, Tableta, PC)
     if (enableGeolocate !== false) {
       const geolocateControl = new maplibregl.GeolocateControl({
         positionOptions: {
@@ -130,15 +220,24 @@ export default function VamoMapLibre({
     map.on('dragstart', () => setIsUserInteracting(true))
     map.on('zoomstart', () => setIsUserInteracting(true))
 
-    map.on('load', () => {
-      console.log('✨ [VAMO MAP 3D] Mapa Vectorial OpenFreeMap cargado al 100%')
+    const handleLoadedMap = () => {
+      clearTimeout(fallbackTimer)
       map.resize()
-      setTimeout(() => {
-        try { map.resize() } catch (e) {}
-      }, 100)
-      setTimeout(() => {
-        try { map.resize() } catch (e) {}
-      }, 500)
+      setTimeout(() => { try { map.resize() } catch (e) {} }, 100)
+      setTimeout(() => { try { map.resize() } catch (e) {} }, 500)
+      setTimeout(() => { try { map.resize() } catch (e) {} }, 1200)
+
+      createRouteSourceAndLayers(map)
+      pushRouteData(map)
+      setIsMapLoaded(true)
+    }
+
+    map.on('load', handleLoadedMap)
+    map.on('style.load', () => {
+      try { map.resize() } catch (e) {}
+      createRouteSourceAndLayers(map)
+      pushRouteData(map)
+      setIsMapLoaded(true)
     })
 
     // ResizeObserver para asegurar que cuando el layout móvil termine de calcular dimensiones el mapa se pinte
@@ -149,6 +248,7 @@ export default function VamoMapLibre({
       })
       resizeObserver.observe(mapContainer.current)
     }
+
 
     map.on('load', () => {
       // Capa de Edificios 3D (fill-extrusion)
