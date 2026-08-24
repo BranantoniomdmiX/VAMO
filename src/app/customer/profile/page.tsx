@@ -15,8 +15,10 @@ import {
   Mail, 
   Heart,
   Gift,
-  Share2
+  Share2,
+  CheckCircle2
 } from 'lucide-react'
+
 
 export default function CustomerProfilePage() {
   const [profile] = React.useState({
@@ -28,6 +30,16 @@ export default function CustomerProfilePage() {
     favoritePlacesCount: 8,
     referralCode: 'CARLOS-VAMO'
   })
+
+  const [copiedToast, setCopiedToast] = React.useState(false)
+
+  const handleShare = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(`¡Usa mi código ${profile.referralCode} y obtén $50 MXN de descuento en tu primer envío con VAMO!`)
+      setCopiedToast(true)
+      setTimeout(() => setCopiedToast(false), 2500)
+    }
+  }
 
   return (
     <CustomerLayout>
@@ -42,6 +54,13 @@ export default function CustomerProfilePage() {
             <h1 className="text-xl sm:text-2xl font-extrabold text-[#1c1b1b] mt-1">Perfil de Usuario</h1>
           </div>
         </header>
+
+        {copiedToast && (
+          <div className="bg-[#c3f400] text-[#161e00] p-3.5 rounded-2xl font-black text-xs flex items-center gap-2 shadow-sm animate-bounce">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>¡Código de referido copiado al portapapeles! Compártelo con tus contactos.</span>
+          </div>
+        )}
 
         {/* Tarjeta de Perfil Hero */}
         <div className="bg-white p-6 rounded-[28px] border border-[#e5e2e1] shadow-sm flex items-center gap-4">
@@ -71,11 +90,15 @@ export default function CustomerProfilePage() {
             <p className="text-sm font-extrabold text-white">Gana $50 por cada amigo que use tu código</p>
             <p className="text-xs text-slate-300 font-mono font-bold">Tu código: <span className="text-[#c3f400]">{profile.referralCode}</span></p>
           </div>
-          <button className="bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] px-4 py-2.5 rounded-xl font-black text-xs flex items-center gap-1.5 shrink-0 active:scale-95 transition-all">
+          <button 
+            onClick={handleShare}
+            className="bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] px-4 py-2.5 rounded-xl font-black text-xs flex items-center gap-1.5 shrink-0 active:scale-95 transition-all cursor-pointer shadow-xs"
+          >
             <Share2 className="w-4 h-4" />
             Compartir
           </button>
         </div>
+
 
         {/* Opciones y Ajustes de Cuenta */}
         <div className="bg-white rounded-[28px] border border-[#e5e2e1] shadow-sm overflow-hidden divide-y divide-[#f0eded]">

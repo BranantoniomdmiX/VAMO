@@ -1,18 +1,60 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { CustomerLayout } from '@/components/layout/CustomerLayout'
-import { Wallet, CreditCard, PlusCircle, ArrowUpRight, ArrowDownLeft, Gift, ShieldCheck, Zap } from 'lucide-react'
+import { 
+  Wallet, CreditCard, PlusCircle, ArrowUpRight, ArrowDownLeft, 
+  Gift, ShieldCheck, Zap, Trash2, CheckCircle2, X, Plus, AlertCircle
+} from 'lucide-react'
+
+interface SavedCard {
+  id: string
+  brand: 'VISA' | 'MASTERCARD' | 'AMEX'
+  last4: string
+  holder: string
+  expiry: string
+  isDefault: boolean
+}
 
 export default function CustomerWalletPage() {
-  const [balance, setBalance] = React.useState(250.00)
-  const [points, setPoints] = React.useState(420)
-  const [showRechargeModal, setShowRechargeModal] = React.useState(false)
-  const [rechargeAmount, setRechargeAmount] = React.useState(200)
-  const [rechargeSuccess, setRechargeSuccess] = React.useState(false)
+  const [balance, setBalance] = useState(250.00)
+  const [points, setPoints] = useState(420)
+  const [showRechargeModal, setShowRechargeModal] = useState(false)
+  const [showAddCardModal, setShowAddCardModal] = useState(false)
+  const [isManagingCards, setIsManagingCards] = useState(false)
+  const [rechargeAmount, setRechargeAmount] = useState(200)
+  const [rechargeSuccess, setRechargeSuccess] = useState(false)
 
-  const [transactions, setTransactions] = React.useState([
+  // Formulario Nueva Tarjeta
+  const [newCardNumber, setNewCardNumber] = useState('')
+  const [newCardHolder, setNewCardHolder] = useState('')
+  const [newCardExpiry, setNewCardExpiry] = useState('')
+  const [newCardCvc, setNewCardCvc] = useState('')
+  const [cardError, setCardError] = useState<string | null>(null)
+  const [cardAddedSuccess, setCardAddedSuccess] = useState(false)
+
+  // Métodos de Pago Guardados
+  const [cards, setCards] = useState<SavedCard[]>([
+    {
+      id: 'card-1',
+      brand: 'VISA',
+      last4: '4812',
+      holder: 'Carlos Mendoza',
+      expiry: '08/29',
+      isDefault: true
+    },
+    {
+      id: 'card-2',
+      brand: 'MASTERCARD',
+      last4: '9014',
+      holder: 'Carlos Mendoza',
+      expiry: '11/28',
+      isDefault: false
+    }
+  ])
+
+  const [transactions, setTransactions] = useState([
     {
       id: 'TX-101',
       type: 'RECHARGE',
@@ -39,9 +81,31 @@ export default function CustomerWalletPage() {
     }
   ])
 
+  // Cargar de LocalStorage
+  useEffect(() => {
+    try {
+      const storedCards = localStorage.getItem('vamo_saved_cards')
+      if (storedCards) setCards(JSON.parse(storedCards))
+      const storedBal = localStorage.getItem('vamo_customer_balance')
+      if (storedBal) setBalance(Number(storedBal))
+    } catch {}
+  }, [])
+
+  const saveCardsToStorage = (updatedCards: SavedCard[]) => {
+    setCards(updatedCards)
+    try {
+      localStorage.setItem('vamo_saved_cards', JSON.stringify(updatedCards))
+    } catch {}
+  }
+
   const handleConfirmRecharge = () => {
-    setBalance(prev => prev + rechargeAmount)
+    const newBal = balance + rechargeAmount
+    setBalance(newBal)
     setPoints(prev => prev + Math.floor(rechargeAmount * 0.10))
+    try {
+      localStorage.setItem('vamo_customer_balance', newBal.toString())
+    } catch {}
+
     setTransactions(prev => [
       {
         id: `TX-${Date.now()}`,
@@ -60,6 +124,60 @@ export default function CustomerWalletPage() {
     }, 1200)
   }
 
+  const handleAddCard = (e: React.FormEvent) => {
+    e.preventDefault()
+    const cleanNum = newCardNumber.replace(/\s+/g, '')
+    if (cleanNum.length < 15) {
+      setCardError('Ingresa los 16 dígitos de tu tarjeta')
+      return
+    }
+    if (!newCardHolder.trim()) {
+      setCardError('Ingresa el nombre del titular')
+      return
+    }
+    if (!newCardExpiry.includes('/')) {
+      setCardError('Ingresa la fecha de vencimiento MM/AA')
+      return
+    }
+
+    const brand = cleanNum.startsWith('4') ? 'VISA' : cleanNum.startsWith('3') ? 'AMEX' : 'MASTERCARD'
+    const newCardObj: SavedCard = {
+      id: `card-${Date.now()}`,
+      brand,
+      last4: cleanNum.slice(-4),
+      holder: newCardHolder.toUpperCase(),
+      expiry: newCardExpiry,
+      isDefault: cards.length === 0
+    }
+
+    const updated = [...cards, newCardObj]
+    saveCardsToStorage(updated)
+
+    setCardAddedSuccess(true)
+    setTimeout(() => {
+      setCardAddedSuccess(false)
+      setShowAddCardModal(false)
+      setNewCardNumber('')
+      setNewCardHolder('')
+      setNewCardExpiry('')
+      setNewCardCvc('')
+      setCardError(null)
+    }, 1200)
+  }
+
+  const handleSetDefault = (cardId: string) => {
+    const updated = cards.map(c => ({
+      ...c,
+      isDefault: c.id === cardId
+    }))
+    saveCardsToStorage(updated)
+  }
+
+  const handleDeleteCard = (cardId: string) => {
+    const updated = cards.filter(c => c.id !== cardId)
+    saveCardsToStorage(updated)
+  }
+
   return (
     <CustomerLayout>
       <div className="max-w-2xl mx-auto space-y-6">
@@ -70,7 +188,7 @@ export default function CustomerWalletPage() {
             <span className="bg-[#0056d2]/10 text-[#0056d2] text-xs font-black px-3 py-1 rounded-full uppercase">
               BILLETERA DIGITAL VAMO
             </span>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-[#1c1b1b] mt-1">Mi Saldo & Métodos de Pago</h1>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">Mi Saldo & Métodos de Pago</h1>
           </div>
         </header>
 
@@ -95,81 +213,117 @@ export default function CustomerWalletPage() {
           <div className="flex items-center gap-3 pt-2 relative z-10">
             <button 
               onClick={() => setShowRechargeModal(true)}
-              className="flex-1 bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all cursor-pointer"
+              className="flex-1 bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3.5 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all cursor-pointer"
             >
               <PlusCircle className="w-4 h-4" />
               Recargar Saldo
             </button>
             <button 
-              onClick={() => setShowRechargeModal(true)}
-              className="flex-1 bg-white/10 hover:bg-white/20 text-white py-3 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-white/20 active:scale-95 transition-all cursor-pointer"
+              onClick={() => setShowAddCardModal(true)}
+              className="flex-1 bg-white/10 hover:bg-white/20 text-white py-3.5 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-white/20 active:scale-95 transition-all cursor-pointer"
             >
               <CreditCard className="w-4 h-4" />
-              Recarga Rápida
+              Nueva Tarjeta
             </button>
           </div>
 
-
-          {/* Decoración de fondo */}
           <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-[#c3f400]/10 rounded-full blur-2xl pointer-events-none" />
         </div>
 
         {/* Métodos de Pago Guardados */}
-        <div className="bg-white p-6 rounded-[28px] border border-[#e5e2e1] shadow-sm space-y-4">
+        <div className="bg-white p-6 rounded-[28px] border border-[#e5e2e1] shadow-xs space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-sm font-extrabold text-[#1c1b1b]">MÉTODOS DE PAGO ACTIVOS</h2>
-            <span className="text-xs font-bold text-[#0056d2]">Administrar</span>
+            <h2 className="text-sm font-black text-slate-900 uppercase">MÉTODOS DE PAGO ACTIVOS</h2>
+            <button
+              onClick={() => setIsManagingCards(!isManagingCards)}
+              className="text-xs font-black text-[#0056d2] hover:underline cursor-pointer"
+            >
+              {isManagingCards ? 'Listo' : 'Administrar'}
+            </button>
           </div>
 
-          <div className="space-y-2">
-            <div className="p-3.5 rounded-2xl bg-[#fcf9f8] border border-[#e5e2e1] flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-xs">
-                  VISA
+          <div className="space-y-2.5">
+            {cards.map(card => (
+              <div 
+                key={card.id} 
+                className="p-4 rounded-2xl bg-[#fcf9f8] border border-[#e5e2e1] flex items-center justify-between transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-xs shadow-xs">
+                    {card.brand}
+                  </div>
+                  <div>
+                    <strong className="text-xs font-black text-slate-900 block">
+                      Tarjeta {card.brand} &bull;&bull;&bull;&bull; {card.last4}
+                    </strong>
+                    <span className="text-[11px] font-semibold text-slate-500">
+                      {card.holder} &bull; Expira {card.expiry}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <strong className="text-xs font-black text-[#1c1b1b] block">Tarjeta Débito &bull;&bull;&bull;&bull; 4812</strong>
-                  <span className="text-[11px] font-semibold text-[#737785]">Expira 08/29 &bull; Predeterminada</span>
+
+                <div className="flex items-center gap-2">
+                  {card.isDefault ? (
+                    <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full">
+                      Predeterminada
+                    </span>
+                  ) : isManagingCards ? (
+                    <button
+                      onClick={() => handleSetDefault(card.id)}
+                      className="text-[11px] font-bold text-[#0056d2] hover:underline"
+                    >
+                      Hacer Predeterminada
+                    </button>
+                  ) : null}
+
+                  {isManagingCards && (
+                    <button
+                      onClick={() => handleDeleteCard(card.id)}
+                      className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
-              <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full">Activa</span>
-            </div>
+            ))}
 
-            <div className="p-3.5 rounded-2xl bg-[#fcf9f8] border border-[#e5e2e1] flex items-center justify-between">
+            {/* Efectivo al Recibir COD */}
+            <div className="p-4 rounded-2xl bg-[#fcf9f8] border border-[#e5e2e1] flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#161e00] text-[#c3f400] flex items-center justify-center font-black text-xs">
+                <div className="w-11 h-11 rounded-2xl bg-[#161e00] text-[#c3f400] flex items-center justify-center font-black text-base shadow-xs">
                   💵
                 </div>
                 <div>
-                  <strong className="text-xs font-black text-[#1c1b1b] block">Efectivo al Recibir (COD)</strong>
-                  <span className="text-[11px] font-semibold text-[#737785]">Pagas al motociclista con PIN</span>
+                  <strong className="text-xs font-black text-slate-900 block">Efectivo al Recibir (COD)</strong>
+                  <span className="text-[11px] font-semibold text-slate-500">Pagas en efectivo al motociclista con PIN</span>
                 </div>
               </div>
-              <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full">Activo</span>
+              <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full">Activo</span>
             </div>
           </div>
         </div>
 
-        {/* Últimos Movimientos */}
-        <div className="bg-white p-6 rounded-[28px] border border-[#e5e2e1] shadow-sm space-y-4">
-          <h2 className="text-sm font-extrabold text-[#1c1b1b]">HISTORIAL DE MOVIMIENTOS</h2>
+        {/* Historial de Movimientos */}
+        <div className="bg-white p-6 rounded-[28px] border border-[#e5e2e1] shadow-xs space-y-4">
+          <h2 className="text-sm font-black text-slate-900 uppercase">HISTORIAL DE MOVIMIENTOS</h2>
 
           <div className="divide-y divide-[#f0eded]">
             {transactions.map(tx => (
-              <div key={tx.id} className="py-3 flex items-center justify-between">
+              <div key={tx.id} className="py-3.5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center ${
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
                     tx.isPositive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
                   }`}>
-                    {tx.isPositive ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
+                    {tx.isPositive ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5 text-rose-600" />}
                   </div>
                   <div>
-                    <strong className="text-xs font-extrabold text-[#1c1b1b] block">{tx.title}</strong>
-                    <span className="text-[10px] font-semibold text-[#737785]">{tx.date}</span>
+                    <strong className="text-xs font-black text-slate-900 block">{tx.title}</strong>
+                    <span className="text-[10px] font-semibold text-slate-400">{tx.date}</span>
                   </div>
                 </div>
 
-                <span className={`text-xs font-black ${tx.isPositive ? 'text-emerald-600' : 'text-slate-900'}`}>
+                <span className={`text-xs font-black ${tx.isPositive ? 'text-emerald-700' : 'text-slate-900'}`}>
                   {tx.isPositive ? `+$${tx.amount.toFixed(2)}` : `-$${Math.abs(tx.amount).toFixed(2)}`}
                 </span>
               </div>
@@ -231,8 +385,100 @@ export default function CustomerWalletPage() {
           </div>
         )}
 
+        {/* Modal Nueva Tarjeta */}
+        {showAddCardModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-[32px] max-w-sm w-full p-6 space-y-4 shadow-2xl border border-[#e5e2e1] animate-fade-in">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-[#0056d2] text-white flex items-center justify-center">
+                    <CreditCard className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-base font-black text-slate-900">Agregar Nueva Tarjeta</h3>
+                </div>
+                <button 
+                  onClick={() => setShowAddCardModal(false)}
+                  className="p-1 rounded-full text-slate-400 hover:text-slate-700"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {cardAddedSuccess ? (
+                <div className="bg-emerald-100 text-emerald-800 p-4 rounded-2xl text-center font-black text-xs flex items-center justify-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  <span>¡Tarjeta agregada con éxito!</span>
+                </div>
+              ) : (
+                <form onSubmit={handleAddCard} className="space-y-3">
+                  {cardError && (
+                    <div className="bg-rose-50 text-rose-800 p-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-rose-200">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{cardError}</span>
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-500 uppercase">Nombre en la Tarjeta</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. CARLOS MENDOZA"
+                      value={newCardHolder}
+                      onChange={e => setNewCardHolder(e.target.value)}
+                      className="w-full bg-[#f6f3f2] border border-[#e5e2e1] focus:border-[#0056d2] rounded-xl p-3 text-xs font-bold outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-500 uppercase">Número de Tarjeta</label>
+                    <input
+                      type="text"
+                      placeholder="•••• •••• •••• ••••"
+                      maxLength={19}
+                      value={newCardNumber}
+                      onChange={e => setNewCardNumber(e.target.value)}
+                      className="w-full bg-[#f6f3f2] border border-[#e5e2e1] focus:border-[#0056d2] rounded-xl p-3 text-xs font-mono font-bold outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-500 uppercase">Vencimiento</label>
+                      <input
+                        type="text"
+                        placeholder="MM/AA"
+                        maxLength={5}
+                        value={newCardExpiry}
+                        onChange={e => setNewCardExpiry(e.target.value)}
+                        className="w-full bg-[#f6f3f2] border border-[#e5e2e1] focus:border-[#0056d2] rounded-xl p-3 text-xs font-mono font-bold outline-none text-center"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-500 uppercase">CVC / CVV</label>
+                      <input
+                        type="password"
+                        placeholder="•••"
+                        maxLength={4}
+                        value={newCardCvc}
+                        onChange={e => setNewCardCvc(e.target.value)}
+                        className="w-full bg-[#f6f3f2] border border-[#e5e2e1] focus:border-[#0056d2] rounded-xl p-3 text-xs font-mono font-bold outline-none text-center"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full bg-[#0056d2] hover:bg-[#0040a1] text-white py-3.5 rounded-full text-xs font-black shadow-md cursor-pointer active:scale-95 transition-all mt-2"
+                  >
+                    GUARDAR MÉTODO DE PAGO
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
+
       </div>
     </CustomerLayout>
   )
 }
-

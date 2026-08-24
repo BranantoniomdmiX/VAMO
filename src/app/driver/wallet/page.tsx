@@ -113,7 +113,37 @@ export default function DriverWalletPage() {
               <span>Límite Máximo: ${wallet.maxCodLimit.toFixed(2)} MXN</span>
             </div>
           </div>
+
+          {/* Botón Liquidar / Rendir Corte en Base */}
+          {wallet.codBalance > 0 && (
+            <button
+              onClick={() => {
+                const amountSettled = wallet.codBalance
+                setWallet(prev => prev ? ({ ...prev, codBalance: 0, isCodBlocked: false }) : null)
+                setTransactions(prev => [
+                  {
+                    id: `TX-SETTLE-${Date.now()}`,
+                    userId: 'driver-carlos-1',
+                    type: 'BASE_SETTLEMENT',
+                    title: 'Liquidación de Efectivo COD en Base Operativa',
+                    amount: -amountSettled,
+                    balanceAfter: wallet.balance,
+                    date: 'Hoy, ' + new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+                    isPositive: false
+                  },
+
+                  ...prev
+                ])
+                setTopupSuccess(`¡Corte de $${amountSettled.toFixed(2)} MXN entregado en Base! Límite de efectivo desbloqueado.`)
+                setTimeout(() => setTopupSuccess(null), 4000)
+              }}
+              className="w-full bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3 rounded-2xl font-black text-xs shadow-sm active:scale-95 transition-all cursor-pointer mt-2"
+            >
+              💵 Rendir Corte de ${wallet.codBalance.toFixed(2)} MXN en Base
+            </button>
+          )}
         </div>
+
 
         {/* Tarjeta 2: Saldo Digital a Favor & Cuota Semanal */}
         <div className="bg-white p-5 rounded-[28px] border border-[#e5e2e1] shadow-xs space-y-3">

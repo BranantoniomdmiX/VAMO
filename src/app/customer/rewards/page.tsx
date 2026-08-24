@@ -88,8 +88,9 @@ export default function RewardsPage() {
               selectedBranch === 'PARTNER' ? 'bg-[#726200] text-[#fddf33] shadow-sm' : 'text-[#737785] hover:text-slate-900'
             }`}
           >
-            💼 VAMO Partner (Franquicias)
+            💼 VAMO Partner (Socios Operadores)
           </button>
+
         </div>
 
         {/* Catálogo de Recompensas Filtrado */}
