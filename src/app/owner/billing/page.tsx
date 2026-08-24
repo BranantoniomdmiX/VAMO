@@ -50,17 +50,17 @@ export default function OwnerBillingAndPricingPage() {
         <header className="bg-white border-b border-[#e5e2e1] px-4 md:px-8 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-xs sticky top-0 z-30">
           <div>
             <h1 className="text-xl md:text-2xl font-black text-slate-900 leading-tight">
-              Finanzas & Matriz de Precios Territorial
+              Finanzas de Plaza & Tarifas Oficiales
             </h1>
             <p className="text-xs text-slate-500 font-semibold">
-              Regulación de cuotas semanales de motos, suscripciones de locales y reparto 50/50
+              Gestión operativa de tu flotilla, ingresos de plaza y transparencia de cuotas autorizadas
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="bg-[#161e00] text-[#c3f400] px-3.5 py-1.5 rounded-full text-xs font-black shadow-xs flex items-center gap-1.5">
-              <Scale className="w-4 h-4" />
-              <span>Split 50% Socio / 50% VAMO</span>
+              <ShieldCheck className="w-4 h-4" />
+              <span>Tarifas Reguladas &bull; Sin Comisiones Ocultas</span>
             </span>
           </div>
         </header>
@@ -68,19 +68,19 @@ export default function OwnerBillingAndPricingPage() {
         {/* Main Content Area */}
         <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
           
-          {/* Bento Grid: Resumen de Reparto y Ganancias Proyectadas */}
+          {/* Bento Grid: Resumen de Ganancias y Transparencia Legal */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
-            {/* Card 1: Ganancia Neta del Socio Operador (50%) */}
+            {/* Card 1: Ganancia Neta del Socio Operador */}
             <div className="bg-[#0056d2] text-white p-6 sm:p-8 rounded-[32px] space-y-3 shadow-lg flex flex-col justify-between">
               <div className="space-y-1">
                 <span className="text-xs font-extrabold text-[#ccd8ff] uppercase tracking-wider block">
-                  TU UTILIDAD NETA MENSUAL (50%)
+                  TU UTILIDAD OPERATIVA MENSUAL
                 </span>
                 <p className="text-4xl sm:text-5xl font-black text-[#c3f400]">
                   ${ownerMonthlyNet.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                 </p>
-                <span className="text-xs text-blue-100 font-semibold block">MXN / Mes con la flotilla actual</span>
+                <span className="text-xs text-blue-100 font-semibold block">MXN / Mes generado en tu plaza activa</span>
               </div>
 
               <div className="bg-white/10 p-3 rounded-2xl text-xs font-bold text-blue-100 flex items-center justify-between">
@@ -89,42 +89,45 @@ export default function OwnerBillingAndPricingPage() {
               </div>
             </div>
 
-            {/* Card 2: Regalías a Plataforma VAMO Master (50%) */}
-            <div className="bg-[#161e00] text-white p-6 sm:p-8 rounded-[32px] space-y-3 shadow-lg flex flex-col justify-between">
-              <div className="space-y-1">
-                <span className="text-xs font-extrabold text-[#c3f400] uppercase tracking-wider block">
-                  REGALÍAS A PLATAFORMA VAMO (50%)
+            {/* Card 2: Marco Legal & Transparencia Comercial */}
+            <div className="bg-slate-900 text-white p-6 sm:p-8 rounded-[32px] space-y-3 shadow-lg flex flex-col justify-between border border-slate-800">
+              <div className="space-y-1.5">
+                <span className="text-xs font-extrabold text-[#c3f400] uppercase tracking-wider block flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-[#c3f400]" />
+                  TRANSPARENCIA LEGAL & FISCAL
                 </span>
-                <p className="text-4xl sm:text-5xl font-black text-white">
-                  ${vamoPlatformRoyalties.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                <p className="text-base font-black text-white">
+                  Cumplimiento Normativo (PROFECO / SAT)
                 </p>
-                <span className="text-xs text-slate-400 font-semibold block">MXN / Mes para soporte y servidores</span>
+                <span className="text-xs text-slate-300 font-semibold block leading-relaxed">
+                  Todas las tarifas son públicas y transparentes antes de operar. Cero sanciones por cobros no estipulados.
+                </span>
               </div>
 
-              <div className="bg-white/10 p-3 rounded-2xl text-xs font-bold text-slate-300 flex items-center justify-between">
-                <span>Estatus de Liquidación:</span>
-                <strong className="text-[#c3f400]">🟢 Al Corriente</strong>
+              <div className="bg-white/10 p-3 rounded-2xl text-xs font-bold text-slate-200 flex items-center justify-between">
+                <span>Estatus Legal:</span>
+                <strong className="text-[#c3f400]">🟢 En Regla &bull; Cuotas Claras</strong>
               </div>
             </div>
 
             {/* Card 3: Resumen de Membresías Activas */}
             <div className="bg-white p-6 rounded-[32px] border border-[#e5e2e1] shadow-xs space-y-3 flex flex-col justify-between">
               <div className="space-y-1">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Ecosistema Activo</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Ecosistema Activo en Plaza</span>
                 <div className="grid grid-cols-2 gap-2 pt-2">
                   <div className="bg-[#f6f3f2] p-3 rounded-2xl">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block">Motos</span>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase block">Motos Activas</span>
                     <strong className="text-xl font-black text-slate-900">{driverCount}</strong>
                   </div>
                   <div className="bg-[#f6f3f2] p-3 rounded-2xl">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block">Locales</span>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase block">Locales Afiliados</span>
                     <strong className="text-xl font-black text-slate-900">{microCount + standardCount + restaurantCount}</strong>
                   </div>
                 </div>
               </div>
 
               <p className="text-[11px] font-semibold text-slate-500">
-                Los choferes conservan el 100% del valor de cada viaje que realizan.
+                Los choferes conservan el 100% de lo cobrado en cada viaje.
               </p>
             </div>
 
@@ -135,10 +138,10 @@ export default function OwnerBillingAndPricingPage() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-4">
               <div>
                 <h2 className="text-lg font-black text-slate-900">
-                  Ajuste de Tarifas y Cuotas por Zona Socioeconómica
+                  Cuotas Oficiales por Zona Socioeconómica
                 </h2>
                 <p className="text-xs text-slate-500 font-semibold">
-                  Ajusta los precios de tu territorio según la demanda local. El split 50/50 se calcula automáticamente.
+                  Tarifas transparentes acordadas para motociclistas y comercios en tu plaza.
                 </p>
               </div>
 
@@ -184,12 +187,12 @@ export default function OwnerBillingAndPricingPage() {
 
                 <div className="grid grid-cols-2 gap-2 text-xs font-bold text-slate-700 bg-white p-3 rounded-2xl border border-[#e5e2e1]">
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase font-black">Tú recibes (50%):</span>
+                    <span className="text-[10px] text-slate-400 block uppercase font-black">Tu Ganancia Neta:</span>
                     <strong className="text-emerald-700 font-black">${(driverWeeklyTotal * 0.5).toFixed(2)} MXN/sem</strong>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase font-black">VAMO Master (50%):</span>
-                    <strong className="text-[#0056d2] font-black">${(driverWeeklyTotal * 0.5).toFixed(2)} MXN/sem</strong>
+                    <span className="text-[10px] text-slate-400 block uppercase font-black">Infraestructura y App:</span>
+                    <strong className="text-slate-700 font-black">Servidores & GPS</strong>
                   </div>
                 </div>
               </div>
@@ -224,12 +227,12 @@ export default function OwnerBillingAndPricingPage() {
 
                 <div className="grid grid-cols-2 gap-2 text-xs font-bold text-slate-700 bg-white p-3 rounded-2xl border border-[#e5e2e1]">
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase font-black">Tú recibes (50%):</span>
+                    <span className="text-[10px] text-slate-400 block uppercase font-black">Tu Ganancia Neta:</span>
                     <strong className="text-emerald-700 font-black">${(microMonthlyTotal * 0.5).toFixed(2)} MXN/mes</strong>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase font-black">VAMO Master (50%):</span>
-                    <strong className="text-[#0056d2] font-black">${(microMonthlyTotal * 0.5).toFixed(2)} MXN/mes</strong>
+                    <span className="text-[10px] text-slate-400 block uppercase font-black">Infraestructura y App:</span>
+                    <strong className="text-slate-700 font-black">Radar de Clientes</strong>
                   </div>
                 </div>
               </div>
@@ -264,12 +267,12 @@ export default function OwnerBillingAndPricingPage() {
 
                 <div className="grid grid-cols-2 gap-2 text-xs font-bold text-slate-700 bg-white p-3 rounded-2xl border border-[#e5e2e1]">
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase font-black">Tú recibes (50%):</span>
+                    <span className="text-[10px] text-slate-400 block uppercase font-black">Tu Ganancia Neta:</span>
                     <strong className="text-emerald-700 font-black">${(standardMonthlyTotal * 0.5).toFixed(2)} MXN/mes</strong>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase font-black">VAMO Master (50%):</span>
-                    <strong className="text-[#0056d2] font-black">${(standardMonthlyTotal * 0.5).toFixed(2)} MXN/mes</strong>
+                    <span className="text-[10px] text-slate-400 block uppercase font-black">Infraestructura y App:</span>
+                    <strong className="text-slate-700 font-black">Auto-Despacho</strong>
                   </div>
                 </div>
               </div>
@@ -304,12 +307,12 @@ export default function OwnerBillingAndPricingPage() {
 
                 <div className="grid grid-cols-2 gap-2 text-xs font-bold text-slate-700 bg-white p-3 rounded-2xl border border-[#e5e2e1]">
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase font-black">Tú recibes (50%):</span>
+                    <span className="text-[10px] text-slate-400 block uppercase font-black">Tu Ganancia Neta:</span>
                     <strong className="text-emerald-700 font-black">${(restaurantMonthlyTotal * 0.5).toFixed(2)} MXN/mes</strong>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase font-black">VAMO Master (50%):</span>
-                    <strong className="text-[#0056d2] font-black">${(restaurantMonthlyTotal * 0.5).toFixed(2)} MXN/mes</strong>
+                    <span className="text-[10px] text-slate-400 block uppercase font-black">Infraestructura y App:</span>
+                    <strong className="text-slate-700 font-black">KDS de Cocina</strong>
                   </div>
                 </div>
               </div>
@@ -317,6 +320,7 @@ export default function OwnerBillingAndPricingPage() {
             </div>
 
           </div>
+
 
         </main>
       </div>
