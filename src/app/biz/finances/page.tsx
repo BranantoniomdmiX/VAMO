@@ -71,7 +71,7 @@ export default function BizFinancesPage() {
                 </div>
               </div>
               <span className="bg-emerald-100 text-emerald-800 text-xs font-black px-3 py-1 rounded-full w-fit">
-                ✓ SPEI Activo (Corte Diario 23:00 hrs)
+                ✓ SPEI Activo (Banco Verificado)
               </span>
             </div>
 
@@ -90,17 +90,49 @@ export default function BizFinancesPage() {
               </div>
             </div>
 
+            {/* Selector de Frecuencia de Dispersión SPEI */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-500 uppercase">¿Cada cuándo deseas recibir tu dinero en el banco?</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="p-3 rounded-2xl border-2 border-[#0056d2] bg-blue-50/50 text-slate-900 shadow-xs">
+                  <strong className="text-xs font-black text-[#0056d2] block">⚡ Corte Diario Nocturno</strong>
+                  <span className="text-[10px] text-slate-600 font-semibold block mt-0.5">Transferencia a las 23:00 hrs de lo vendido hoy</span>
+                </div>
+
+                <div className="p-3 rounded-2xl border border-[#e5e2e1] bg-[#fcf9f8] text-slate-700 hover:border-slate-300 transition-colors">
+                  <strong className="text-xs font-black block">📅 Corte Semanal</strong>
+                  <span className="text-[10px] text-slate-500 font-semibold block mt-0.5">Un solo depósito los lunes a las 08:00 AM</span>
+                </div>
+
+                <div className="p-3 rounded-2xl border border-[#e5e2e1] bg-[#fcf9f8] text-slate-700 hover:border-slate-300 transition-colors">
+                  <strong className="text-xs font-black block">🚀 Retiro Inmediato</strong>
+                  <span className="text-[10px] text-slate-500 font-semibold block mt-0.5">Dispersión 1-Tap en menos de 5 minutos</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Advertencia de Renta / Cuota Territorial Mensual */}
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 space-y-1 text-left">
+              <div className="flex items-center gap-1.5 text-amber-900 font-black text-xs">
+                <span>⚠️ Advertencia de Cuota Territorial Mensual VAMO</span>
+              </div>
+              <p className="text-[11px] text-amber-800 font-semibold leading-relaxed">
+                Recuerda que la cuota de renta fija de tu local ($100 puesto, $300 local/farmacia o $500 restaurante alta demanda) se divide automáticamente <strong>50% para el Socio Operador de tu plaza y 50% para VAMO Plataforma</strong>, y se deduce automáticamente de tus ventas de la última semana de cada mes.
+              </p>
+            </div>
+
             <div className="flex flex-col sm:flex-row gap-3 pt-1">
               <button 
                 onClick={() => {
                   alert('¡Solicitud de dispersión SPEI enviada a Conekta! Recibirás $4,250.00 MXN en tu cuenta BBVA en menos de 5 minutos.')
                 }}
-                className="flex-1 bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs active:scale-95 transition-all cursor-pointer"
+                className="flex-1 bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3.5 rounded-full font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs active:scale-95 transition-all cursor-pointer"
               >
-                ⚡ Solicitar Dispersión Inmediata ($4,250.00 MXN)
+                ⚡ Solicitar Dispersión Inmediata 1-Tap ($4,250.00 MXN)
               </button>
             </div>
           </div>
+
 
 
           {/* Bento Grid Layout para Finanzas */}

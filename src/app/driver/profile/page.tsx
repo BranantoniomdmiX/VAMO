@@ -258,42 +258,73 @@ export default function DriverProfilePage() {
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-500 uppercase">Frecuencia de Corte SPEI</label>
-              <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-500 uppercase">Frecuencia de Dispersión SPEI (Conekta)</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setPayoutFreq('DAILY')}
-                  className={`py-2.5 px-3 rounded-xl text-xs font-black border transition-all cursor-pointer ${
+                  className={`p-3 rounded-2xl text-left border transition-all cursor-pointer ${
                     payoutFreq === 'DAILY' 
-                      ? 'bg-[#0056d2] text-white border-[#0056d2] shadow-xs' 
-                      : 'bg-[#f6f3f2] text-slate-700 border-[#e5e2e1]'
+                      ? 'bg-[#0056d2] text-white border-[#0056d2] shadow-sm' 
+                      : 'bg-[#f6f3f2] text-slate-700 border-[#e5e2e1] hover:border-slate-300'
                   }`}
                 >
-                  ⚡ Corte Diario (Noche)
+                  <span className="text-xs font-black block">⚡ Corte Diario</span>
+                  <span className="text-[10px] opacity-80 font-semibold block mt-0.5">Cada noche 23:00 hrs</span>
                 </button>
+
                 <button
                   type="button"
                   onClick={() => setPayoutFreq('WEEKLY')}
-                  className={`py-2.5 px-3 rounded-xl text-xs font-black border transition-all cursor-pointer ${
+                  className={`p-3 rounded-2xl text-left border transition-all cursor-pointer ${
                     payoutFreq === 'WEEKLY' 
-                      ? 'bg-[#0056d2] text-white border-[#0056d2] shadow-xs' 
-                      : 'bg-[#f6f3f2] text-slate-700 border-[#e5e2e1]'
+                      ? 'bg-[#0056d2] text-white border-[#0056d2] shadow-sm' 
+                      : 'bg-[#f6f3f2] text-slate-700 border-[#e5e2e1] hover:border-slate-300'
                   }`}
                 >
-                  📅 Corte Semanal (Lunes)
+                  <span className="text-xs font-black block">📅 Corte Semanal</span>
+                  <span className="text-[10px] opacity-80 font-semibold block mt-0.5">Lunes 08:00 AM</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPayoutFreq('MANUAL')}
+                  className={`p-3 rounded-2xl text-left border transition-all cursor-pointer ${
+                    payoutFreq === 'MANUAL' 
+                      ? 'bg-[#0056d2] text-white border-[#0056d2] shadow-sm' 
+                      : 'bg-[#f6f3f2] text-slate-700 border-[#e5e2e1] hover:border-slate-300'
+                  }`}
+                >
+                  <span className="text-xs font-black block">🚀 Retiro Inmediato</span>
+                  <span className="text-[10px] opacity-80 font-semibold block mt-0.5">1-Tap en &lt; 5 min</span>
                 </button>
               </div>
             </div>
 
+            {/* Advertencia Transparente de la Cuota Semanal ($100 MXN) */}
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 space-y-1 text-left">
+              <div className="flex items-center gap-1.5 text-amber-900 font-black text-xs">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Advertencia de Cuota Semanal VAMO ($100 MXN / sem)</span>
+              </div>
+              <p className="text-[11px] text-amber-800 font-semibold leading-relaxed">
+                Todos los lunes se aplica tu cuota fija semanal de <strong>$100.00 MXN</strong> ($50 para tu Socio Operador y $50 para VAMO). 
+                {payoutFreq === 'DAILY' && ' Al tener corte diario, la cuota de $100 se reservará automáticamente de tus viajes del domingo o tu saldo digital acumulado.'}
+                {payoutFreq === 'WEEKLY' && ' En el corte de los lunes se descuenta automáticamente antes de transferir tu ganancia neta a tu banco.'}
+                {payoutFreq === 'MANUAL' && ' Puedes retirar tus ganancias cuando quieras, manteniendo siempre $100 MXN de reserva para tu cuota semanal de plataforma.'}
+              </p>
+            </div>
+
             <button
               type="submit"
-              className="w-full bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3 rounded-xl font-black text-xs shadow-xs active:scale-95 transition-all cursor-pointer mt-1"
+              className="w-full bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3.5 rounded-full font-black text-xs shadow-sm active:scale-95 transition-all cursor-pointer mt-1"
             >
-              GUARDAR CUENTA PARA DISPERSIÓN SPEI
+              GUARDAR PREFERENCIAS DE DISPERSIÓN SPEI
             </button>
           </form>
         </div>
+
 
         {/* Documentación & Validación Oficial */}
         <div className="bg-white rounded-[24px] p-4 border border-slate-200 shadow-xs space-y-2.5">
