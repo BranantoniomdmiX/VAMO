@@ -130,8 +130,68 @@ export default function BaseCashierPage() {
             </div>
           </div>
 
+          {/* MÓDULO DE COBRO DE CUOTAS EN EFECTIVO (MOTO $100 / LOCALES) */}
+          <div className="bg-white rounded-[28px] p-6 border border-[#e5e2e1] shadow-xs space-y-4">
+
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#0056d2] text-white flex items-center justify-center font-black text-xs">
+                  💵
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 uppercase">Cobro de Membresías en Efectivo en Ventanilla</h3>
+                  <span className="text-[11px] text-slate-500 font-semibold">Registro de pagos semanales de motociclistas y rentas de locales</span>
+                </div>
+              </div>
+              <span className="text-xs font-black bg-blue-50 text-[#0056d2] px-3 py-1 rounded-full border border-blue-100">
+                Membresía Semanal: $100.00 MXN
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                onClick={() => {
+                  const receipt = `REC-MOTO-${Date.now().toString().slice(-4)}`
+                  setTotalBaseCash(prev => prev + 100)
+                  setProcessedDriver({
+                    name: 'Carlos Mendoza (Mochila #001)',
+                    amount: 100.00,
+                    receipt
+                  })
+                }}
+                className="p-4 rounded-2xl border border-[#e5e2e1] hover:border-[#0056d2] bg-[#fcf9f8] text-left space-y-1 transition-all active:scale-95 cursor-pointer group"
+              >
+                <div className="flex justify-between items-center">
+                  <strong className="text-xs font-black text-slate-900 group-hover:text-[#0056d2]">🏍️ Cobrar Membresía Chofer ($100.00 MXN)</strong>
+                  <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">Semanal</span>
+                </div>
+                <p className="text-[11px] text-slate-500 font-semibold">7 días de acceso a la plataforma con 0% comisión por viaje.</p>
+              </button>
+
+              <button
+                onClick={() => {
+                  const receipt = `REC-LOCAL-${Date.now().toString().slice(-4)}`
+                  setTotalBaseCash(prev => prev + 300)
+                  setProcessedDriver({
+                    name: 'Taquería El Pastorcito',
+                    amount: 300.00,
+                    receipt
+                  })
+                }}
+                className="p-4 rounded-2xl border border-[#e5e2e1] hover:border-[#0056d2] bg-[#fcf9f8] text-left space-y-1 transition-all active:scale-95 cursor-pointer group"
+              >
+                <div className="flex justify-between items-center">
+                  <strong className="text-xs font-black text-slate-900 group-hover:text-[#0056d2]">🏪 Cobrar Renta Local / Negocio</strong>
+                  <span className="text-[10px] font-black bg-blue-100 text-[#0056d2] px-2 py-0.5 rounded-full">Mensual</span>
+                </div>
+                <p className="text-[11px] text-slate-500 font-semibold">30 días de presencia en radar, catálogo 1-Tap y KDS de cocina.</p>
+              </button>
+            </div>
+          </div>
+
           <div className="space-y-4 pt-4">
             <div className="flex justify-between items-center">
+
               <h2 className="text-lg font-extrabold text-[#1c1b1b]">Repartidores con Efectivo Pendiente de Entrega</h2>
               <span className="text-xs font-bold text-[#737785] bg-white px-3 py-1 rounded-full border border-slate-200">
                 {driversList.length} Choferes Activos

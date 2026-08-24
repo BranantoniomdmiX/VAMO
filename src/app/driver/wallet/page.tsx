@@ -146,22 +146,75 @@ export default function DriverWalletPage() {
 
 
         {/* Tarjeta 2: Saldo Digital a Favor & Cuota Semanal */}
-        <div className="bg-white p-5 rounded-[28px] border border-[#e5e2e1] shadow-xs space-y-3">
+        <div className="bg-white p-5 rounded-[28px] border border-[#e5e2e1] shadow-xs space-y-3.5">
           <div className="flex justify-between items-center">
             <div>
               <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">SALDO DIGITAL A FAVOR</span>
               <p className="text-2xl font-black text-slate-900">${wallet.balance.toFixed(2)} MXN</p>
             </div>
             <div className="text-right">
-              <span className="text-[10px] font-bold text-slate-500 block">Cuota Semanal VAMO:</span>
+              <span className="text-[10px] font-bold text-slate-500 block">Membresía Semanal:</span>
               <span className="text-xs font-black text-[#0056d2] bg-blue-50 px-2.5 py-1 rounded-full inline-block border border-blue-100">
                 ${wallet.weeklyFee.toFixed(2)} MXN / sem
               </span>
             </div>
           </div>
 
+          {/* Opciones de Pago de Membresía */}
+          <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-black text-slate-900">Estado de Membresía Semanal:</span>
+              <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full">
+                ✓ Al Día
+              </span>
+            </div>
+
+            <p className="text-[11px] text-slate-600 font-semibold">
+              Tu membresía te da acceso a viajes con <strong>0% comisión</strong>, clientes en radar y soporte en ruta.
+            </p>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                onClick={() => {
+                  if (wallet.balance >= 100) {
+                    setWallet(prev => prev ? ({ ...prev, balance: prev.balance - 100 }) : null)
+                    setTransactions(prev => [
+                      {
+                        id: `TX-FEE-${Date.now()}`,
+                        userId: 'driver-carlos-1',
+                        type: 'WEEKLY_FEE',
+                        title: 'Pago de Membresía Semanal VAMO (Digital)',
+                        amount: -100.00,
+                        balanceAfter: wallet.balance - 100,
+                        date: 'Hoy, ' + new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+                        isPositive: false
+                      },
+                      ...prev
+                    ])
+                    setTopupSuccess('¡Membresía semanal de $100.00 MXN pagada con saldo digital!')
+                    setTimeout(() => setTopupSuccess(null), 4000)
+                  } else {
+                    alert('Saldo digital insuficiente. Recarga saldo o paga tus $100 en efectivo en Base Operativa.')
+                  }
+                }}
+                className="bg-[#0056d2] hover:bg-[#0040a1] text-white py-2.5 rounded-xl font-black text-[11px] flex items-center justify-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer"
+              >
+                💳 Pagar con Saldo ($100)
+              </button>
+
+              <button
+                onClick={() => {
+                  alert('Acude con el cajero de la Base Operativa y entrega tus $100.00 MXN en efectivo. Te entregarán tu comprobante foliado al instante.')
+                }}
+                className="bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-2.5 rounded-xl font-black text-[11px] flex items-center justify-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer"
+              >
+                💵 Pagar Efectivo en Base
+              </button>
+            </div>
+          </div>
+
           {/* Recarga Exprés de Saldo 1-Tap */}
-          <div className="pt-2 border-t border-slate-100 space-y-2">
+          <div className="pt-1 border-t border-slate-100 space-y-2">
             <div className="flex items-center gap-1.5 text-xs font-black text-slate-900">
               <PlusCircle className="w-4 h-4 text-[#0056d2]" />
               <span>Recarga Exprés de Saldo (1-Tap)</span>
@@ -180,6 +233,7 @@ export default function DriverWalletPage() {
             </div>
           </div>
         </div>
+
 
         {/* Movimientos Recientes */}
         <div className="space-y-3 pt-1">

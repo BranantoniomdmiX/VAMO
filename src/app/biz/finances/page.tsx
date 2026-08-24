@@ -111,15 +111,29 @@ export default function BizFinancesPage() {
               </div>
             </div>
 
-            {/* Advertencia de Renta / Cuota Territorial Mensual */}
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 space-y-1 text-left">
-              <div className="flex items-center gap-1.5 text-amber-900 font-black text-xs">
-                <span>⚠️ Advertencia de Cuota Territorial Mensual VAMO</span>
+            {/* Membresía Comercial & Beneficios VAMO */}
+            <div className="bg-slate-900 text-white rounded-2xl p-4 space-y-2 text-left border border-slate-800 shadow-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-black bg-[#c3f400] text-[#161e00] px-2.5 py-0.5 rounded-full uppercase">
+                  MEMBRESÍA COMERCIAL VAMO
+                </span>
+                <strong className="text-xs font-black text-[#c3f400]">Cuota Fija Mensual Sin Comisiones</strong>
               </div>
-              <p className="text-[11px] text-amber-800 font-semibold leading-relaxed">
-                Recuerda que la cuota de renta fija de tu local ($100 puesto, $300 local/farmacia o $500 restaurante alta demanda) se divide automáticamente <strong>50% para el Socio Operador de tu plaza y 50% para VAMO Plataforma</strong>, y se deduce automáticamente de tus ventas de la última semana de cada mes.
-              </p>
+
+              <div className="space-y-1 text-[11px] text-slate-300 font-semibold leading-relaxed">
+                <p className="font-bold text-white">✨ Tus Beneficios como Comercio Afiliado:</p>
+                <ul className="list-disc list-inside space-y-0.5 text-slate-300">
+                  <li><strong>Visibilidad en Radar Local:</strong> Tus 50 productos más vendidos con pedido 1-Tap.</li>
+                  <li><strong>Comandera de Cocina KDS:</strong> Control de pedidos en tiempo real en tablet o celular.</li>
+                  <li><strong>Flotilla Garantizada:</strong> Repartidores en menos de 15 minutos en tu puerta.</li>
+                </ul>
+              </div>
+
+              <div className="pt-1 text-[10px] text-slate-400 border-t border-slate-800">
+                <span>💡 <strong>Formas de Pago:</strong> Se descuenta automáticamente de tus ventas con tarjeta del fin de mes o puedes pagarla <strong>en Efectivo directamente en la Base Operativa</strong> o con el supervisor de zona.</span>
+              </div>
             </div>
+
 
             <div className="flex flex-col sm:flex-row gap-3 pt-1">
               <button 

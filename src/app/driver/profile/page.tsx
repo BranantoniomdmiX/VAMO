@@ -302,19 +302,29 @@ export default function DriverProfilePage() {
               </div>
             </div>
 
-            {/* Advertencia Transparente de la Cuota Semanal ($100 MXN) */}
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 space-y-1 text-left">
-              <div className="flex items-center gap-1.5 text-amber-900 font-black text-xs">
-                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>Advertencia de Cuota Semanal VAMO ($100 MXN / sem)</span>
+            {/* Cuota Semanal & Beneficios Exclusivos VAMO */}
+            <div className="bg-slate-900 text-white rounded-2xl p-4 space-y-2.5 text-left border border-slate-800 shadow-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-black bg-[#c3f400] text-[#161e00] px-2.5 py-0.5 rounded-full uppercase">
+                  MEMBRESÍA SEMANAL VAMO
+                </span>
+                <strong className="text-sm font-black text-[#c3f400]">$100.00 MXN / sem</strong>
               </div>
-              <p className="text-[11px] text-amber-800 font-semibold leading-relaxed">
-                Todos los lunes se aplica tu cuota fija semanal de <strong>$100.00 MXN</strong> ($50 para tu Socio Operador y $50 para VAMO). 
-                {payoutFreq === 'DAILY' && ' Al tener corte diario, la cuota de $100 se reservará automáticamente de tus viajes del domingo o tu saldo digital acumulado.'}
-                {payoutFreq === 'WEEKLY' && ' En el corte de los lunes se descuenta automáticamente antes de transferir tu ganancia neta a tu banco.'}
-                {payoutFreq === 'MANUAL' && ' Puedes retirar tus ganancias cuando quieras, manteniendo siempre $100 MXN de reserva para tu cuota semanal de plataforma.'}
-              </p>
+
+              <div className="space-y-1 text-[11px] text-slate-300 font-semibold leading-relaxed">
+                <p className="font-bold text-white">✨ Tus Beneficios al ser Conductor Activo VAMO:</p>
+                <ul className="list-disc list-inside space-y-0.5 text-slate-300">
+                  <li><strong>100% de tus ganancias son tuyas:</strong> Cero comisiones por viaje completado.</li>
+                  <li><strong>Telemetría GPS en tiempo real:</strong> Rutas inteligentes OSRM y alerta de 50 metros.</li>
+                  <li><strong>Soporte operativo de Base:</strong> Asistencia en ruta, comandas locales y clientes por app.</li>
+                </ul>
+              </div>
+
+              <div className="pt-1 text-[10px] text-slate-400 border-t border-slate-800">
+                <span>💡 <strong>Métodos de Pago:</strong> Se descuenta automáticamente de tu saldo digital en el corte de los lunes o puedes pagarlo <strong>en Efectivo directamente en la Base Operativa</strong>.</span>
+              </div>
             </div>
+
 
             <button
               type="submit"
