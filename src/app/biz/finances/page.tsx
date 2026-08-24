@@ -58,6 +58,51 @@ export default function BizFinancesPage() {
             </button>
           </div>
 
+          {/* MÓDULO CUENTA BANCARIA CLABE & DISPERSIÓN SPEI COMERCIO (M16) */}
+          <div className="bg-white rounded-[32px] p-6 sm:p-7 border border-[#e5e2e1] shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-[#0056d2] text-white flex items-center justify-center font-black text-lg shadow-sm">
+                  🏦
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">Cuenta de Depósito para Ventas (Conekta SPEI)</h3>
+                  <p className="text-xs text-slate-500 font-semibold">Tus ventas con tarjeta y delivery se transfieren directamente a esta cuenta.</p>
+                </div>
+              </div>
+              <span className="bg-emerald-100 text-emerald-800 text-xs font-black px-3 py-1 rounded-full w-fit">
+                ✓ SPEI Activo (Corte Diario 23:00 hrs)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-[#fcf9f8] p-4 rounded-2xl border border-[#e5e2e1]">
+              <div>
+                <span className="text-[10px] font-black text-slate-500 uppercase block">Banco Registrado</span>
+                <strong className="text-sm font-black text-slate-900">BBVA México</strong>
+              </div>
+              <div>
+                <span className="text-[10px] font-black text-slate-500 uppercase block">CLABE Interbancaria</span>
+                <strong className="text-sm font-mono font-black text-[#0056d2]">012180009876543210</strong>
+              </div>
+              <div>
+                <span className="text-[10px] font-black text-slate-500 uppercase block">Titular del Negocio</span>
+                <strong className="text-sm font-black text-slate-900">TAQUERÍA EL PASTORCITO S.A.</strong>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-1">
+              <button 
+                onClick={() => {
+                  alert('¡Solicitud de dispersión SPEI enviada a Conekta! Recibirás $4,250.00 MXN en tu cuenta BBVA en menos de 5 minutos.')
+                }}
+                className="flex-1 bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs active:scale-95 transition-all cursor-pointer"
+              >
+                ⚡ Solicitar Dispersión Inmediata ($4,250.00 MXN)
+              </button>
+            </div>
+          </div>
+
+
           {/* Bento Grid Layout para Finanzas */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 

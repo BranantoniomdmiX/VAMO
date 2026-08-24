@@ -18,7 +18,11 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react'
+
 import Link from 'next/link'
+import { PayoutService } from '@/lib/services/payoutService'
+
+
 
 export default function DriverProfilePage() {
   const [driverData, setDriverData] = useState({
@@ -37,6 +41,58 @@ export default function DriverProfilePage() {
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [heavyCargoEnabled, setHeavyCargoEnabled] = useState(true)
   const [autoAccept, setAutoAccept] = useState(false)
+
+  // Estados Bancarios M16 (CLABE & Dispersión SPEI)
+  const [clabeInput, setClabeInput] = useState('012180001234567890')
+  const [detectedBank, setDetectedBank] = useState('BBVA México')
+  const [beneficiaryInput, setBeneficiaryInput] = useState('CARLOS MENDOZA')
+  const [payoutFreq, setPayoutFreq] = useState<'DAILY' | 'WEEKLY' | 'MANUAL'>('DAILY')
+  const [isBankSaved, setIsBankSaved] = useState(true)
+  const [bankSavedSuccess, setBankSavedSuccess] = useState<string | null>(null)
+
+  useEffect(() => {
+    PayoutService.getBankAccount('driver-carlos-1').then(res => {
+      if (res) {
+        setClabeInput(res.clabeNumber)
+        setDetectedBank(res.bankName)
+        setBeneficiaryInput(res.beneficiaryName)
+        setPayoutFreq(res.payoutFrequency)
+        setIsBankSaved(true)
+      }
+    })
+  }, [])
+
+  const handleClabeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/\s+/g, '')
+    setClabeInput(val)
+    if (val.length >= 3) {
+      const check = PayoutService.validateClabe(val)
+      setDetectedBank(check.bankName || '')
+    } else {
+      setDetectedBank('')
+    }
+  }
+
+  const handleSaveBank = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const result = await PayoutService.saveBankAccount({
+      userId: 'driver-carlos-1',
+      role: 'driver',
+      bankName: detectedBank || 'Banco Mexicano',
+      clabeNumber: clabeInput,
+      beneficiaryName: beneficiaryInput,
+      payoutFrequency: payoutFreq
+    })
+
+    if (result.success) {
+      setIsBankSaved(true)
+      setBankSavedSuccess(`¡Cuenta de ${detectedBank} (${payoutFreq === 'DAILY' ? 'Corte Diario' : 'Corte Semanal'}) guardada con éxito!`)
+      setTimeout(() => setBankSavedSuccess(null), 4000)
+    } else {
+      alert(result.message)
+    }
+  }
+
 
   return (
     <MobileDriverLayout>
@@ -147,12 +203,105 @@ export default function DriverProfilePage() {
           </div>
         </div>
 
+        {/* MÓDULO DATOS BANCARIOS CLABE & DISPERSIÓN SPEI (M16) */}
+        <div className="bg-white rounded-[28px] p-5 border border-slate-200 shadow-xs space-y-3.5">
+          <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-[#0056d2] text-white flex items-center justify-center font-black text-xs">
+                🏦
+              </div>
+              <div>
+                <h3 className="text-xs font-black text-slate-900 uppercase">Cuenta Bancaria para Depósitos SPEI</h3>
+                <span className="text-[10px] text-slate-500 font-semibold">Tus ganancias de fletes con tarjeta</span>
+              </div>
+            </div>
+            {isBankSaved && (
+              <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> Verificada
+              </span>
+            )}
+          </div>
+
+          {bankSavedSuccess && (
+            <div className="bg-emerald-100 text-emerald-900 p-3 rounded-2xl text-xs font-black flex items-center gap-2 border border-emerald-300 animate-fade-in">
+              <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+              <span>{bankSavedSuccess}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSaveBank} className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-500 uppercase">CLABE Interbancaria (18 Dígitos)</label>
+              <input
+                type="text"
+                maxLength={18}
+                value={clabeInput}
+                onChange={handleClabeChange}
+                placeholder="012180001234567890"
+                className="w-full bg-[#f6f3f2] border border-[#e5e2e1] focus:border-[#0056d2] rounded-xl p-3 text-xs font-mono font-bold outline-none"
+              />
+              {detectedBank && (
+                <span className="text-[10px] font-black text-[#0056d2] block mt-0.5">
+                  🏦 Banco Detectado: {detectedBank}
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-500 uppercase">Nombre Completo del Titular</label>
+              <input
+                type="text"
+                value={beneficiaryInput}
+                onChange={e => setBeneficiaryInput(e.target.value)}
+                placeholder="CARLOS MENDOZA"
+                className="w-full bg-[#f6f3f2] border border-[#e5e2e1] focus:border-[#0056d2] rounded-xl p-3 text-xs font-bold outline-none"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-500 uppercase">Frecuencia de Corte SPEI</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPayoutFreq('DAILY')}
+                  className={`py-2.5 px-3 rounded-xl text-xs font-black border transition-all cursor-pointer ${
+                    payoutFreq === 'DAILY' 
+                      ? 'bg-[#0056d2] text-white border-[#0056d2] shadow-xs' 
+                      : 'bg-[#f6f3f2] text-slate-700 border-[#e5e2e1]'
+                  }`}
+                >
+                  ⚡ Corte Diario (Noche)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPayoutFreq('WEEKLY')}
+                  className={`py-2.5 px-3 rounded-xl text-xs font-black border transition-all cursor-pointer ${
+                    payoutFreq === 'WEEKLY' 
+                      ? 'bg-[#0056d2] text-white border-[#0056d2] shadow-xs' 
+                      : 'bg-[#f6f3f2] text-slate-700 border-[#e5e2e1]'
+                  }`}
+                >
+                  📅 Corte Semanal (Lunes)
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3 rounded-xl font-black text-xs shadow-xs active:scale-95 transition-all cursor-pointer mt-1"
+            >
+              GUARDAR CUENTA PARA DISPERSIÓN SPEI
+            </button>
+          </form>
+        </div>
+
         {/* Documentación & Validación Oficial */}
         <div className="bg-white rounded-[24px] p-4 border border-slate-200 shadow-xs space-y-2.5">
           <h3 className="text-xs font-black text-[#0056d2] uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">
             <FileText className="w-4 h-4 text-[#0056d2]" />
             <span>Documentación & Seguros</span>
           </h3>
+
 
           {[
             { label: 'Licencia de Conducir Tipo Moto', status: 'Vigente hasta 2028' },
