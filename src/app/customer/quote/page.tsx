@@ -128,12 +128,23 @@ function QuoteContent() {
     })
 
     setIsSubmitting(false)
-    if (result && result.service) {
-      router.push(`/customer/tracking/${result.service.id}`)
-    } else {
-      router.push('/customer/tracking/demo-123')
-    }
+
+    const orderId = result?.service?.id || 'demo-123'
+    const finalAmount = estimatedPrice || 63
+
+    // M9 — Guardar datos del pago en localStorage para la pantalla de pago
+    try {
+      localStorage.setItem('vamo_pending_payment', JSON.stringify({
+        orderId,
+        amount: finalAmount,
+        description: `Envío VAMO — ${origin || 'Origen'} ➔ ${destination || 'Destino'}`
+      }))
+    } catch {}
+
+    // Redirigir a pantalla de selección de método de pago (M9)
+    router.push(`/customer/payment/${orderId}`)
   }
+
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">

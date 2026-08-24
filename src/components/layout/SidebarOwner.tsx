@@ -18,7 +18,7 @@ import {
 import { usePathname } from 'next/navigation'
 
 interface SidebarOwnerProps {
-  activeTab: 'dashboard' | 'wallets' | 'rates' | 'payments' | 'agreements' | 'kyc'
+  activeTab: 'dashboard' | 'analytics' | 'billing' | 'wallets' | 'rates' | 'payments' | 'agreements' | 'kyc'
 }
 
 export function SidebarOwner({ activeTab }: SidebarOwnerProps) {
@@ -26,12 +26,16 @@ export function SidebarOwner({ activeTab }: SidebarOwnerProps) {
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard Financiero 360°', route: '/owner/dashboard', icon: TrendingUp },
+    { id: 'analytics', label: 'Analytics & Rendimiento', route: '/owner/analytics', icon: Sliders },
+    { id: 'billing', label: 'Finanzas & Split 50/50', route: '/owner/billing', icon: CreditCard },
     { id: 'wallets', label: 'Billeteras de Motociclistas', route: '/owner/wallets', icon: Wallet },
     { id: 'rates', label: 'Motor de Tarifas', route: '/owner/rates', icon: Sliders },
     { id: 'payments', label: 'Esquemas de Pago', route: '/owner/payments', icon: CreditCard },
     { id: 'agreements', label: 'Convenios Comerciales', route: '/owner/agreements', icon: Handshake },
     { id: 'kyc', label: 'Aprobación KYC', route: '/owner/kyc', icon: ShieldCheck }
   ]
+
+
 
   return (
     <>

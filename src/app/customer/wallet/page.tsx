@@ -6,10 +6,13 @@ import { CustomerLayout } from '@/components/layout/CustomerLayout'
 import { Wallet, CreditCard, PlusCircle, ArrowUpRight, ArrowDownLeft, Gift, ShieldCheck, Zap } from 'lucide-react'
 
 export default function CustomerWalletPage() {
-  const [balance] = React.useState(250.00)
-  const [points] = React.useState(420)
+  const [balance, setBalance] = React.useState(250.00)
+  const [points, setPoints] = React.useState(420)
+  const [showRechargeModal, setShowRechargeModal] = React.useState(false)
+  const [rechargeAmount, setRechargeAmount] = React.useState(200)
+  const [rechargeSuccess, setRechargeSuccess] = React.useState(false)
 
-  const transactions = [
+  const [transactions, setTransactions] = React.useState([
     {
       id: 'TX-101',
       type: 'RECHARGE',
@@ -34,7 +37,28 @@ export default function CustomerWalletPage() {
       amount: 7.25,
       isPositive: true
     }
-  ]
+  ])
+
+  const handleConfirmRecharge = () => {
+    setBalance(prev => prev + rechargeAmount)
+    setPoints(prev => prev + Math.floor(rechargeAmount * 0.10))
+    setTransactions(prev => [
+      {
+        id: `TX-${Date.now()}`,
+        type: 'RECHARGE',
+        title: 'Recarga Express VAMO Pay',
+        date: 'Hoy, ' + new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+        amount: rechargeAmount,
+        isPositive: true
+      },
+      ...prev
+    ])
+    setRechargeSuccess(true)
+    setTimeout(() => {
+      setRechargeSuccess(false)
+      setShowRechargeModal(false)
+    }, 1200)
+  }
 
   return (
     <CustomerLayout>
@@ -69,15 +93,22 @@ export default function CustomerWalletPage() {
           </div>
 
           <div className="flex items-center gap-3 pt-2 relative z-10">
-            <button className="flex-1 bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all">
+            <button 
+              onClick={() => setShowRechargeModal(true)}
+              className="flex-1 bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all cursor-pointer"
+            >
               <PlusCircle className="w-4 h-4" />
               Recargar Saldo
             </button>
-            <button className="flex-1 bg-white/10 hover:bg-white/20 text-white py-3 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-white/20 active:scale-95 transition-all">
+            <button 
+              onClick={() => setShowRechargeModal(true)}
+              className="flex-1 bg-white/10 hover:bg-white/20 text-white py-3 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-white/20 active:scale-95 transition-all cursor-pointer"
+            >
               <CreditCard className="w-4 h-4" />
-              Nueva Tarjeta
+              Recarga Rápida
             </button>
           </div>
+
 
           {/* Decoración de fondo */}
           <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-[#c3f400]/10 rounded-full blur-2xl pointer-events-none" />
@@ -146,7 +177,62 @@ export default function CustomerWalletPage() {
           </div>
         </div>
 
+        {/* Modal Recarga de Saldo */}
+        {showRechargeModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-[32px] max-w-sm w-full p-6 text-center space-y-4 shadow-2xl border border-[#e5e2e1] animate-fade-in">
+              <div className="w-14 h-14 bg-[#0056d2] text-white rounded-full flex items-center justify-center mx-auto shadow-md">
+                <PlusCircle className="w-8 h-8 text-[#c3f400]" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-black text-slate-900">Recargar VAMO Pay</h3>
+                <p className="text-xs font-semibold text-slate-500">Paga pedidos y servicios con 1 solo toque y gana 10% en puntos</p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 py-2">
+                {[100, 200, 500].map((amt) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => setRechargeAmount(amt)}
+                    className={`py-3 rounded-2xl text-xs font-black border transition-all cursor-pointer ${
+                      rechargeAmount === amt
+                        ? 'bg-[#c3f400] text-[#161e00] border-[#161e00] scale-105 shadow-xs'
+                        : 'bg-[#f6f3f2] text-slate-700 border-[#e5e2e1]'
+                    }`}
+                  >
+                    ${amt} MXN
+                  </button>
+                ))}
+              </div>
+
+              {rechargeSuccess ? (
+                <div className="bg-emerald-100 text-emerald-800 p-3.5 rounded-2xl text-xs font-black flex items-center justify-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                  <span>¡Recarga de ${rechargeAmount}.00 MXN Exitosa!</span>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <button
+                    onClick={handleConfirmRecharge}
+                    className="w-full bg-[#0056d2] hover:bg-[#0040a1] text-white py-3.5 rounded-full text-xs font-black shadow-md cursor-pointer active:scale-95 transition-all"
+                  >
+                    CONFIRMAR RECARGA CON TARJETA
+                  </button>
+                  <button
+                    onClick={() => setShowRechargeModal(false)}
+                    className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-full text-xs font-bold"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
       </div>
     </CustomerLayout>
   )
 }
+

@@ -4,8 +4,10 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import { CustomerLayout } from '@/components/layout/CustomerLayout'
 import { Truck, ShoppingBag, Route, Compass, Bell, ArrowRight, ChevronRight, Package, Wallet, User, Home, Star, CheckCircle2 } from 'lucide-react'
+import { RatingService } from '@/lib/services/ratingService'
 
 function RatingModalSection() {
+
   const [rating, setRating] = useState<number>(5)
   const [hoverRating, setHoverRating] = useState<number>(0)
   const [tip, setTip] = useState<number>(20)
@@ -15,6 +17,20 @@ function RatingModalSection() {
 
   if (!showModal) return null
 
+  const handleRatingSubmit = async () => {
+    await RatingService.submitRating({
+      orderCode: 'VAMO-8842',
+      raterRole: 'customer',
+      ratedRole: 'driver',
+      stars: rating,
+      tags: ['⚡ Súper rápido', '😊 Muy amable'],
+      comment,
+      tipAmount: tip,
+      ratedUserId: 'driver-carlos-1'
+    })
+    setSubmitted(true)
+  }
+
   if (submitted) {
     return (
       <div className="bg-[#e6f4ea] border border-[#34a853]/40 p-4 rounded-xl flex items-center justify-between shadow-xs">
@@ -22,7 +38,7 @@ function RatingModalSection() {
           <CheckCircle2 className="w-6 h-6 text-[#34a853]" />
           <div>
             <h4 className="text-sm font-bold text-[#1e8e3e]">¡Gracias por tu calificación!</h4>
-            <p className="text-xs text-slate-700">Tu retroalimentación fortalece el servicio de nuestros conductores VAMO.</p>
+            <p className="text-xs text-slate-700">Tu retroalimentación sumó <strong>+50 VAMO Coins</strong> a tu perfil.</p>
           </div>
         </div>
         <button 
@@ -34,6 +50,7 @@ function RatingModalSection() {
       </div>
     )
   }
+
 
   return (
     <div className="bg-white border-2 border-[#fddf33] p-5 rounded-2xl shadow-sm space-y-4">
@@ -95,8 +112,8 @@ function RatingModalSection() {
 
       <button
         type="button"
-        onClick={() => setSubmitted(true)}
-        className="w-full bg-[#0056d2] hover:bg-[#0040a1] text-white font-bold text-xs py-2.5 rounded-xl shadow-xs active:scale-98 transition-all"
+        onClick={handleRatingSubmit}
+        className="w-full bg-[#0056d2] hover:bg-[#0040a1] text-white font-bold text-xs py-2.5 rounded-xl shadow-xs active:scale-98 transition-all cursor-pointer"
       >
         Enviar Calificación ⭐
       </button>
@@ -248,12 +265,13 @@ export default function CustomerHomePage() {
             </p>
           </div>
           <Link 
-            href="/biz/catalog"
-            className="bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] px-5 py-3 rounded-full text-xs font-black shadow-sm active:scale-95 transition-all shrink-0"
+            href="/auth/register-biz"
+            className="bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] px-5 py-3 rounded-full text-xs font-black shadow-sm active:scale-95 transition-all shrink-0 cursor-pointer"
           >
             Afiliar mi Local 🏬
           </Link>
         </section>
+
 
       </div>
     </CustomerLayout>

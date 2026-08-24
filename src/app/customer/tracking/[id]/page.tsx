@@ -246,9 +246,12 @@ export default function CustomerTrackingPage() {
             <span className="flex items-center gap-1">
               <Clock className="w-4 h-4 text-[#0056d2]" /> Tiempo estimado: 4-8 min
             </span>
-            <span className="text-[#0056d2]">Monto en efectivo: $65.00</span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[11px] font-black">
+              💳 Pago: Confirmado
+            </span>
           </div>
         </div>
+
 
       </div>
     </CustomerLayout>

@@ -9,11 +9,15 @@ import { audioService } from '@/lib/services/audioService'
 import { createClient } from '@/lib/supabase/client'
 import { AntiFraudService, MAX_PIN_DISTANCE_METERS } from '@/lib/services/antiFraudService'
 import { WalletService } from '@/lib/services/walletService'
+import { RatingService } from '@/lib/services/ratingService'
+import { Star, ThumbsUp, Heart } from 'lucide-react'
 
 export default function DriverPodPage() {
   const [photoTaken, setPhotoTaken] = useState(false)
   const [completed, setCompleted] = useState(false)
+  const [showCustomerRating, setShowCustomerRating] = useState(false)
   const [pinCode, setPinCode] = useState('')
+
   const [pinError, setPinError] = useState<string | null>(null)
   
   // Coordenadas simuladas del repartidor y destino del cliente
@@ -41,31 +45,24 @@ export default function DriverPodPage() {
       return
     }
 
-    setCompleted(true)
-    audioService.playDeliveredFanfare()
-
-    // Registrar cobro en efectivo en la Billetera y evaluar límite de $1,500 MXN
-    await WalletService.recordOrderPayment(65.00, 'CASH', '#V-9042', 'driver-carlos-1')
-
-    // Actualizar estado en Supabase Realtime
-    try {
-      const supabase = createClient()
-      await supabase
-        .from('services')
-        .update({
-          status: 'ENTREGADO',
-          payment_status: 'PAID',
-          updated_at: new Date().toISOString()
-        })
-        .neq('status', 'ENTREGADO')
-    } catch (err) {
-      console.warn('⚡ Fallback silencioso de actualización Realtime en POD:', err)
-    }
-
+    // M12: Mostrar paso de calificación rápida al cliente
     setTimeout(() => {
-      router.push('/driver/home')
-    }, 2500)
+      setShowCustomerRating(true)
+    }, 1200)
   }
+
+  const handleDriverRatingSubmit = async (stars: number, tag: string) => {
+    await RatingService.submitRating({
+      orderCode: 'V-9042',
+      raterRole: 'driver',
+      ratedRole: 'customer',
+      stars,
+      tags: [tag],
+      raterUserId: 'driver-carlos-1'
+    })
+    router.push('/driver/home')
+  }
+
 
   return (
     <MobileDriverLayout>
@@ -194,7 +191,69 @@ export default function DriverPodPage() {
           </button>
         )}
 
+        {/* Modal: Calificación Rápida al Cliente (M12) */}
+        {showCustomerRating && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-[32px] max-w-sm w-full p-6 text-center space-y-4 shadow-2xl border border-[#e5e2e1] animate-fade-in">
+              <div className="w-14 h-14 bg-[#c3f400] text-[#161e00] rounded-full flex items-center justify-center mx-auto shadow-md">
+                <ThumbsUp className="w-8 h-8" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-black text-slate-900">¿Cómo fue tu experiencia con el cliente?</h3>
+                <p className="text-xs font-semibold text-slate-500">Cliente: María G. • #V-9042</p>
+              </div>
+
+              <div className="flex justify-center gap-2 py-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => handleDriverRatingSubmit(star, 'Cliente Excelente')}
+                    className="p-1 hover:scale-125 transition-transform cursor-pointer"
+                  >
+                    <Star className="w-8 h-8 text-[#fddf33] fill-[#fddf33]" />
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  onClick={() => handleDriverRatingSubmit(5, 'Puntual en entrega')}
+                  className="bg-[#f6f3f2] hover:bg-[#c3f400] hover:text-[#161e00] text-slate-700 py-2.5 px-3 rounded-xl text-xs font-black transition-all"
+                >
+                  ⚡ Puntual
+                </button>
+                <button
+                  onClick={() => handleDriverRatingSubmit(5, 'Pago exacto')}
+                  className="bg-[#f6f3f2] hover:bg-[#c3f400] hover:text-[#161e00] text-slate-700 py-2.5 px-3 rounded-xl text-xs font-black transition-all"
+                >
+                  💵 Pago Exacto
+                </button>
+                <button
+                  onClick={() => handleDriverRatingSubmit(5, 'Muy amable')}
+                  className="bg-[#f6f3f2] hover:bg-[#c3f400] hover:text-[#161e00] text-slate-700 py-2.5 px-3 rounded-xl text-xs font-black transition-all"
+                >
+                  😊 Muy Amable
+                </button>
+                <button
+                  onClick={() => handleDriverRatingSubmit(5, 'Buena comunicación')}
+                  className="bg-[#f6f3f2] hover:bg-[#c3f400] hover:text-[#161e00] text-slate-700 py-2.5 px-3 rounded-xl text-xs font-black transition-all"
+                >
+                  💬 Buena Comunicación
+                </button>
+              </div>
+
+              <button
+                onClick={() => router.push('/driver/home')}
+                className="w-full bg-[#161e00] text-white py-3 rounded-full text-xs font-black mt-2"
+              >
+                Omitir y Volver al Mapa
+              </button>
+            </div>
+          </div>
+        )}
+
       </div>
     </MobileDriverLayout>
   )
 }
+

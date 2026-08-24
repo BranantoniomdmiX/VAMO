@@ -6,6 +6,7 @@ import { Bike, Power, Wallet, Trophy, ArrowRight, ShieldCheck, MapPin, Flame, Aw
 import Link from 'next/link'
 import VamoMapLibre from '@/components/map/VamoMapLibre'
 import { gpsSocketService } from '@/lib/services/gpsSocketService'
+import { PushNotificationBanner } from '@/components/ui/PushNotificationBanner'
 
 export default function DriverHomePage() {
 
@@ -137,7 +138,11 @@ export default function DriverHomePage() {
           </Link>
         </header>
 
+        {/* Banner de Notificaciones Push para Conductores */}
+        <PushNotificationBanner role="driver" />
+
         {/* Switch Gigante DISPONIBLE / NO DISPONIBLE (Verde VAMO Oficial + Cero Desbordes) */}
+
         <div 
           onClick={handleToggleAvailable}
           className={`

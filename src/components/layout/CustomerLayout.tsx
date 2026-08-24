@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Home, Compass, ShoppingBag, MapPin, User, Search, Bell, Tag, ListFilter, Package, Wallet } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
+import { PushNotificationBanner } from '@/components/ui/PushNotificationBanner'
 
 export function CustomerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -54,8 +55,10 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8 pb-24 md:pb-12">
+        <PushNotificationBanner role="customer" />
         {children}
       </main>
+
 
       {/* Navigation Bar Inferior Móvil / Tablet Sticky con Safe Area para iOS */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-[#e5e2e1] px-4 py-2 ios-safe-bottom flex justify-around items-center z-50 rounded-t-3xl shadow-[0_-4px_15px_rgba(0,0,0,0.05)]">
