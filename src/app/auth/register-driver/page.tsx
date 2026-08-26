@@ -2,9 +2,10 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Bike, Camera, CheckCircle2, Building2, UserCheck, ShieldCheck, Lock, Mail, Loader2, AlertCircle, QrCode, FileText, ArrowRight } from 'lucide-react'
+import { ArrowLeft, Bike, Camera, CheckCircle2, Building2, UserCheck, ShieldCheck, Lock, Mail, Loader2, AlertCircle, QrCode, FileText, ArrowRight, PenTool } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { LegalAgreementModal } from '@/components/legal/LegalAgreementModal'
 
 export default function RegisterDriverPage() {
   const [name, setName] = useState('')
@@ -19,11 +20,33 @@ export default function RegisterDriverPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [statusNote, setStatusNote] = useState<string>('')
+  
+  // Estado del Contrato Legal NOM-151
+  const [showLegalModal, setShowLegalModal] = useState(false)
+  const [signedContract, setSignedContract] = useState<{
+    contractId: string
+    signedName: string
+    signedDate: string
+    digitalHash: string
+  } | null>(null)
+
   const router = useRouter()
   const supabase = createClient()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handlePreSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!name || !email || !password || !phone || !license) {
+      setErrorMessage('Por favor completa todos los campos obligatorios.')
+      return
+    }
+    if (!signedContract) {
+      setShowLegalModal(true)
+      return
+    }
+    executeRegistration()
+  }
+
+  const executeRegistration = async (contractData = signedContract) => {
     setIsLoading(true)
     setErrorMessage(null)
 
@@ -145,7 +168,7 @@ export default function RegisterDriverPage() {
           <p className="text-xs sm:text-sm font-semibold text-[#737785]">Genera ingresos repartiendo con la red logística VAMO</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white p-6 sm:p-8 rounded-[32px] border border-[#e5e2e1] shadow-sm space-y-4">
+        <form onSubmit={handlePreSubmit} className="bg-white p-6 sm:p-8 rounded-[32px] border border-[#e5e2e1] shadow-sm space-y-4">
           
           {errorMessage && (
             <div className="bg-red-50 border border-red-200 text-red-700 p-3.5 rounded-2xl text-xs font-bold flex items-center gap-2.5">
@@ -279,6 +302,44 @@ export default function RegisterDriverPage() {
             />
           </div>
 
+          {/* Bloque de Conformidad Contractual NOM-151 */}
+          <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <span className="font-extrabold text-slate-800 flex items-center gap-1.5">
+                <FileText className="w-4 h-4 text-[#0056d2]" />
+                Contrato Digital NOM-151
+              </span>
+              {signedContract ? (
+                <span className="text-[10px] font-black bg-[#c3f400] text-[#161e00] px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> FIRMADO
+                </span>
+              ) : (
+                <span className="text-[10px] font-black bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">
+                  PENDIENTE DE FIRMA
+                </span>
+              )}
+            </div>
+
+            <p className="text-[11px] text-slate-600 font-medium">
+              {signedContract ? (
+                <span>✓ Folio certificado: <strong className="font-mono text-[#0056d2]">{signedContract.contractId}</strong> (0% comisión garantizado).</span>
+              ) : (
+                <span>Al continuar, firmarás digitalmente tu acuerdo de <strong>0% comisión por viaje</strong> y aportación de conectividad.</span>
+              )}
+            </p>
+
+            {!signedContract && (
+              <button
+                type="button"
+                onClick={() => setShowLegalModal(true)}
+                className="w-full bg-white border border-[#0056d2] text-[#0056d2] hover:bg-blue-50 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                <PenTool className="w-3.5 h-3.5" />
+                <span>Leer y Firmar Contrato Digital</span>
+              </button>
+            )}
+          </div>
+
           {success ? (
             <div className="bg-[#c3f400] text-[#161e00] p-4 rounded-2xl text-center font-bold text-xs space-y-1 animate-bounce">
               <div className="flex items-center justify-center gap-1.5 font-black">
@@ -312,6 +373,19 @@ export default function RegisterDriverPage() {
       <footer className="text-center text-xs font-semibold text-[#737785]">
         VAMO Rider Partner &bull; 2026
       </footer>
+
+      {/* Modal de Firma de Contrato Digital NOM-151 */}
+      <LegalAgreementModal
+        isOpen={showLegalModal}
+        onClose={() => setShowLegalModal(false)}
+        agreementType="DRIVER"
+        userName={name || 'Conductor VAMO'}
+        onAcceptAndSign={(contractData) => {
+          setSignedContract(contractData)
+          setShowLegalModal(false)
+          executeRegistration(contractData)
+        }}
+      />
     </div>
   )
 }

@@ -5,10 +5,12 @@ import Link from 'next/link'
 import { 
   ArrowLeft, Store, CheckCircle2, Building2, ShieldCheck, 
   Lock, Mail, Phone, User, MapPin, Loader2, AlertCircle, 
-  Sparkles, QrCode, ArrowRight, Utensils, Pill, Wrench, ShoppingBag
+  Sparkles, QrCode, ArrowRight, Utensils, Pill, Wrench, ShoppingBag,
+  FileText, PenTool
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { LegalAgreementModal } from '@/components/legal/LegalAgreementModal'
 
 export default function RegisterBizPage() {
   const router = useRouter()
@@ -35,6 +37,15 @@ export default function RegisterBizPage() {
   const [success, setSuccess] = useState(false)
   const [kdsToken, setKdsToken] = useState<string>('')
 
+  // Estado del Contrato Legal NOM-151
+  const [showLegalModal, setShowLegalModal] = useState(false)
+  const [signedContract, setSignedContract] = useState<{
+    contractId: string
+    signedName: string
+    signedDate: string
+    digitalHash: string
+  } | null>(null)
+
   const categories = [
     { label: 'Restaurante / Comida', icon: Utensils },
     { label: 'Farmacia / Salud', icon: Pill },
@@ -42,8 +53,20 @@ export default function RegisterBizPage() {
     { label: 'Abarrotes / Comercio General', icon: ShoppingBag }
   ]
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handlePreSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!ownerName || !email || !password || !phone || !storeName || !address) {
+      setErrorMessage('Por favor completa todos los campos requeridos.')
+      return
+    }
+    if (!signedContract) {
+      setShowLegalModal(true)
+      return
+    }
+    executeRegistration()
+  }
+
+  const executeRegistration = async (contractData = signedContract) => {
     setIsLoading(true)
     setErrorMessage(null)
 
@@ -237,7 +260,7 @@ export default function RegisterBizPage() {
               </div>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handlePreSubmit} className="space-y-5">
               
               {/* Modalidad de Afiliación (Tabs) */}
               <div className="space-y-2">
@@ -412,6 +435,44 @@ export default function RegisterBizPage() {
                 </div>
               </div>
 
+              {/* Bloque de Conformidad Contractual NOM-151 */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-extrabold text-slate-800 flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-[#0056d2]" />
+                    Convenio Comercial NOM-151
+                  </span>
+                  {signedContract ? (
+                    <span className="text-[10px] font-black bg-[#c3f400] text-[#161e00] px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> FIRMADO
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-black bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">
+                      PENDIENTE DE FIRMA
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-[11px] text-slate-600 font-medium">
+                  {signedContract ? (
+                    <span>✓ Folio certificado: <strong className="font-mono text-[#0056d2]">{signedContract.contractId}</strong> (0% comisión sobre ventas garantizado).</span>
+                  ) : (
+                    <span>Al afiliarte, firmarás el acuerdo de <strong>0% comisión sobre tus platillos</strong> y membresía de visibilidad en Radar.</span>
+                  )}
+                </p>
+
+                {!signedContract && (
+                  <button
+                    type="button"
+                    onClick={() => setShowLegalModal(true)}
+                    className="w-full bg-white border border-[#0056d2] text-[#0056d2] hover:bg-blue-50 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <PenTool className="w-3.5 h-3.5" />
+                    <span>Leer y Firmar Convenio Comercial</span>
+                  </button>
+                )}
+              </div>
+
               {/* Botón de Envío */}
               <button 
                 type="submit"
@@ -446,6 +507,20 @@ export default function RegisterBizPage() {
       <footer className="text-center text-xs font-semibold text-slate-400">
         VAMO Store Partner &bull; Sistema Operativo SaaS para Motomandados &bull; 2026
       </footer>
+
+      {/* Modal de Firma de Contrato Digital NOM-151 */}
+      <LegalAgreementModal
+        isOpen={showLegalModal}
+        onClose={() => setShowLegalModal(false)}
+        agreementType="MERCHANT"
+        userName={ownerName || 'Titular de Comercio'}
+        bizName={storeName || 'Establecimiento Comercial'}
+        onAcceptAndSign={(contractData) => {
+          setSignedContract(contractData)
+          setShowLegalModal(false)
+          executeRegistration(contractData)
+        }}
+      />
     </div>
   )
 }
