@@ -169,8 +169,8 @@ export default function DriverWalletPage() {
               </span>
             </div>
 
-            <p className="text-[11px] text-slate-600 font-semibold">
-              Tu membresía te da acceso a viajes con <strong>0% comisión</strong>, clientes en radar y soporte en ruta.
+            <p className="text-[11px] text-slate-600 font-semibold leading-relaxed">
+              Tu aportación de conectividad (<span className="text-emerald-700 font-bold">$14 MXN/día</span>) sostiene el GPS satelital y el soporte de tu base local. <strong>¡Tú conservas el 100% de tus tarifas de entrega y propinas con 0% de comisión por viaje!</strong>
             </p>
 
             <div className="grid grid-cols-2 gap-2 pt-1">

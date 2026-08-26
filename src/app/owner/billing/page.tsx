@@ -165,13 +165,13 @@ export default function OwnerBillingAndPricingPage() {
                       <Bike className="w-5 h-5" />
                     </div>
                     <div>
-                      <strong className="text-sm font-black text-slate-900 block">Cuota Semanal de Motociclista</strong>
-                      <span className="text-[11px] font-semibold text-slate-500">Motos con acceso ilimitado a viajes</span>
+                      <strong className="text-sm font-black text-slate-900 block">Aportación de Conectividad Satelital</strong>
+                      <span className="text-[11px] font-semibold text-slate-500">Acceso a viajes & 0% de comisión por entrega</span>
                     </div>
                   </div>
                   <div className="text-right">
                     <span className="text-xl font-black text-[#0056d2]">${driverWeeklyTotal} MXN</span>
-                    <span className="text-[10px] font-bold text-slate-400 block">por semana</span>
+                    <span className="text-[10px] font-bold text-slate-400 block">por semana ($14/día)</span>
                   </div>
                 </div>
 
@@ -187,12 +187,14 @@ export default function OwnerBillingAndPricingPage() {
 
                 <div className="grid grid-cols-2 gap-2 text-xs font-bold text-slate-700 bg-white p-3 rounded-2xl border border-[#e5e2e1]">
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase font-black">Tu Ganancia Neta:</span>
+                    <span className="text-[10px] text-slate-400 block uppercase font-black">Tu Fondo Operativo Local:</span>
                     <strong className="text-emerald-700 font-black">${(driverWeeklyTotal * 0.5).toFixed(2)} MXN/sem</strong>
+                    <span className="text-[9px] text-slate-400 block font-normal">Base, café & atención 24/7</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase font-black">Infraestructura y App:</span>
-                    <strong className="text-slate-700 font-black">Servidores & GPS</strong>
+                    <span className="text-[10px] text-slate-400 block uppercase font-black">Infraestructura Nube VAMO:</span>
+                    <strong className="text-slate-700 font-black">Servidores, GPS & App</strong>
+                    <span className="text-[9px] text-slate-400 block font-normal">Soporte tecnológico continuo</span>
                   </div>
                 </div>
               </div>
@@ -206,7 +208,7 @@ export default function OwnerBillingAndPricingPage() {
                     </div>
                     <div>
                       <strong className="text-sm font-black text-slate-900 block">Puestos Callejeros & Taquerías</strong>
-                      <span className="text-[11px] font-semibold text-slate-500">Radar Urbano con 50 artículos más vendidos</span>
+                      <span className="text-[11px] font-semibold text-slate-500">Membresía Radar & Comanda Digital (0% comisión)</span>
                     </div>
                   </div>
                   <div className="text-right">
@@ -227,12 +229,14 @@ export default function OwnerBillingAndPricingPage() {
 
                 <div className="grid grid-cols-2 gap-2 text-xs font-bold text-slate-700 bg-white p-3 rounded-2xl border border-[#e5e2e1]">
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase font-black">Tu Ganancia Neta:</span>
+                    <span className="text-[10px] text-slate-400 block uppercase font-black">Tu Coordinación de Plaza:</span>
                     <strong className="text-emerald-700 font-black">${(microMonthlyTotal * 0.5).toFixed(2)} MXN/mes</strong>
+                    <span className="text-[9px] text-slate-400 block font-normal">Motos garantizadas en puerta</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase font-black">Infraestructura y App:</span>
-                    <strong className="text-slate-700 font-black">Radar de Clientes</strong>
+                    <span className="text-[10px] text-slate-400 block uppercase font-black">Tecnología Radar & KDS:</span>
+                    <strong className="text-slate-700 font-black">Catálogo & Comandas</strong>
+                    <span className="text-[9px] text-slate-400 block font-normal">Sin comisiones del 30%</span>
                   </div>
                 </div>
               </div>

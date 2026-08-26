@@ -115,22 +115,25 @@ export default function BizFinancesPage() {
             <div className="bg-slate-900 text-white rounded-2xl p-4 space-y-2 text-left border border-slate-800 shadow-xs">
               <div className="flex justify-between items-center">
                 <span className="text-[10px] font-black bg-[#c3f400] text-[#161e00] px-2.5 py-0.5 rounded-full uppercase">
-                  MEMBRESÍA COMERCIAL VAMO
+                  MEMBRESÍA COMERCIAL & RADAR VAMO
                 </span>
-                <strong className="text-xs font-black text-[#c3f400]">Cuota Fija Mensual Sin Comisiones</strong>
+                <strong className="text-xs font-black text-[#c3f400]">0% de Comisión Sobre Tus Ventas</strong>
               </div>
 
               <div className="space-y-1 text-[11px] text-slate-300 font-semibold leading-relaxed">
-                <p className="font-bold text-white">✨ Tus Beneficios como Comercio Afiliado:</p>
-                <ul className="list-disc list-inside space-y-0.5 text-slate-300">
-                  <li><strong>Visibilidad en Radar Local:</strong> Tus 50 productos más vendidos con pedido 1-Tap.</li>
-                  <li><strong>Comandera de Cocina KDS:</strong> Control de pedidos en tiempo real en tablet o celular.</li>
-                  <li><strong>Flotilla Garantizada:</strong> Repartidores en menos de 15 minutos en tu puerta.</li>
+                <p className="font-bold text-white">✨ ¿Por qué VAMO es diferente?</p>
+                <p className="text-slate-300">
+                  Mientras otras apps te quitan hasta el <strong>30% de cada platillo</strong> (perdiendo hasta $9,000 en comisiones por cada $30,000 vendidos), en VAMO <strong>el 100% de tu venta es tuyo</strong>. Solo aportas una cuota fija de mantenimiento para sostener:
+                </p>
+                <ul className="list-disc list-inside space-y-0.5 text-slate-300 pt-1">
+                  <li><strong>Visibilidad en Radar Local:</strong> Tu negocio geolocalizado en los celulares de tu ciudad.</li>
+                  <li><strong>Comandera Digital KDS:</strong> Pantalla táctil de pedidos sin costo adicional de software.</li>
+                  <li><strong>Flotilla Garantizada en Puerta:</strong> Motos listas para entregar sin tener que contratar personal propio.</li>
                 </ul>
               </div>
 
               <div className="pt-1 text-[10px] text-slate-400 border-t border-slate-800">
-                <span>💡 <strong>Formas de Pago:</strong> Se descuenta automáticamente de tus ventas con tarjeta del fin de mes o puedes pagarla <strong>en Efectivo directamente en la Base Operativa</strong> o con el supervisor de zona.</span>
+                <span>💡 <strong>Flexibilidad de Pago:</strong> Descuento automático de ventas digitales o pago en Efectivo directamente en la Base Operativa con tu recibo foliado.</span>
               </div>
             </div>
 
