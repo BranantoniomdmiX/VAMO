@@ -126,7 +126,7 @@ export default function OwnerAgreementsPage() {
             <h3 className="text-lg font-extrabold text-[#1c1b1b]">Registrar Nuevo Convenio Comercial</h3>
 
             <div className="space-y-2">
-              <label className="text-xs font-extrabold text-[#1c1b1b] uppercase">Nombre del Comercio o Franquicia</label>
+              <label className="text-xs font-extrabold text-[#1c1b1b] uppercase">Nombre del Comercio o Cadena Local</label>
               <input 
                 type="text"
                 required

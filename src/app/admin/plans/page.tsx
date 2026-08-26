@@ -29,9 +29,9 @@ export default function AdminPlansPage() {
     {
       id: 3,
       type: 'MERCHANT_RADAR',
-      name: 'Suscripción Radar para Comercios & Franquicias',
+      name: 'Suscripción Radar para Comercios & Cadenas',
       price: '$899 MXN / mes (o $49/chofer encargo)',
-      desc: 'Para restaurantes, farmacias, refaccionarias o franquicias que desean aparecer en el Radar Urbano sin o con convenio.',
+      desc: 'Para restaurantes, farmacias, refaccionarias o negocios que desean aparecer en el Radar Urbano con o sin convenio logístico.',
       badge: 'RADAR AFILIADO',
       badgeBg: 'bg-[#fddf33] text-[#726200]',
       features: ['Visibilidad en el Mapa Radar de Clientes', 'Publicación de Menú & Catálogo', 'Auto-despacho de repartidores VAMO', 'Herramienta de Pedidos B2B entre Locales']

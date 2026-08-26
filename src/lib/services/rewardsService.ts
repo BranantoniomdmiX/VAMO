@@ -44,7 +44,7 @@ export const REWARD_CATALOG: RewardItem[] = [
     pointsCost: 300,
     realCostMxn: 25,
     description: 'Aplica un descuento directo del 50% en tu cuota operativa semanal.',
-    sponsor: 'VAMO Franquicia',
+    sponsor: 'Socio Comercial VAMO',
     financing: 'FRANCHISE_100',
     badge: 'CUOTA ⚡',
     availableStock: 100
@@ -88,7 +88,7 @@ export const REWARD_CATALOG: RewardItem[] = [
     availableStock: 10
   },
 
-  // 3. VAMO PARTNER (Para Franquiciatarios y Bases)
+  // 3. VAMO PARTNER (Para Socios Comerciales y Bases)
   {
     id: 'rew-partner-1',
     branch: 'PARTNER',

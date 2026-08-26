@@ -14,7 +14,7 @@ export interface FranchiseEntity {
   planName: string
   entryFee: number // Canon inicial de setup ($80k - $186k)
   monthlySaaS: number // Iguala mensual ($3k - $5k)
-  royaltyPerTrip: number // Regalía por viaje ($2 - $3)
+  royaltyPerTrip: number // Cuota de sistema por viaje ($2 - $3)
   billingCycle: 'MENSUAL' | 'SEMANAL'
   totalDue: number
   paymentStatus: 'PAGADO' | 'PENDIENTE'
@@ -26,11 +26,11 @@ export default function AdminFleetsPage() {
     {
       id: 1,
       type: 'FRANCHISE_TERRITORIAL',
-      name: 'Franquicia VAMO Celaya (Plaza Piloto)',
-      owner: 'Ing. Roberto Méndez (Franquiciatario Titular)',
+      name: 'Plaza Celaya (Socio Comercial Piloto)',
+      owner: 'Ing. Roberto Méndez (Socio Comercial Titular)',
       city: 'Celaya, Guanajuato',
       riders: 45,
-      planName: 'Modalidad A: Franquicia Territorial Exclusiva',
+      planName: 'Modalidad A: Renta de Sistema Territorial Exclusivo',
       entryFee: 120000,
       monthlySaaS: 4500,
       royaltyPerTrip: 2.50,
@@ -88,12 +88,12 @@ export default function AdminFleetsPage() {
     const newFranchise: FranchiseEntity = {
       id: Date.now(),
       type: newFranchiseType,
-      name: newFranchiseType === 'FRANCHISE_TERRITORIAL' ? `Franquicia VAMO ${newCityName}` : `${newCityName} Logística`,
+      name: newFranchiseType === 'FRANCHISE_TERRITORIAL' ? `Plaza VAMO ${newCityName}` : `${newCityName} Logística`,
       owner: newFranchiseeName,
       city: newCityName,
       riders: newInitialRiders,
       planName: newFranchiseType === 'FRANCHISE_TERRITORIAL' 
-        ? 'Modalidad A: Franquicia Territorial Exclusiva'
+        ? 'Modalidad A: Renta de Sistema Territorial Exclusivo'
         : newFranchiseType === 'SAAS_FLEET'
         ? 'Modalidad B: Renta SaaS Flota Externa'
         : 'Modalidad C: Módulo Self-Delivery',
@@ -123,8 +123,8 @@ export default function AdminFleetsPage() {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-white border-b border-[#e5e2e1] px-4 md:px-8 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
           <div>
-            <h1 className="text-xl md:text-2xl font-extrabold text-[#1c1b1b]">Gestor de Franquicias Territoriales & SaaS</h1>
-            <p className="text-xs text-[#737785] font-semibold">Expansión multi-ciudad: Franquicias exclusivas, Flotas externas y Self-Delivery</p>
+            <h1 className="text-xl md:text-2xl font-extrabold text-[#1c1b1b]">Gestor de Socios Comerciales & Renta SaaS</h1>
+            <p className="text-xs text-[#737785] font-semibold">Expansión multi-ciudad: Socios Comerciales exclusivos, Flotas externas y Self-Delivery</p>
           </div>
 
           <button
@@ -132,7 +132,7 @@ export default function AdminFleetsPage() {
             className="bg-[#0056d2] hover:bg-[#0040a1] text-white px-5 py-2.5 rounded-full font-black text-xs shadow-md active:scale-95 transition-all flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
-            <span>+ ALTA DE NUEVA FRANQUICIA / CIUDAD</span>
+            <span>+ ALTA DE NUEVO SOCIO COMERCIAL / PLAZA</span>
           </button>
         </header>
 
@@ -147,7 +147,7 @@ export default function AdminFleetsPage() {
               </div>
               <h2 className="text-xl font-extrabold text-white">Red de {fleets.length} Plazas Activas en México</h2>
               <p className="text-xs text-slate-300">
-                Setup inicial ($80k-$186k) + Iguala SaaS recurrente ($3k-$5k/mes) + Regalías por viaje ($2-$3 MXN).
+                Setup inicial ($80k-$186k) + Iguala SaaS recurrente ($3k-$5k/mes) + Cuota de sistema por viaje ($2-$3 MXN).
               </p>
             </div>
 
@@ -167,7 +167,7 @@ export default function AdminFleetsPage() {
             </div>
           </div>
 
-          {/* Listado de Franquicias y Plazas */}
+          {/* Listado de Socios Comerciales y Plazas */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {fleets.map(f => (
               <div key={f.id} className="bg-white p-6 rounded-[32px] border border-[#e5e2e1] shadow-sm space-y-5 flex flex-col justify-between hover:shadow-md transition-all">
@@ -180,7 +180,7 @@ export default function AdminFleetsPage() {
                         ? 'bg-[#0056d2]/10 text-[#0056d2]'
                         : 'bg-[#726200]/10 text-[#726200]'
                     }`}>
-                      {f.type === 'FRANCHISE_TERRITORIAL' ? '👑 FRANQUICIA TERRITORIAL' : f.type === 'SAAS_FLEET' ? '🏍️ RENTA SAAS FLOTA' : '🏪 SELF-DELIVERY'}
+                      {f.type === 'FRANCHISE_TERRITORIAL' ? '👑 SOCIO COMERCIAL EXCLUSIVO' : f.type === 'SAAS_FLEET' ? '🏍️ RENTA SAAS FLOTA' : '🏪 SELF-DELIVERY'}
                     </span>
 
                     <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
@@ -206,7 +206,7 @@ export default function AdminFleetsPage() {
                     )}
 
                     <p className="text-[#1c1b1b] font-bold bg-[#f6f3f2] px-2.5 py-1.5 rounded-xl">
-                      🏍️ {f.riders} Choferes en Operación &bull; Regalía: ${f.royaltyPerTrip.toFixed(2)}/viaje
+                      🏍️ {f.riders} Choferes en Operación &bull; Cuota SaaS: ${f.royaltyPerTrip.toFixed(2)}/viaje
                     </p>
                   </div>
 
@@ -237,12 +237,12 @@ export default function AdminFleetsPage() {
           </div>
         </main>
 
-        {/* Modal de Alta de Nueva Franquicia / Ciudad */}
+        {/* Modal de Alta de Nuevo Socio Comercial / Plaza */}
         {isCreatingFranchise && (
           <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white rounded-[32px] max-w-lg w-full p-6 sm:p-8 space-y-5 shadow-2xl animate-fade-in border border-[#e5e2e1]">
               <div className="space-y-1">
-                <h3 className="text-lg font-extrabold text-[#1c1b1b]">Dar de Alta Nueva Plaza / Franquicia</h3>
+                <h3 className="text-lg font-extrabold text-[#1c1b1b]">Dar de Alta Nueva Plaza / Socio Comercial</h3>
                 <p className="text-xs font-semibold text-[#737785]">Expansión territorial del ecosistema VAMO</p>
               </div>
 
@@ -254,7 +254,7 @@ export default function AdminFleetsPage() {
                     onChange={(e) => setNewFranchiseType(e.target.value as any)}
                     className="w-full bg-[#f6f3f2] border border-[#e5e2e1] rounded-2xl px-4 py-2.5 outline-none font-bold text-xs"
                   >
-                    <option value="FRANCHISE_TERRITORIAL">Modalidad A: Franquicia Territorial Exclusiva VAMO ($80k-$186k setup)</option>
+                    <option value="FRANCHISE_TERRITORIAL">Modalidad A: Socio Comercial Territorial Exclusivo VAMO ($80k-$186k setup)</option>
                     <option value="SAAS_FLEET">Modalidad B: Renta SaaS Flota Externa / Marca Blanca ($150-$300/moto)</option>
                     <option value="SELF_DELIVERY">Modalidad C: Módulo Self-Delivery para Cadenas ($300-$899/mes)</option>
                   </select>
@@ -274,7 +274,7 @@ export default function AdminFleetsPage() {
                   </div>
 
                   <div>
-                    <label className="text-[#737785] block mb-1">Nombre del Inversionista / Dueño</label>
+                    <label className="text-[#737785] block mb-1">Nombre del Socio Comercial / Dueño</label>
                     <input
                       type="text"
                       value={newFranchiseeName}
@@ -323,7 +323,7 @@ export default function AdminFleetsPage() {
                     type="submit"
                     className="flex-1 bg-[#0056d2] text-white py-3.5 rounded-full font-black text-xs shadow-md active:scale-95"
                   >
-                    CREAR Y ACTIVAR FRANQUICIA
+                    CREAR Y ACTIVAR SOCIO COMERCIAL
                   </button>
                   <button 
                     type="button"

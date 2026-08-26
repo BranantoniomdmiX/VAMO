@@ -69,7 +69,7 @@ export const vamoDispatchEngine = {
     // Rating
     score += (params.riderRating - 4.0) * 20
 
-    // Misma franquicia preferencia
+    // Mismo Socio Comercial / Plaza preferencia
     if (params.isSameFranchise) score += 15
 
     // Penalización por sobrecarga de efectivo COD

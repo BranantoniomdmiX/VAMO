@@ -46,7 +46,7 @@ export class AuthService {
     }
   }
 
-  // Generador de Llaves de Activación para el Franquiciatario
+  // Generador de Llaves de Activación para el Socio Comercial
   static generateActivationKey(franchiseId: string, franchiseName: string, role: 'DRIVER' | 'OPERATOR' | 'MERCHANT', createdBy: string): ActivationKey {
     const randomDigits = Math.floor(1000 + Math.random() * 9000)
     const prefix = franchiseId.slice(0, 3).toUpperCase()
@@ -78,18 +78,18 @@ export class AuthService {
       {
         key: 'CEL-4982',
         franchiseId: 'frq-celaya-1',
-        franchiseName: 'Franquicia Celaya Centro',
+        franchiseName: 'Plaza Celaya Centro',
         role: 'DRIVER',
-        createdBy: 'Dueño Celaya',
+        createdBy: 'Socio Comercial Celaya',
         createdAt: new Date().toISOString(),
         isUsed: false
       },
       {
         key: 'CEL-7120',
         franchiseId: 'frq-celaya-1',
-        franchiseName: 'Franquicia Celaya Centro',
+        franchiseName: 'Plaza Celaya Centro',
         role: 'OPERATOR',
-        createdBy: 'Dueño Celaya',
+        createdBy: 'Socio Comercial Celaya',
         createdAt: new Date().toISOString(),
         isUsed: true,
         usedBy: 'Operador Turno Matutino'
@@ -102,7 +102,7 @@ export class AuthService {
     const keys = this.getActivationKeys()
     const found = keys.find(k => k.key.trim().toUpperCase() === key.trim().toUpperCase())
     if (!found) {
-      return { valid: false, message: 'Llave de activación no encontrada. Pídela a tu Franquiciatario.' }
+      return { valid: false, message: 'Llave de activación no encontrada. Pídela a tu Socio Comercial.' }
     }
     if (found.isUsed) {
       return { valid: false, message: 'Esta llave ya fue utilizada previamente.' }

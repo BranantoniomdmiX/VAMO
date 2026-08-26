@@ -9,11 +9,11 @@ import {
 } from 'lucide-react'
 
 export default function OwnerBillingAndPricingPage() {
-  // Configuración de Cuotas por Zona (Configurable por el Socio Operador)
-  const [driverWeeklyTotal, setDriverWeeklyTotal] = useState<number>(100) // $50 Owner + $50 VAMO
-  const [microMonthlyTotal, setMicroMonthlyTotal] = useState<number>(100)  // $50 Owner + $50 VAMO
-  const [standardMonthlyTotal, setStandardMonthlyTotal] = useState<number>(300) // $150 Owner + $150 VAMO
-  const [restaurantMonthlyTotal, setRestaurantMonthlyTotal] = useState<number>(700) // $350 Owner + $350 VAMO
+  // Configuración de Cuotas por Zona (Configurable por el Socio Comercial)
+  const [driverWeeklyTotal, setDriverWeeklyTotal] = useState<number>(100) // $50 Socio Comercial + $50 VAMO
+  const [microMonthlyTotal, setMicroMonthlyTotal] = useState<number>(100)  // $50 Socio Comercial + $50 VAMO
+  const [standardMonthlyTotal, setStandardMonthlyTotal] = useState<number>(300) // $150 Socio Comercial + $150 VAMO
+  const [restaurantMonthlyTotal, setRestaurantMonthlyTotal] = useState<number>(600) // $300 Socio Comercial + $300 VAMO
 
   // Simulador de volumen de la flotilla en la plaza
   const [driverCount, setDriverCount] = useState<number>(24)

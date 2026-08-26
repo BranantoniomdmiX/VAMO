@@ -47,8 +47,8 @@ export default function VamoClearingLedgerPage() {
   const [clearingList, setClearingList] = React.useState<ClearingRecord[]>([
     {
       id: 'CLR-2026-001',
-      debtorFranchise: 'Franquicia Celaya Centro (A)',
-      creditorFranchise: 'Franquicia Querétaro Poniente (B)',
+      debtorFranchise: 'Socio Comercial Celaya Centro (A)',
+      creditorFranchise: 'Socio Comercial Querétaro Poniente (B)',
       ordersCount: 48,
       grossAmount: 3840.00,
       netPayable: 1920.00, // 50% por ejecución de motos prestadas
@@ -57,8 +57,8 @@ export default function VamoClearingLedgerPage() {
     },
     {
       id: 'CLR-2026-002',
-      debtorFranchise: 'Franquicia Irapuato Norte (C)',
-      creditorFranchise: 'Franquicia Celaya Centro (A)',
+      debtorFranchise: 'Socio Comercial Irapuato Norte (C)',
+      creditorFranchise: 'Socio Comercial Celaya Centro (A)',
       ordersCount: 14,
       grossAmount: 1120.00,
       netPayable: 560.00,
@@ -73,7 +73,7 @@ export default function VamoClearingLedgerPage() {
       id: 'LDG-948102',
       timestamp: '2026-08-20 11:45:10',
       entryType: 'delivery_income',
-      franchise: 'Franquicia Celaya Centro',
+      franchise: 'Plaza Celaya Centro',
       amount: 45.00,
       balanceBefore: 12450.00,
       balanceAfter: 12495.00,
@@ -83,21 +83,21 @@ export default function VamoClearingLedgerPage() {
       id: 'LDG-948101',
       timestamp: '2026-08-20 11:32:04',
       entryType: 'franchise_compensation',
-      franchise: 'Franquicia Querétaro Poniente',
+      franchise: 'Plaza Querétaro Poniente',
       amount: 25.00,
       balanceBefore: 8910.00,
       balanceAfter: 8935.00,
-      description: 'Compensación de ejecución por pedido cruzado comercio Franquicia A ejecutado por Moto B-024'
+      description: 'Compensación de ejecución por pedido cruzado comercio Plaza A ejecutado por Moto B-024'
     },
     {
       id: 'LDG-948100',
       timestamp: '2026-08-20 11:15:22',
       entryType: 'fee_payment',
-      franchise: 'Franquicia Celaya Centro',
+      franchise: 'Plaza Celaya Centro',
       amount: -50.00,
       balanceBefore: 12500.00,
       balanceAfter: 12450.00,
-      description: 'Regalía semanal repartidor R-009 dividida con VAMO Central'
+      description: 'Cuota de sistema semanal repartidor R-009 dividida con VAMO Central'
     }
   ])
 
@@ -120,7 +120,7 @@ export default function VamoClearingLedgerPage() {
               Cámara de Compensación & Ledger Financiero
             </h1>
             <p className="text-xs text-[#737785] font-semibold">
-              Liquidación automática entre franquicias y libro contable inmutable con trazabilidad total
+              Liquidación automática entre plazas comerciales y libro contable inmutable con trazabilidad total
             </p>
           </div>
 
@@ -159,7 +159,7 @@ export default function VamoClearingLedgerPage() {
             <div className="bg-[#0040A1] text-white p-5 rounded-[24px] shadow-sm space-y-1">
               <span className="text-[10px] font-black uppercase text-blue-200 tracking-wider">SALDO PENDIENTE DE CLEARING</span>
               <p className="text-2xl md:text-3xl font-black text-[#c3f400]">$1,920.00 MXN</p>
-              <p className="text-xs text-blue-100 font-semibold">1 compensación entre Franquicia A y Franquicia B</p>
+              <p className="text-xs text-blue-100 font-semibold">1 compensación entre Socio Comercial A y Socio Comercial B</p>
             </div>
 
             <div className="bg-white p-5 rounded-[24px] border border-[#e5e2e1] shadow-sm space-y-1">
@@ -174,7 +174,7 @@ export default function VamoClearingLedgerPage() {
               <span className="text-[10px] font-black uppercase text-[#c3f400]/70 tracking-wider">REGLA VAMO CLEARING</span>
               <p className="text-base font-extrabold text-white">Comercio A + Moto B = Reparto Justo</p>
               <p className="text-[11px] text-slate-300">
-                La Franquicia Ejecutora recibe su pago sin perjudicar la relación de la Franquicia Comercial.
+                El Socio Comercial Ejecutor recibe su compensación sin perjudicar la relación del Socio Comercial de Origen.
               </p>
             </div>
           </div>
@@ -184,7 +184,7 @@ export default function VamoClearingLedgerPage() {
             <div className="bg-white rounded-[28px] border border-[#e5e2e1] shadow-sm overflow-hidden">
               <div className="p-5 border-b border-[#e5e2e1] flex flex-col md:flex-row justify-between md:items-center gap-4">
                 <div>
-                  <h2 className="text-base font-black text-[#1c1b1b]">Compensaciones Inter-Franquicias (Settlements)</h2>
+                  <h2 className="text-base font-black text-[#1c1b1b]">Compensaciones Inter-Plazas (Settlements)</h2>
                   <p className="text-xs text-[#737785]">Cortes semanales automáticos de deudas y créditos logísticos</p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -192,7 +192,7 @@ export default function VamoClearingLedgerPage() {
                     <Search className="w-4 h-4 absolute left-3 top-2.5 text-[#737785]" />
                     <input
                       type="text"
-                      placeholder="Buscar por franquicia o ID..."
+                      placeholder="Buscar por plaza o ID..."
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
                       className="pl-9 pr-4 py-2 text-xs rounded-xl bg-[#f6f3f2] border border-[#e5e2e1] focus:outline-none focus:border-[#0056d2]"
@@ -206,8 +206,8 @@ export default function VamoClearingLedgerPage() {
                   <thead className="bg-[#f6f3f2] text-[#424654] font-black uppercase text-[10px]">
                     <tr>
                       <th className="p-4">ID Liquidación</th>
-                      <th className="p-4">Franquicia Deudora (Comercio)</th>
-                      <th className="p-4">Franquicia Acreedora (Motos)</th>
+                      <th className="p-4">Socio Comercial Deudor (Comercio)</th>
+                      <th className="p-4">Socio Comercial Acreedor (Motos)</th>
                       <th className="p-4">Pedidos Cruzados</th>
                       <th className="p-4">Monto Bruto</th>
                       <th className="p-4">Monto Neto a Pagar</th>
@@ -276,7 +276,7 @@ export default function VamoClearingLedgerPage() {
                       <th className="p-4">ID Transacción</th>
                       <th className="p-4">Fecha & Hora</th>
                       <th className="p-4">Tipo</th>
-                      <th className="p-4">Franquicia</th>
+                      <th className="p-4">Plaza / Socio</th>
                       <th className="p-4">Monto</th>
                       <th className="p-4">Saldo Previo</th>
                       <th className="p-4">Saldo Posterior</th>

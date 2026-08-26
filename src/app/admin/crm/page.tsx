@@ -22,7 +22,7 @@ export default function AdminCRMPage() {
     },
     {
       id: 2,
-      name: 'Grupo Gastronómico El Pastor (Franquicias)',
+      name: 'Grupo Gastronómico El Pastor (Cadena de Restaurantes)',
       type: 'MERCHANT_CHAIN',
       contact: '+52 22 2876 5432',
       city: 'Puebla',

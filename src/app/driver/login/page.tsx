@@ -22,7 +22,7 @@ export default function DriverLoginPage() {
     }
 
     if (!activationKey) {
-      setErrorMsg('Debes ingresar la llave de activación entregada por tu Franquiciatario.')
+      setErrorMsg('Debes ingresar la llave de activación entregada por tu Socio Comercial.')
       return
     }
 
@@ -58,7 +58,7 @@ export default function DriverLoginPage() {
           </span>
           <h1 className="text-2xl font-black text-slate-900">Iniciar Turno</h1>
           <p className="text-xs font-semibold text-slate-500 max-w-xs mx-auto">
-            Ingresa tu número celular y la Llave de Activación generada por tu Franquiciatario.
+            Ingresa tu número celular y la Llave de Activación generada por tu Socio Comercial.
           </p>
         </div>
 
@@ -93,7 +93,7 @@ export default function DriverLoginPage() {
 
           <div className="space-y-1">
             <div className="flex justify-between items-center">
-              <label className="text-xs font-bold text-slate-700 block">Llave de Activación de Franquicia</label>
+              <label className="text-xs font-bold text-slate-700 block">Llave de Activación de tu Plaza</label>
               <span className="text-[10px] text-blue-600 font-bold">Ej. CEL-4982</span>
             </div>
             <div className="relative">
@@ -121,7 +121,7 @@ export default function DriverLoginPage() {
         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-center space-y-1">
           <p className="text-[11px] font-bold text-slate-600">¿Aún no tienes una Llave de Activación?</p>
           <p className="text-[10px] text-slate-400">
-            Contacta al Franquiciatario VAMO de tu ciudad para darte de alta y recibir tu código de acceso.
+            Contacta al Socio Comercial VAMO de tu ciudad para darte de alta y recibir tu código de acceso.
           </p>
         </div>
 
