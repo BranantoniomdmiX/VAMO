@@ -40,29 +40,25 @@ interface VamoMapLibreProps {
   onMapClick?: (coords: { lat: number; lng: number }) => void
 }
 
-const MAP_STYLE_BRIGHT = 'https://tiles.openfreemap.org/styles/bright'
-const MAP_STYLE_DARK = 'https://tiles.openfreemap.org/styles/dark'
-
-// Fallbacks de Alta Disponibilidad Inmutables (OSM & CartoDB)
-const OSM_RASTER_FALLBACK: maplibregl.StyleSpecification = {
+const CARTO_LIGHT_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   sources: {
-    'osm-raster-tiles': {
+    'carto-voyager-tiles': {
       type: 'raster',
       tiles: [
-        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+        'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+        'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+        'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'
       ],
       tileSize: 256,
-      attribution: '&copy; OpenStreetMap Contributors'
+      attribution: '&copy; CartoDB &copy; OpenStreetMap'
     }
   },
   layers: [
     {
-      id: 'osm-raster-layer',
+      id: 'carto-voyager-layer',
       type: 'raster',
-      source: 'osm-raster-tiles',
+      source: 'carto-voyager-tiles',
       minzoom: 0,
       maxzoom: 19
     }
@@ -88,6 +84,31 @@ const CARTO_DARK_FALLBACK: maplibregl.StyleSpecification = {
       id: 'carto-dark-layer',
       type: 'raster',
       source: 'carto-dark-tiles',
+      minzoom: 0,
+      maxzoom: 19
+    }
+  ]
+}
+
+const OSM_RASTER_FALLBACK: maplibregl.StyleSpecification = {
+  version: 8,
+  sources: {
+    'osm-raster-tiles': {
+      type: 'raster',
+      tiles: [
+        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+      ],
+      tileSize: 256,
+      attribution: '&copy; OpenStreetMap Contributors'
+    }
+  },
+  layers: [
+    {
+      id: 'osm-raster-layer',
+      type: 'raster',
+      source: 'osm-raster-tiles',
       minzoom: 0,
       maxzoom: 19
     }
@@ -122,11 +143,10 @@ export default function VamoMapLibre({
 
   const routeLayerCreatedRef = useRef(false)
 
-  // 1. Inicialización del Mapa Vectorial con Fallback Anti-Blanco
+  // 1. Inicialización Inmediata sin Latencia
   useEffect(() => {
     if (!mapContainer.current) return
 
-    // Limpiar marcadores anteriores antes de destruir el mapa
     Object.values(markersRef.current).forEach(m => {
       try { m.remove() } catch (e) {}
     })
@@ -145,13 +165,13 @@ export default function VamoMapLibre({
 
     setIsMapLoaded(false)
     routeLayerCreatedRef.current = false
-    const styleUrl = theme === 'dark' ? MAP_STYLE_DARK : MAP_STYLE_BRIGHT
+    const activeStyle = theme === 'dark' ? CARTO_DARK_FALLBACK : CARTO_LIGHT_STYLE
 
     let map: maplibregl.Map
     try {
       map = new maplibregl.Map({
         container: mapContainer.current,
-        style: styleUrl,
+        style: activeStyle,
         center: [center[1], center[0]] as [number, number],
         zoom,
         pitch: is3D ? 55 : 0,
@@ -159,10 +179,10 @@ export default function VamoMapLibre({
         attributionControl: false
       })
     } catch (err) {
-      console.warn('⚠️ [VAMO Map] Error inicializando estilo vectorial, usando raster fallback:', err)
+      console.warn('⚠️ [VAMO Map] Fallback a OSM Raster:', err)
       map = new maplibregl.Map({
         container: mapContainer.current,
-        style: theme === 'dark' ? CARTO_DARK_FALLBACK : OSM_RASTER_FALLBACK,
+        style: OSM_RASTER_FALLBACK,
         center: [center[1], center[0]] as [number, number],
         zoom,
         pitch: 0,
