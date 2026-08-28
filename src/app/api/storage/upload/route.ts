@@ -1,0 +1,44 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { uploadToR2 } from '@/lib/storage/r2Storage'
+
+export async function POST(request: NextRequest) {
+  try {
+    const formData = await request.formData()
+    const file = formData.get('file') as File | null
+    const folder = (formData.get('folder') as string) || 'general'
+
+    if (!file) {
+      return NextResponse.json({ error: 'No se envió ningún archivo' }, { status: 400 })
+    }
+
+    // Validar tipo de archivo
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml', 'application/pdf']
+    if (!allowedTypes.includes(file.type)) {
+      return NextResponse.json({ error: 'Tipo de archivo no permitido. Solo imágenes y PDFs.' }, { status: 400 })
+    }
+
+    // Tamaño máximo: 10 MB
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json({ error: 'El archivo excede el límite de 10 MB' }, { status: 400 })
+    }
+
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+
+    const fileExtension = file.name.split('.').pop() || 'jpg'
+    const uniqueFileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExtension}`
+
+    const result = await uploadToR2(buffer, uniqueFileName, file.type)
+
+    return NextResponse.json({
+      success: true,
+      key: result.key,
+      url: result.publicUrl,
+      fileName: file.name,
+      size: file.size,
+    })
+  } catch (error: any) {
+    console.error('Error en API de subida a R2:', error)
+    return NextResponse.json({ error: 'Error al subir el archivo a Cloudflare R2', details: error.message }, { status: 500 })
+  }
+}
