@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Quicksand } from "next/font/google";
 import "./globals.css";
+import { PwaRegister } from "@/components/ui/PwaRegister";
+import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 
 const quicksand = Quicksand({
   subsets: ["latin"],
@@ -61,7 +63,9 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col bg-[#fcf9f8] text-[#1c1b1b] selection:bg-[#0056d2] selection:text-white">
+        <PwaRegister />
         {children}
+        <OfflineIndicator />
       </body>
     </html>
   );
