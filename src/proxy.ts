@@ -62,7 +62,8 @@ export async function proxy(request: NextRequest) {
     return applySecurityHeaders(new NextResponse('Forbidden', { status: 403 }))
   }
 
-  // ── CAPA 2: Rate Limiting Global ──────────────────────────────────────
+  // ── CAPA 2: Rate Limiting Global (Excepto localhost en desarrollo) ──
+  const isLocalIp = ip === '127.0.0.1' || ip === '::1' || ip === 'localhost' || ip === '192.168.0.11'
   const userRate = rateLimitMap.get(ip) || { count: 0, lastReset: now }
   if (now - userRate.lastReset > RATE_LIMIT_WINDOW_MS) {
     userRate.count = 1
@@ -72,7 +73,7 @@ export async function proxy(request: NextRequest) {
   }
   rateLimitMap.set(ip, userRate)
 
-  if (userRate.count > RATE_LIMIT_MAX) {
+  if (!isLocalIp && userRate.count > RATE_LIMIT_MAX) {
     console.warn(`🚨 [RATE LIMIT] IP bloqueada: ${ip}`)
     return applySecurityHeaders(
       new NextResponse('Demasiadas peticiones. Por favor espera un minuto.', {
