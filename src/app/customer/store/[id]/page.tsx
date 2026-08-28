@@ -14,14 +14,14 @@ import {
   Bike, 
   Check, 
   Phone, 
-  Share2, 
   Plus, 
   Minus, 
-  ExternalLink,
-  Tag,
-  ShieldCheck
+  ExternalLink, 
+  ShieldCheck,
+  Package
 } from 'lucide-react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 
 interface QuickItem {
   id: string
@@ -36,53 +36,87 @@ export default function CustomerStoreDetailPage() {
   const params = useParams()
   const router = useRouter()
   const storeId = params?.id as string
+  const supabase = createClient()
 
   const [storeData, setStoreData] = useState({
-    id: storeId || '101',
-    name: 'Tortería El Pariente',
-    category: 'Comida / Restaurante',
-    address: 'Calle 5 de Mayo #12, Centro',
-    rating: '4.9 ★',
-    time: '12-15 min',
-    phone: '4611234567',
-    image: 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?w=700&auto=format&fit=crop',
+    id: storeId || '1',
+    name: 'Comercio Afiliado VAMO',
+    category: 'Comercio Local',
+    address: 'Ubicación registrada',
+    rating: '5.0 ★ (NUEVO)',
+    time: '10-15 min',
+    phone: '',
+    image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=700&auto=format&fit=crop',
     catalogPdfUrl: ''
   })
 
-  const [products, setProducts] = useState<QuickItem[]>([
-    { id: '1', name: 'Torta Cubana Especial Gigante', category: 'Especialidades', price: 95.00, inStock: true, unit: 'pza' },
-    { id: '2', name: 'Torta de Pierna Adobada con Queso', category: 'Clásicas', price: 75.00, inStock: true, unit: 'pza' },
-    { id: '3', name: 'Refresco Coca-Cola Vidrio 500ml', category: 'Bebidas', price: 25.00, inStock: true, unit: 'botella' },
-    { id: '4', name: 'Agua Fresca de Horchata Artesanal 1L', category: 'Bebidas', price: 35.00, inStock: true, unit: 'litro' },
-    { id: '5', name: 'Orden de Papas Gajo con Aderezo', category: 'Complementos', price: 45.00, inStock: true, unit: 'orden' }
-  ])
-
+  const [products, setProducts] = useState<QuickItem[]>([])
   const [cart, setCart] = useState<{ [key: string]: number }>({})
   const [showPdfModal, setShowPdfModal] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    try {
-      const storedProfile = localStorage.getItem('vamo_merchant_profile')
-      if (storedProfile) {
-        const p = JSON.parse(storedProfile)
-        setStoreData(prev => ({
-          ...prev,
-          name: p.storeName || prev.name,
-          category: p.category || prev.category,
-          address: p.address || prev.address,
-          phone: p.phone || prev.phone,
-          image: p.logoUrl || prev.image,
-          catalogPdfUrl: p.catalogPdfUrl || ''
-        }))
+    async function loadStore() {
+      setIsLoading(true)
+
+      // 1. Buscar en Supabase
+      try {
+        const { data: dbMerchant } = await supabase
+          .from('merchants')
+          .select('*')
+          .eq('id', storeId)
+          .maybeSingle()
+
+        if (dbMerchant) {
+          setStoreData({
+            id: dbMerchant.id,
+            name: dbMerchant.name,
+            category: dbMerchant.category || 'Comercio Local',
+            address: dbMerchant.address || 'Ubicación registrada',
+            rating: '5.0 ★',
+            time: '10-15 min',
+            phone: dbMerchant.phone || '',
+            image: dbMerchant.logo_url || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=700&auto=format&fit=crop',
+            catalogPdfUrl: ''
+          })
+        }
+      } catch (e) {}
+
+      // 2. Buscar en almacenamiento local si fue registrado en esta sesión
+      try {
+        const localList = localStorage.getItem('vamo_registered_merchants')
+        if (localList) {
+          const parsed = JSON.parse(localList)
+          const found = parsed.find((m: any) => String(m.id) === String(storeId) || m.storeName === storeId)
+          if (found) {
+            setStoreData({
+              id: found.id,
+              name: found.storeName || found.name,
+              category: found.category || 'Comercio Local',
+              address: found.address || 'Ubicación registrada',
+              rating: found.rating || '5.0 ★ (NUEVO)',
+              time: found.prepTime || '10-15 min',
+              phone: found.phone || '',
+              image: found.image || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=700&auto=format&fit=crop',
+              catalogPdfUrl: found.catalogPdfUrl || ''
+            })
+          }
+        }
+
+        const storedQuickList = localStorage.getItem('vamo_quick_product_list')
+        if (storedQuickList) {
+          setProducts(JSON.parse(storedQuickList))
+        } else {
+          setProducts([])
+        }
+      } catch (e) {
+        console.error(e)
       }
 
-      const storedQuickList = localStorage.getItem('vamo_quick_product_list')
-      if (storedQuickList) {
-        setProducts(JSON.parse(storedQuickList))
-      }
-    } catch (e) {
-      console.error(e)
+      setIsLoading(false)
     }
+
+    loadStore()
   }, [storeId])
 
   const handleAddToCart = (id: string) => {
@@ -127,7 +161,7 @@ export default function CustomerStoreDetailPage() {
           className="inline-flex items-center gap-2 text-xs font-black text-[#0056d2] bg-white px-4 py-2 rounded-full border border-[#e5e2e1] shadow-xs hover:bg-[#f0eded] active:scale-95 transition-all"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Volver al Radar Urbano</span>
+          <span>Volver al Radar de Comercios</span>
         </Link>
 
         {/* Portada & Datos del Local */}
@@ -186,61 +220,82 @@ export default function CustomerStoreDetailPage() {
         <div className="bg-white rounded-[32px] p-6 sm:p-8 border border-[#e5e2e1] shadow-sm space-y-6">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3">
             <div>
-              <h2 className="text-xl font-black text-[#1c1b1b]">Productos & Especialidades del Local</h2>
-              <p className="text-xs text-[#737785] font-semibold">Selecciona lo que deseas y VAMO te lo lleva en minutos</p>
+              <h2 className="text-xl font-black text-[#1c1b1b]">Productos & Catálogo Digital</h2>
+              <p className="text-xs text-[#737785] font-semibold">Selecciona lo que deseas y un motomandado VAMO te lo lleva</p>
             </div>
             <span className="text-xs font-black bg-[#f0eded] text-slate-700 px-3 py-1 rounded-full">
-              {products.length} Disponibles
+              {products.length} Productos
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {products.map(prod => {
-              const qtyInCart = cart[prod.id] || 0
-              return (
-                <div 
-                  key={prod.id}
-                  className="bg-[#fcf9f8] p-4 rounded-2xl border border-[#e5e2e1] flex items-center justify-between gap-3 hover:border-[#0056d2] transition-all"
-                >
-                  <div className="min-w-0 space-y-0.5">
-                    <span className="text-[10px] font-black text-[#0056d2] uppercase">{prod.category}</span>
-                    <h3 className="text-sm font-black text-[#1c1b1b] truncate">{prod.name}</h3>
-                    <p className="text-xs font-black text-[#0056d2]">
-                      ${prod.price.toFixed(2)} MXN <span className="text-[10px] text-slate-400 font-normal">/ {prod.unit || 'pza'}</span>
-                    </p>
-                  </div>
+          {products.length === 0 ? (
+            <div className="text-center py-10 px-4 space-y-4">
+              <div className="w-14 h-14 rounded-2xl bg-blue-50 text-[#0056d2] flex items-center justify-center mx-auto">
+                <Package className="w-7 h-7" />
+              </div>
+              <div className="space-y-1 max-w-md mx-auto">
+                <strong className="text-sm font-black text-slate-900 block">Catálogo en Proceso de Carga</strong>
+                <p className="text-xs font-medium text-slate-500">
+                  Este comercio aún no ha subido productos a su lista rápida. Puedes pedir lo que necesites como un mandado express.
+                </p>
+              </div>
+              <Link
+                href={`/customer/quote?mode=direct&origin=${encodeURIComponent(storeData.address)}`}
+                className="inline-flex items-center gap-2 bg-[#0056d2] text-white px-5 py-3 rounded-full text-xs font-black shadow-md active:scale-95 transition-all"
+              >
+                <Bike className="w-4 h-4 text-[#c3f400]" />
+                <span>Pedir Mandado Express a este Local</span>
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {products.map(prod => {
+                const qtyInCart = cart[prod.id] || 0
+                return (
+                  <div 
+                    key={prod.id}
+                    className="bg-[#fcf9f8] p-4 rounded-2xl border border-[#e5e2e1] flex items-center justify-between gap-3 hover:border-[#0056d2] transition-all"
+                  >
+                    <div className="min-w-0 space-y-0.5">
+                      <span className="text-[10px] font-black text-[#0056d2] uppercase">{prod.category}</span>
+                      <h3 className="text-sm font-black text-[#1c1b1b] truncate">{prod.name}</h3>
+                      <p className="text-xs font-black text-[#0056d2]">
+                        ${prod.price.toFixed(2)} MXN <span className="text-[10px] text-slate-400 font-normal">/ {prod.unit || 'pza'}</span>
+                      </p>
+                    </div>
 
-                  <div className="shrink-0">
-                    {qtyInCart > 0 ? (
-                      <div className="flex items-center gap-2 bg-[#0056d2] text-white rounded-full px-2 py-1 shadow-sm">
-                        <button 
-                          onClick={() => handleRemoveFromCart(prod.id)}
-                          className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-xs font-black active:scale-90"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="text-xs font-black px-1">{qtyInCart}</span>
-                        <button 
+                    <div className="shrink-0">
+                      {qtyInCart > 0 ? (
+                        <div className="flex items-center gap-2 bg-[#0056d2] text-white rounded-full px-2 py-1 shadow-sm">
+                          <button 
+                            onClick={() => handleRemoveFromCart(prod.id)}
+                            className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-xs font-black active:scale-90"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="text-xs font-black px-1">{qtyInCart}</span>
+                          <button 
+                            onClick={() => handleAddToCart(prod.id)}
+                            className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-xs font-black active:scale-90"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
                           onClick={() => handleAddToCart(prod.id)}
-                          className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-xs font-black active:scale-90"
+                          className="bg-white hover:bg-[#0056d2] hover:text-white text-[#0056d2] border-2 border-[#0056d2] px-3.5 py-1.5 rounded-full text-xs font-black active:scale-95 transition-all flex items-center gap-1 shadow-xs"
                         >
-                          <Plus className="w-3 h-3" />
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Agregar</span>
                         </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => handleAddToCart(prod.id)}
-                        className="bg-white hover:bg-[#0056d2] hover:text-white text-[#0056d2] border-2 border-[#0056d2] px-3.5 py-1.5 rounded-full text-xs font-black active:scale-95 transition-all flex items-center gap-1 shadow-xs"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Agregar</span>
-                      </button>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* Modal / Visor de Menú / Catálogo PDF o Flyer */}
@@ -301,7 +356,7 @@ export default function CustomerStoreDetailPage() {
           </div>
         )}
 
-        {/* Barra Flotante Inferior de Carrito (Checkout) */}
+        {/* Barra Flotante Inferior de Carrito */}
         {totalCartCount > 0 && (
           <div className="fixed bottom-4 inset-x-4 max-w-lg mx-auto z-40 animate-slide-up">
             <div className="bg-[#161e00] text-white p-4 rounded-[28px] border-2 border-[#c3f400] shadow-2xl flex items-center justify-between gap-4">

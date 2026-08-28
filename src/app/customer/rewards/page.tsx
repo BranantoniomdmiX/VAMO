@@ -1,14 +1,23 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { CustomerLayout } from '@/components/layout/CustomerLayout'
 import { Gift, Award, Star, CheckCircle2, ChevronRight, Sparkles, Tag, ShieldCheck, ArrowRight } from 'lucide-react'
 import { REWARD_CATALOG, RewardBranch, RewardsService } from '@/lib/services/rewardsService'
 
 export default function RewardsPage() {
   const [selectedBranch, setSelectedBranch] = useState<RewardBranch>('CLUB')
-  const [userPoints, setUserPoints] = useState<number>(380)
+  const [userPoints, setUserPoints] = useState<number>(0)
   const [redeemedToast, setRedeemedToast] = useState<string | null>(null)
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('vamo_user_points')
+      if (stored) {
+        setUserPoints(parseInt(stored) || 0)
+      }
+    } catch (e) {}
+  }, [])
 
   const currentRewards = RewardsService.getRewardsByBranch(selectedBranch)
 
@@ -16,6 +25,9 @@ export default function RewardsPage() {
     const result = await RewardsService.redeemReward(rewardId, 'user-1', userPoints)
     if (result.success) {
       setUserPoints(result.remainingPoints)
+      try {
+        localStorage.setItem('vamo_user_points', String(result.remainingPoints))
+      } catch (e) {}
       setRedeemedToast(result.message)
       setTimeout(() => setRedeemedToast(null), 5000)
     } else {

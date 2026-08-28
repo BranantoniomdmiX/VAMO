@@ -181,9 +181,11 @@ export default function RegisterBizPage() {
         }
       }
 
-      // 6. Persistir en localStorage para experiencia local / demo inmediata
+      // 6. Persistir en localStorage para experiencia local y sincronización inmediata
       const merchantProfile = {
+        id: Date.now(),
         storeName: storeName.trim(),
+        name: storeName.trim(),
         ownerName: ownerName.trim(),
         email: email.trim(),
         phone: phone.trim(),
@@ -191,9 +193,19 @@ export default function RegisterBizPage() {
         address: address.trim(),
         isOpen: true,
         kdsPin: generatedPin,
-        franchiseId: franchiseId
+        franchiseId: franchiseId,
+        lat: 20.5230 + (Math.random() - 0.5) * 0.01,
+        lng: -100.8142 + (Math.random() - 0.5) * 0.01,
+        rating: '5.0 ★ (NUEVO)',
+        prepTime: '10-15 min'
       }
       localStorage.setItem('vamo_merchant_profile', JSON.stringify(merchantProfile))
+
+      try {
+        const allMerchants = JSON.parse(localStorage.getItem('vamo_registered_merchants') || '[]')
+        allMerchants.unshift(merchantProfile)
+        localStorage.setItem('vamo_registered_merchants', JSON.stringify(allMerchants))
+      } catch (e) {}
 
       setIsLoading(false)
       setSuccess(true)

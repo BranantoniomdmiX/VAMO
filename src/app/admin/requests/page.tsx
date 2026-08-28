@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import React, { useState } from 'react'
 import { SidebarAdmin } from '@/components/layout/SidebarAdmin'
@@ -63,83 +63,23 @@ export default function AdminRequestsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
-  // Datos de ejemplo interactivos
-  const [driverRequests, setDriverRequests] = useState<DriverRequest[]>([
-    {
-      id: 'REQ-DRV-001',
-      name: 'Alejandro Morales G.',
-      phone: '461-234-5678',
-      email: 'ale.morales@gmail.com',
-      licenseNumber: 'LIC-GTO-8842',
-      city: 'Celaya, GTO',
-      vehicleType: 'Italika 150cc (Parrilla Carga)',
-      submittedAt: 'Hace 15 min',
-      status: 'PENDING'
-    },
-    {
-      id: 'REQ-DRV-002',
-      name: 'Héctor Daniel Rojas',
-      phone: '461-987-6543',
-      email: 'hector.rojas@hotmail.com',
-      licenseNumber: 'LIC-QRO-1092',
-      city: 'Querétaro, QRO',
-      vehicleType: 'Honda Cargo 125',
-      submittedAt: 'Hace 2 horas',
-      status: 'PENDING'
-    },
-    {
-      id: 'REQ-DRV-003',
-      name: 'Mario Alberto Silva',
-      phone: '461-555-1122',
-      email: 'mario.silva@yahoo.com',
-      licenseNumber: 'LIC-GTO-3319',
-      city: 'Celaya, GTO',
-      vehicleType: 'Yamaha YBR 125',
-      submittedAt: 'Ayer',
-      status: 'APPROVED'
-    }
-  ])
+  // Solicitudes Reales
+  const [driverRequests, setDriverRequests] = useState<DriverRequest[]>([])
+  const [merchantRequests, setMerchantRequests] = useState<MerchantRequest[]>([])
+  const [fleetRequests, setFleetRequests] = useState<FleetPartnerRequest[]>([])
 
-  const [merchantRequests, setMerchantRequests] = useState<MerchantRequest[]>([
-    {
-      id: 'REQ-MER-001',
-      storeName: 'Taquería El Güero Central',
-      category: 'Restaurante / Taquería',
-      ownerName: 'Roberto Mendoza',
-      phone: '461-444-8899',
-      email: 'contacto@taqueriaelguero.mx',
-      address: 'Av. Hidalgo #204, Zona Centro',
-      city: 'Celaya, GTO',
-      submittedAt: 'Hace 30 min',
-      status: 'PENDING'
-    },
-    {
-      id: 'REQ-MER-002',
-      storeName: 'Farmacia San Juan (Matriz)',
-      category: 'Farmacia & Salud',
-      ownerName: 'Dra. Patricia Luna',
-      phone: '461-333-2211',
-      email: 'farmacia.sanjuan@gmail.com',
-      address: 'Calle Morelos #88',
-      city: 'Celaya, GTO',
-      submittedAt: 'Hace 3 horas',
-      status: 'PENDING'
-    }
-  ])
+  React.useEffect(() => {
+    try {
+      const storedDrv = localStorage.getItem('vamo_driver_requests')
+      if (storedDrv) setDriverRequests(JSON.parse(storedDrv))
 
-  const [fleetRequests, setFleetRequests] = useState<FleetPartnerRequest[]>([
-    {
-      id: 'REQ-FLT-001',
-      companyName: 'Logística Rápida del Bajío S.A.',
-      contactName: 'Lic. Fernando Garza',
-      phone: '461-777-9900',
-      email: 'fgarza@logbajio.com',
-      city: 'Irapuato / Celaya',
-      estimatedBikes: 25,
-      submittedAt: 'Hace 5 horas',
-      status: 'PENDING'
-    }
-  ])
+      const storedMer = localStorage.getItem('vamo_merchant_requests')
+      if (storedMer) setMerchantRequests(JSON.parse(storedMer))
+
+      const storedFlt = localStorage.getItem('vamo_fleet_requests')
+      if (storedFlt) setFleetRequests(JSON.parse(storedFlt))
+    } catch (e) {}
+  }, [])
 
   const showToast = (msg: string) => {
     setToastMessage(msg)

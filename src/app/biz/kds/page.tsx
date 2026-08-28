@@ -38,42 +38,44 @@ export default function BizKdsPage() {
     }
   }, [])
 
-  const [tickets, setTickets] = useState<Ticket[]>([
-    {
-      id: '#4835',
-      customer: 'Sra. Sofía M.',
+  const [tickets, setTickets] = useState<Ticket[]>([])
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('vamo_kds_tickets')
+      if (stored) {
+        setTickets(JSON.parse(stored))
+      }
+    } catch (e) {}
+  }, [])
+
+  const saveTickets = (updated: Ticket[]) => {
+    setTickets(updated)
+    try {
+      localStorage.setItem('vamo_kds_tickets', JSON.stringify(updated))
+    } catch (e) {}
+  }
+
+  const moveTicket = (id: string, newStatus: Ticket['status']) => {
+    const updated = tickets.map(t => t.id === id ? { ...t, status: newStatus } : t)
+    saveTickets(updated)
+  }
+
+  const handleSimulateTestTicket = () => {
+    const randomCode = `#${Math.floor(1000 + Math.random() * 9000)}`
+    const newT: Ticket = {
+      id: randomCode,
+      customer: 'Cliente Prueba VAMO',
       items: isFoodCategory 
-        ? ['2x Taco Gobernador', '1x Agua de Horchata Literaria']
-        : ['1x Paracetamol 500mg (Caja 20 Tab)', '1x Alcohol 70% 500ml'],
+        ? ['1x Torta Especial con Queso', '1x Refresco 500ml'] 
+        : ['1x Producto de Mostrador #1', '1x Insumo Listo'],
       status: 'new',
       time: 'Hace 1m'
-    },
-    {
-      id: '#4829',
-      customer: 'Juan P.',
-      items: isFoodCategory
-        ? ['2x Empanada de Carne', '1x Coca Cola 1.5L']
-        : ['1x Taladro Percutor 1/2 Dual', '1x Juego de Brocas 13 Pzs'],
-      status: 'new',
-      time: 'Hace 2m'
-    },
-    {
-      id: '#4825',
-      customer: 'Carlos R.',
-      items: isFoodCategory
-        ? ['3x Pizza Muzzarella', '2x Cerveza Artesanal']
-        : ['2x Bolsa Detergente 1kg', '1x Aceite Cocina 1L'],
-      status: 'preparing',
-      time: 'Hace 12m'
-    },
-    {
-      id: '#4820',
-      customer: 'Ana L.',
-      items: ['1x Paquete Surtido Listo'],
-      status: 'waiting_driver',
-      time: 'Llega en 3m'
     }
-  ])
+    const updated = [newT, ...tickets]
+    saveTickets(updated)
+    speakCommand(`¡Atención! Nueva comanda de prueba: ${randomCode}`)
+  }
 
   // Escuchar órdenes autorizadas por Gerencia en Tiempo Real
   useEffect(() => {
@@ -120,10 +122,6 @@ export default function BizKdsPage() {
       msg.rate = 0.95
       window.speechSynthesis.speak(msg)
     }
-  }
-
-  const moveTicket = (id: string, nextStatus: Ticket['status']) => {
-    setTickets(prev => prev.map(t => t.id === id ? { ...t, status: nextStatus } : t))
   }
 
   return (

@@ -7,33 +7,34 @@ import { WalletService, UserWallet } from '@/lib/services/walletService'
 
 export default function BaseCashierPage() {
   const [processedDriver, setProcessedDriver] = useState<{ name: string; amount: number; receipt: string } | null>(null)
-  const [totalBaseCash, setTotalBaseCash] = useState<number>(12450.00)
+  const [totalBaseCash, setTotalBaseCash] = useState<number>(0.00)
   const [driverWallet, setDriverWallet] = useState<UserWallet | null>(null)
-
-  const [driversList, setDriversList] = useState([
-    { id: 'driver-carlos-1', name: 'Carlos M. (Mochila #001)', codCash: 650.00, status: 'near_limit', isBlocked: false },
-    { id: 'driver-ana-2', name: 'Ana P. (Mochila #014)', codCash: 1500.00, status: 'blocked', isBlocked: true },
-    { id: 'driver-luis-3', name: 'Luis R. (Mochila #022)', codCash: 320.00, status: 'normal', isBlocked: false }
-  ])
+  const [driversList, setDriversList] = useState<{ id: string; name: string; codCash: number; status: string; isBlocked: boolean }[]>([])
 
   useEffect(() => {
     loadDriverData()
   }, [])
 
   const loadDriverData = async () => {
-    const w = await WalletService.getDriverWallet('driver-carlos-1')
-    setDriverWallet(w)
-    setDriversList(prev => prev.map(d => {
-      if (d.id === 'driver-carlos-1') {
-        return {
-          ...d,
-          codCash: w.codBalance,
-          isBlocked: w.isCodBlocked,
-          status: w.isCodBlocked ? 'blocked' : w.codBalance >= 1200 ? 'near_limit' : 'normal'
-        }
+    const list: { id: string; name: string; codCash: number; status: string; isBlocked: boolean }[] = []
+
+    try {
+      const storedCodes = localStorage.getItem('vamo_driver_codes')
+      if (storedCodes) {
+        const parsed = JSON.parse(storedCodes)
+        parsed.filter((c: any) => c.status === 'used' && c.assignedTo).forEach((c: any, idx: number) => {
+          list.push({
+            id: `driver-${idx}`,
+            name: `${c.assignedTo} (${c.code})`,
+            codCash: 0.00,
+            status: 'normal',
+            isBlocked: false
+          })
+        })
       }
-      return d
-    }))
+    } catch (e) {}
+
+    setDriversList(list)
   }
 
   const [selectedDriverForAudit, setSelectedDriverForAudit] = useState<{ id: string; name: string; codCash: number } | null>(null)

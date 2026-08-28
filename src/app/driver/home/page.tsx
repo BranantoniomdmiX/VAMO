@@ -269,7 +269,7 @@ export default function DriverHomePage() {
             </div>
             <div>
               <span className="text-[10px] font-bold text-slate-500 uppercase block">Efectivo en Mano (COD)</span>
-              <strong className="text-xs sm:text-sm font-black text-slate-900">$650.00 / $1,500 MXN</strong>
+              <strong className="text-xs sm:text-sm font-black text-slate-900">$0.00 / $1,500 MXN</strong>
             </div>
           </div>
           <Link 
@@ -288,27 +288,27 @@ export default function DriverHomePage() {
                 <Award className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-xs font-black text-white uppercase tracking-wider block">SOCIO VAMO &bull; NIVEL ORO</span>
-                <span className="text-[10px] text-blue-200 font-bold">42 Viajes completados &bull; 4.9 ★</span>
+                <span className="text-xs font-black text-white uppercase tracking-wider block">SOCIO VAMO &bull; NIVEL PLATA</span>
+                <span className="text-[10px] text-blue-200 font-bold">0 Viajes completados &bull; 5.0 ★</span>
               </div>
             </div>
             <span className="text-[10px] font-black bg-[#c3f400] text-[#161e00] px-3 py-1 rounded-full uppercase">
-              +5% BONO
+              ACTIVO
             </span>
           </div>
 
-          {/* Barra de progreso al siguiente nivel (Platino) */}
+          {/* Barra de progreso al siguiente nivel (Oro) */}
           <div className="space-y-1.5 bg-black/20 p-3 rounded-2xl border border-white/10">
             <div className="flex justify-between text-[11px] font-bold text-blue-100">
-              <span>Nivel: <strong>ORO</strong></span>
-              <span className="text-[#c3f400]">Siguiente: <strong>PLATINO (Faltan 38 viajes)</strong></span>
+              <span>Nivel: <strong>PLATA</strong></span>
+              <span className="text-[#c3f400]">Siguiente: <strong>ORO (Faltan 30 viajes)</strong></span>
             </div>
             <div className="w-full bg-white/20 h-2.5 rounded-full overflow-hidden">
-              <div className="bg-[#c3f400] h-full transition-all duration-500 rounded-full" style={{ width: '42%' }} />
+              <div className="bg-[#c3f400] h-full transition-all duration-500 rounded-full" style={{ width: '5%' }} />
             </div>
             <div className="flex justify-between text-[10px] text-blue-200/90 font-medium pt-0.5">
-              <span>30 viajes</span>
-              <span>80 viajes (+10% Bono & 50% desc. cuota)</span>
+              <span>0 viajes</span>
+              <span>30 viajes (+5% Bono en Horas Pico)</span>
             </div>
           </div>
 

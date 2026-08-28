@@ -18,8 +18,8 @@ interface SavedCard {
 }
 
 export default function CustomerWalletPage() {
-  const [balance, setBalance] = useState(250.00)
-  const [points, setPoints] = useState(420)
+  const [balance, setBalance] = useState(0.00)
+  const [points, setPoints] = useState(0)
   const [showRechargeModal, setShowRechargeModal] = useState(false)
   const [showAddCardModal, setShowAddCardModal] = useState(false)
   const [isManagingCards, setIsManagingCards] = useState(false)
@@ -34,52 +34,17 @@ export default function CustomerWalletPage() {
   const [cardError, setCardError] = useState<string | null>(null)
   const [cardAddedSuccess, setCardAddedSuccess] = useState(false)
 
-  // Métodos de Pago Guardados
-  const [cards, setCards] = useState<SavedCard[]>([
-    {
-      id: 'card-1',
-      brand: 'VISA',
-      last4: '4812',
-      holder: 'Carlos Mendoza',
-      expiry: '08/29',
-      isDefault: true
-    },
-    {
-      id: 'card-2',
-      brand: 'MASTERCARD',
-      last4: '9014',
-      holder: 'Carlos Mendoza',
-      expiry: '11/28',
-      isDefault: false
-    }
-  ])
+  // Métodos de Pago Guardados Reales
+  const [cards, setCards] = useState<SavedCard[]>([])
 
-  const [transactions, setTransactions] = useState([
-    {
-      id: 'TX-101',
-      type: 'RECHARGE',
-      title: 'Recarga VAMO Pay (OXXO / Tarjeta)',
-      date: '18 Ago 2026, 04:20 PM',
-      amount: 300.00,
-      isPositive: true
-    },
-    {
-      id: 'TX-102',
-      type: 'PAYMENT',
-      title: 'Pago Pedido Taquería El Pastorcito',
-      date: '18 Ago 2026, 08:45 PM',
-      amount: -145.00,
-      isPositive: false
-    },
-    {
-      id: 'TX-103',
-      type: 'CASHBACK',
-      title: 'Recompensa 5% Cashback VAMO Puntos',
-      date: '18 Ago 2026, 08:45 PM',
-      amount: 7.25,
-      isPositive: true
-    }
-  ])
+  const [transactions, setTransactions] = useState<{
+    id: string
+    type: string
+    title: string
+    date: string
+    amount: number
+    isPositive: boolean
+  }[]>([])
 
   // Cargar de LocalStorage
   useEffect(() => {
@@ -88,7 +53,11 @@ export default function CustomerWalletPage() {
       if (storedCards) setCards(JSON.parse(storedCards))
       const storedBal = localStorage.getItem('vamo_customer_balance')
       if (storedBal) setBalance(Number(storedBal))
-    } catch {}
+      const storedPts = localStorage.getItem('vamo_user_points')
+      if (storedPts) setPoints(Number(storedPts))
+      const storedTx = localStorage.getItem('vamo_wallet_transactions')
+      if (storedTx) setTransactions(JSON.parse(storedTx))
+    } catch (e) {}
   }, [])
 
   const saveCardsToStorage = (updatedCards: SavedCard[]) => {

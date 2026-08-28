@@ -65,15 +65,15 @@ function getInitialLocalWallet(driverId: string = 'driver-carlos-1'): UserWallet
     id: `wallet-${driverId}`,
     userId: driverId,
     userRole: 'driver',
-    balance: 480.00,
-    codBalance: 650.00,
+    balance: 0.00,
+    codBalance: 0.00,
     maxCodLimit: MAX_COD_CASH,
     weeklyFee: WEEKLY_FEE,
     negativeTolerance: NEGATIVE_TOLERANCE,
-    tier: 'ORO',
+    tier: 'PLATA',
     status: 'ACTIVE',
     isCodBlocked: false,
-    lastSettlementAt: new Date(Date.now() - 86400000).toISOString()
+    lastSettlementAt: new Date().toISOString()
   }
 
   try {
@@ -263,19 +263,8 @@ export class WalletService {
       }
     } catch (e) {}
 
-    // Transacciones iniciales de muestra
-    const initialList: WalletTransaction[] = [
-      { id: '1', type: 'ORDER_COD', title: 'Viaje #V-9042 (Efectivo)', date: 'Hoy, 14:20 hrs', amount: 65.00, isPositive: true },
-      { id: '2', type: 'WEEKLY_FEE', title: 'Cuota Semanal VAMO', date: 'Hoy, 08:00 hrs', amount: 50.00, isPositive: false },
-      { id: '3', type: 'ORDER_COD', title: 'Viaje #V-9039 (Efectivo)', date: 'Hoy, 13:10 hrs', amount: 120.00, isPositive: true },
-      { id: '4', type: 'BASE_SETTLEMENT', title: 'Corte de Caja en Base #REC-4821', date: 'Ayer, 20:00 hrs', amount: 450.00, isPositive: false }
-    ]
-
-    try {
-      localStorage.setItem(`vamo_wallet_tx_${driverId}`, JSON.stringify(initialList))
-    } catch (e) {}
-
-    return initialList
+    // Transacciones iniciales limpias
+    return []
   }
 
   private static addTransaction(driverId: string, tx: WalletTransaction) {
