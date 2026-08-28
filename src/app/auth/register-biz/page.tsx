@@ -47,10 +47,11 @@ export default function RegisterBizPage() {
   } | null>(null)
 
   const categories = [
-    { label: 'Restaurante / Comida', icon: Utensils },
-    { label: 'Farmacia / Salud', icon: Pill },
-    { label: 'Ferretería / Refaccionaria', icon: Wrench },
-    { label: 'Abarrotes / Comercio General', icon: ShoppingBag }
+    { label: '👨‍🍳 Restaurante / Cocina Formal (Comandas KDS)', id: 'kds', icon: Utensils },
+    { label: '🌮 Puesto Callejero / Taquería (Modo Rápido 2 Botones)', id: 'simple', icon: Utensils },
+    { label: '💊 Farmacia / Salud / Recetas Médicas', id: 'pharmacy', icon: Pill },
+    { label: '🔧 Ferretería / Refaccionaria / Carga Pesada', id: 'hardware', icon: Wrench },
+    { label: '🛒 Abarrotes / Tienda / Comercio General', id: 'catalog', icon: ShoppingBag }
   ]
 
   const handlePreSubmit = (e: React.FormEvent) => {
@@ -82,21 +83,41 @@ export default function RegisterBizPage() {
           return
         }
 
-        const { data: codeData, error: codeErr } = await supabase
-          .from('franchise_join_codes')
-          .select('*')
-          .eq('code', fleetCode.trim().toUpperCase())
-          .eq('is_active', true)
-          .maybeSingle()
+        let codeValid = false
 
-        if (codeErr || !codeData) {
+        // 1. Check Supabase
+        try {
+          const { data: codeData, error: codeErr } = await supabase
+            .from('franchise_join_codes')
+            .select('*')
+            .eq('code', fleetCode.trim().toUpperCase())
+            .eq('is_active', true)
+            .maybeSingle()
+
+          if (!codeErr && codeData) {
+            codeValid = true
+            franchiseId = codeData.franchise_id
+            baseId = codeData.base_id
+          }
+        } catch (e) {}
+
+        // 2. Check local fleet codes
+        if (!codeValid) {
+          try {
+            const localFleetCodes = JSON.parse(localStorage.getItem('vamo_fleet_codes') || '[]')
+            const matchFleet = localFleetCodes.find((c: any) => c.code === fleetCode.trim().toUpperCase())
+            if (matchFleet) {
+              codeValid = true
+              franchiseId = matchFleet.fleetName || 'Plaza Territorial'
+            }
+          } catch (e) {}
+        }
+
+        if (!codeValid) {
           setErrorMessage('El código de Socio Operador no es válido o ha expirado.')
           setIsLoading(false)
           return
         }
-
-        franchiseId = codeData.franchise_id
-        baseId = codeData.base_id
       }
 
       // 2. Generar Token / PIN KDS de 6 dígitos para la pantalla de cocina

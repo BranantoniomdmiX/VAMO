@@ -10,25 +10,24 @@ import {
   Pill, 
   Wrench, 
   Zap, 
-  Volume2, 
-  QrCode, 
   DollarSign, 
   Bike, 
-  Clock, 
   ShieldCheck, 
   ChevronRight, 
-  TrendingUp,
-  Share2,
   PackageCheck,
-  Smartphone
+  ShoppingBag,
+  QrCode,
+  ArrowRight,
+  RefreshCw
 } from 'lucide-react'
 
 export default function BizMainHubPage() {
   const [storeName, setStoreName] = useState('Mi Negocio VAMO')
-  const [category, setCategory] = useState('Comida / Restaurante')
+  const [category, setCategory] = useState('Restaurante / Cocina Formal')
   const [isOpen, setIsOpen] = useState(true)
-  const [activeOrdersCount, setActiveOrdersCount] = useState(3)
-  const [dailySales, setDailySales] = useState(1485.00)
+  const [activeOrdersCount, setActiveOrdersCount] = useState(0)
+  const [dailySales, setDailySales] = useState(0.00)
+  const [kdsPin, setKdsPin] = useState('')
 
   useEffect(() => {
     try {
@@ -38,6 +37,9 @@ export default function BizMainHubPage() {
         if (parsed.storeName) setStoreName(parsed.storeName)
         if (parsed.category) setCategory(parsed.category)
         if (parsed.isOpen !== undefined) setIsOpen(parsed.isOpen)
+        if (parsed.kdsPin) setKdsPin(parsed.kdsPin)
+        if (parsed.dailySales !== undefined) setDailySales(parsed.dailySales)
+        if (parsed.activeOrders !== undefined) setActiveOrdersCount(parsed.activeOrders)
       }
     } catch (e) {
       console.error(e)
@@ -57,48 +59,77 @@ export default function BizMainHubPage() {
     }
   }
 
-  const verticalModes = [
-    {
-      id: 'simple',
-      title: '🌮 Modo Callejero / Taquero / Puesto',
-      subtitle: 'Para puestos de tacos, gorditas y comercio ambulante. 2 botones gigantes táctiles, comanda en voz alta y cero fricción.',
-      route: '/biz/simple',
-      iconBg: 'bg-amber-50 text-amber-700 border-amber-200',
-      badge: 'Cero Complicaciones',
-      badgeStyle: 'bg-amber-50 text-amber-800 border border-amber-200',
-      icon: Zap
-    },
-    {
+  // Identificador de la pantalla operativa única asignada al giro del local
+  const getAssignedWorkstation = () => {
+    const c = category.toLowerCase()
+    if (c.includes('taquer') || c.includes('puesto') || c.includes('callejero') || c.includes('rápida') || c.includes('simple')) {
+      return {
+        id: 'simple',
+        title: '🌮 Modo Callejero / Taquería (2 Botones)',
+        badge: 'Tu Pantalla Operativa Asignada',
+        desc: 'Botones táctiles gigantes para tomar órdenes a máxima velocidad, lectura de comandas por voz y aviso a motomandados.',
+        route: '/biz/simple',
+        icon: Zap,
+        actionText: 'ABRIR MODO CALLEJERO 🌮',
+        colorBadge: 'bg-amber-100 text-amber-900 border-amber-300',
+        bgBox: 'bg-gradient-to-r from-amber-600 to-orange-600'
+      }
+    }
+    if (c.includes('farma') || c.includes('salud') || c.includes('medic')) {
+      return {
+        id: 'pharmacy',
+        title: '💊 Modo Farmacia & Salud (Recetas)',
+        badge: 'Tu Terminal Operativa Asignada',
+        desc: 'Visor de recetas médicas por foto, surtido de botiquín urgente y despacho de medicamentos en menos de 12 minutos.',
+        route: '/biz/pharmacy',
+        icon: Pill,
+        actionText: 'ABRIR TERMINAL DE FARMACIA 💊',
+        colorBadge: 'bg-emerald-100 text-emerald-900 border-emerald-300',
+        bgBox: 'bg-gradient-to-r from-emerald-600 to-teal-700'
+      }
+    }
+    if (c.includes('ferret') || c.includes('refacc') || c.includes('material') || c.includes('carga')) {
+      return {
+        id: 'hardware',
+        title: '🔧 Modo Ferretería & Refaccionaria',
+        badge: 'Tu Mostrador Operativo Asignado',
+        desc: 'Cotizador de piezas y herramientas por foto o medida, con asignación de motos con parrilla de carga.',
+        route: '/biz/hardware',
+        icon: Wrench,
+        actionText: 'ABRIR MOSTRADOR DE FERRETERÍA 🔧',
+        colorBadge: 'bg-slate-200 text-slate-900 border-slate-300',
+        bgBox: 'bg-gradient-to-r from-slate-700 to-slate-900'
+      }
+    }
+    if (c.includes('abarrot') || c.includes('tienda') || c.includes('comercio general')) {
+      return {
+        id: 'catalog',
+        title: '🛒 Catálogo & Venta Rápida de Abarrotes',
+        badge: 'Tu Tienda Operativa Asignada',
+        desc: 'Control de inventario, lista de productos y despacho de pedidos a vecinos y clientes de tu zona.',
+        route: '/biz/catalog',
+        icon: ShoppingBag,
+        actionText: 'ABRIR CATÁLOGO & VENTA 🛒',
+        colorBadge: 'bg-blue-100 text-blue-900 border-blue-300',
+        bgBox: 'bg-gradient-to-r from-blue-700 to-indigo-800'
+      }
+    }
+    // Por defecto: Restaurante KDS
+    return {
       id: 'kds',
       title: '👨‍🍳 Modo Restaurante & Cocina (KDS)',
-      subtitle: 'Comandera digital de cocina con tiempos de preparación, alertas de voz manos libres y semáforo de pedidos.',
+      badge: 'Tu Comandera Operativa Asignada',
+      desc: 'Comandera digital de cocina con tiempos de preparación, alertas de voz manos libres y semáforo de pedidos.',
       route: '/biz/kds',
-      iconBg: 'bg-blue-50 text-[#0056d2] border-blue-200',
-      badge: 'Cocina & Comandas',
-      badgeStyle: 'bg-blue-50 text-[#0056d2] border border-blue-200',
-      icon: Utensils
-    },
-    {
-      id: 'pharmacy',
-      title: '💊 Modo Farmacia & Salud',
-      subtitle: 'Visor de recetas médicas por foto, surtido de botiquín urgente y despacho de medicamentos en <12 min.',
-      route: '/biz/pharmacy',
-      iconBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      badge: 'Recetas & Botiquín',
-      badgeStyle: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
-      icon: Pill
-    },
-    {
-      id: 'hardware',
-      title: '🔧 Modo Ferretería & Refaccionaria',
-      subtitle: 'Cotizador de piezas por foto y medida, atención de mostrador y asignación de motos con parrilla de carga.',
-      route: '/biz/hardware',
-      iconBg: 'bg-slate-100 text-slate-700 border-slate-200',
-      badge: 'Mostrador & Carga',
-      badgeStyle: 'bg-slate-100 text-slate-700 border border-slate-200',
-      icon: Wrench
+      icon: Utensils,
+      actionText: 'ABRIR PANTALLA KDS COCINA 👨‍🍳',
+      colorBadge: 'bg-blue-100 text-blue-900 border-blue-300',
+      bgBox: 'bg-gradient-to-r from-[#0040A1] to-[#0056D2]'
     }
-  ]
+  }
+
+  const activeWorkstation = getAssignedWorkstation()
+  const ActiveIcon = activeWorkstation.icon
 
   return (
     <div className="min-h-screen bg-[#fcf9f8] text-[#1c1b1b] flex flex-col md:flex-row font-sans selection:bg-[#0056d2] selection:text-white">
@@ -128,7 +159,7 @@ export default function BizMainHubPage() {
                   {storeName}
                 </h1>
                 <p className="text-xs sm:text-sm font-semibold text-slate-500">
-                  Panel maestro de operaciones, comandas y despacho a motomandados
+                  Panel maestro de operaciones &bull; 0% comisiones directas
                 </p>
               </div>
             </div>
@@ -154,11 +185,44 @@ export default function BizMainHubPage() {
             </div>
           </div>
 
-          {/* Tarjeta de Métricas Rápidas (0% Comisiones) */}
+          {/* HERO WORKSTATION: La pantalla que le corresponde a este local */}
+          <div className={`${activeWorkstation.bgBox} text-white p-6 sm:p-8 rounded-[32px] shadow-xl space-y-4 relative overflow-hidden`}>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="space-y-1.5 max-w-xl">
+                <div className={`inline-flex items-center gap-1.5 ${activeWorkstation.colorBadge} text-[10px] font-black px-3 py-1 rounded-full uppercase border shadow-xs`}>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{activeWorkstation.badge}</span>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                  {activeWorkstation.title}
+                </h2>
+                <p className="text-xs sm:text-sm text-white/90 font-medium leading-relaxed">
+                  {activeWorkstation.desc}
+                </p>
+              </div>
+
+              <Link
+                href={activeWorkstation.route}
+                className="bg-[#C3F400] hover:bg-[#abd600] text-[#161e00] px-7 py-4 rounded-full font-black text-sm shadow-lg active:scale-95 transition-all flex items-center gap-2 shrink-0 cursor-pointer"
+              >
+                <span>{activeWorkstation.actionText}</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+
+            {kdsPin && (
+              <div className="pt-3 border-t border-white/20 flex items-center justify-between text-xs text-white/80">
+                <span>🔑 Tu PIN de acceso rápido para tablets de cocina/mostrador: <strong className="font-mono text-[#C3F400] text-sm ml-1">{kdsPin}</strong></span>
+                <Link href="/kds/auth" className="underline font-bold text-[#C3F400] hover:text-white">Abrir Terminal KDS Remota</Link>
+              </div>
+            )}
+          </div>
+
+          {/* Tarjeta de Métricas Reales */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white p-5 rounded-[24px] border border-[#e5e2e1] shadow-xs space-y-1">
               <div className="flex items-center justify-between text-slate-500">
-                <span className="text-xs font-bold uppercase tracking-wider">Ventas de Hoy</span>
+                <span className="text-xs font-bold uppercase tracking-wider">Ventas Acumuladas</span>
                 <DollarSign className="w-4 h-4 text-emerald-600" />
               </div>
               <p className="text-2xl sm:text-3xl font-black text-slate-900">${dailySales.toFixed(2)} MXN</p>
@@ -174,67 +238,63 @@ export default function BizMainHubPage() {
               </div>
               <p className="text-2xl sm:text-3xl font-black text-[#0056d2]">{activeOrdersCount} Activos</p>
               <p className="text-[11px] font-semibold text-slate-500">
-                Despachándose en cocina y mostrador
+                {activeOrdersCount === 0 ? 'Sin comandas pendientes en este momento' : 'Despachándose en cocina o mostrador'}
               </p>
             </div>
 
             <div className="bg-white p-5 rounded-[24px] border border-[#e5e2e1] shadow-xs space-y-1">
               <div className="flex items-center justify-between text-slate-500">
-                <span className="text-xs font-bold uppercase tracking-wider">Motos VAMO en Zona</span>
+                <span className="text-xs font-bold uppercase tracking-wider">Red de Motomandados</span>
                 <Bike className="w-4 h-4 text-slate-700" />
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-slate-900">4 Disponibles</p>
+              <p className="text-2xl sm:text-3xl font-black text-emerald-600">🟢 Conectada</p>
               <p className="text-[11px] font-semibold text-slate-500">
-                Tiempo promedio de recolección: &lt; 4 min
+                Despacho inmediato a motociclistas de tu zona
               </p>
             </div>
           </div>
 
-          {/* Selector de Pantalla de Trabajo Adaptativa según Giro */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg sm:text-xl font-black text-slate-900">Pantallas de Operación por Giro</h2>
-                <p className="text-xs font-medium text-slate-500">
-                  Herramientas diseñadas a la medida de tu tipo de negocio
-                </p>
+          {/* Accesos Rápidos de Gestión */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Link
+              href="/biz/catalog"
+              className="bg-white p-6 rounded-[28px] border border-[#e5e2e1] shadow-xs hover:border-[#0056d2] hover:shadow-md transition-all flex items-center justify-between group"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 text-[#0056d2] border border-blue-200 flex items-center justify-center">
+                  <ShoppingBag className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 group-hover:text-[#0056d2]">
+                    Catálogo de Productos & Precios
+                  </h3>
+                  <p className="text-xs text-slate-500 font-semibold">
+                    Agrega platillos, productos y fotos para tu menú
+                  </p>
+                </div>
               </div>
-              <span className="hidden sm:inline-block bg-blue-50 text-[#0056d2] border border-blue-200 text-[10px] font-black px-3 py-1 rounded-full uppercase">
-                4 Modos Adaptativos
-              </span>
-            </div>
+              <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-[#0056d2] transition-all" />
+            </Link>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {verticalModes.map((mode) => {
-                const IconComponent = mode.icon
-                return (
-                  <Link
-                    key={mode.id}
-                    href={mode.route}
-                    className="bg-white p-6 rounded-[28px] border border-[#e5e2e1] shadow-xs hover:border-[#0056d2]/50 hover:shadow-md active:scale-98 transition-all flex flex-col justify-between min-h-[160px] group cursor-pointer"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-2xl border flex items-center justify-center ${mode.iconBg}`}>
-                          <IconComponent className="w-5 h-5" />
-                        </div>
-                        <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${mode.badgeStyle}`}>
-                          {mode.badge}
-                        </span>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-[#0056d2] group-hover:translate-x-1 transition-all" />
-                    </div>
-
-                    <div className="space-y-1 mt-4">
-                      <h3 className="text-base font-black text-slate-900 group-hover:text-[#0056d2] transition-colors">{mode.title}</h3>
-                      <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                        {mode.subtitle}
-                      </p>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
+            <Link
+              href="/biz/finances"
+              className="bg-white p-6 rounded-[28px] border border-[#e5e2e1] shadow-xs hover:border-emerald-600 hover:shadow-md transition-all flex items-center justify-between group"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center">
+                  <DollarSign className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 group-hover:text-emerald-700">
+                    Finanzas, Cuenta CLABE & Retiros
+                  </h3>
+                  <p className="text-xs text-slate-500 font-semibold">
+                    Configura tu cuenta bancaria y solicita dispersión SPEI
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-emerald-700 transition-all" />
+            </Link>
           </div>
 
           {/* Herramienta Comercial: Menú Digital QR & Link para WhatsApp */}

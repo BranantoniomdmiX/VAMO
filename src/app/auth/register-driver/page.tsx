@@ -62,21 +62,51 @@ export default function RegisterDriverPage() {
           return
         }
 
-        const { data: codeData, error: codeErr } = await supabase
-          .from('franchise_join_codes')
-          .select('*')
-          .eq('code', fleetCode.trim().toUpperCase())
-          .eq('is_active', true)
-          .maybeSingle()
+        let codeValid = false
 
-        if (codeErr || !codeData) {
+        // Check Supabase first
+        try {
+          const { data: codeData, error: codeErr } = await supabase
+            .from('franchise_join_codes')
+            .select('*')
+            .eq('code', fleetCode.trim().toUpperCase())
+            .eq('is_active', true)
+            .maybeSingle()
+
+          if (!codeErr && codeData) {
+            codeValid = true
+            franchiseId = codeData.franchise_id
+            baseId = codeData.base_id
+          }
+        } catch (e) {}
+
+        // Check local codes if not found in Supabase
+        if (!codeValid) {
+          try {
+            const localCodes = JSON.parse(localStorage.getItem('vamo_driver_codes') || '[]')
+            const localFleetCodes = JSON.parse(localStorage.getItem('vamo_fleet_codes') || '[]')
+            const matchDriver = localCodes.find((c: any) => c.code === fleetCode.trim().toUpperCase() && c.status === 'available')
+            const matchFleet = localFleetCodes.find((c: any) => c.code === fleetCode.trim().toUpperCase())
+
+            if (matchDriver || matchFleet) {
+              codeValid = true
+              franchiseId = matchDriver ? 'Plaza Local' : matchFleet.fleetName
+              
+              // Marcar código como usado
+              if (matchDriver) {
+                matchDriver.status = 'used'
+                matchDriver.assignedTo = name.trim()
+                localStorage.setItem('vamo_driver_codes', JSON.stringify(localCodes))
+              }
+            }
+          } catch (e) {}
+        }
+
+        if (!codeValid) {
           setErrorMessage('El código de flota no es válido o ha expirado. Verifica con tu Socio Operador.')
           setIsLoading(false)
           return
         }
-
-        franchiseId = codeData.franchise_id
-        baseId = codeData.base_id
       }
 
       // 2. Crear usuario en Supabase Auth

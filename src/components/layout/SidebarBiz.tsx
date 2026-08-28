@@ -22,6 +22,7 @@ interface SidebarBizProps {
 export function SidebarBiz({ activeTab }: SidebarBizProps) {
   const [isOpen, setIsOpen] = React.useState(false)
   const [isNewOrderOpen, setIsNewOrderOpen] = React.useState(false)
+  const [category, setCategory] = React.useState('Restaurante')
   const [isFoodCategory, setIsFoodCategory] = React.useState(true)
   const [storeName, setStoreName] = React.useState('Centro de Comercio VAMO')
 
@@ -31,7 +32,8 @@ export function SidebarBiz({ activeTab }: SidebarBizProps) {
       if (stored) {
         const parsed = JSON.parse(stored)
         if (parsed.storeName) setStoreName(parsed.storeName)
-        const cat = parsed.category || 'Comida'
+        const cat = parsed.category || 'Restaurante'
+        setCategory(cat)
         if (cat.includes('Farmacia') || cat.includes('Ferretería') || cat.includes('Abarrotes') || cat.includes('Ropa') || cat.includes('Servicios')) {
           setIsFoodCategory(false)
         } else {
@@ -237,16 +239,84 @@ export function SidebarBiz({ activeTab }: SidebarBizProps) {
           </Link>
 
           {/* SECCIÓN MODOS ADAPTATIVOS ESPECIALIZADOS */}
+          {/* SECCIÓN PANTALLA OPERATIVA PRINCIPAL DEL GIRO */}
           <div className="pt-2 border-t border-slate-100">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-3 block mb-1">
-              Modos de Mostrador / Giro
+              Terminal Operativa Activa
             </span>
 
+            {category.toLowerCase().includes('taquer') || category.toLowerCase().includes('puesto') || category.toLowerCase().includes('callejero') || category.toLowerCase().includes('simple') ? (
+              <Link
+                href="/biz/simple"
+                onClick={() => setIsOpen(false)}
+                className={`
+                  flex items-center justify-between p-2.5 rounded-xl font-bold text-xs transition-all
+                  ${activeTab === 'simple' 
+                    ? 'bg-amber-100 text-amber-900 font-black border border-amber-300 shadow-2xs' 
+                    : 'text-[#424654] hover:bg-[#f6f3f2] hover:text-[#0056d2]'}
+                `}
+              >
+                <div className="flex items-center gap-2">
+                  <span>🌮</span>
+                  <span>Modo Callejero / Taquero (2 Botones)</span>
+                </div>
+              </Link>
+            ) : category.toLowerCase().includes('farma') || category.toLowerCase().includes('salud') ? (
+              <Link
+                href="/biz/pharmacy"
+                onClick={() => setIsOpen(false)}
+                className={`
+                  flex items-center justify-between p-2.5 rounded-xl font-bold text-xs transition-all
+                  ${activeTab === 'pharmacy' 
+                    ? 'bg-emerald-100 text-emerald-900 font-black border border-emerald-300 shadow-2xs' 
+                    : 'text-[#424654] hover:bg-[#f6f3f2] hover:text-[#0056d2]'}
+                `}
+              >
+                <div className="flex items-center gap-2">
+                  <span>💊</span>
+                  <span>Modo Farmacia & Recetas</span>
+                </div>
+              </Link>
+            ) : category.toLowerCase().includes('ferret') || category.toLowerCase().includes('refacc') || category.toLowerCase().includes('carga') ? (
+              <Link
+                href="/biz/hardware"
+                onClick={() => setIsOpen(false)}
+                className={`
+                  flex items-center justify-between p-2.5 rounded-xl font-bold text-xs transition-all
+                  ${activeTab === 'hardware' 
+                    ? 'bg-slate-200 text-slate-900 font-black border border-slate-300 shadow-2xs' 
+                    : 'text-[#424654] hover:bg-[#f6f3f2] hover:text-[#0056d2]'}
+                `}
+              >
+                <div className="flex items-center gap-2">
+                  <span>🔧</span>
+                  <span>Modo Ferretería & Carga</span>
+                </div>
+              </Link>
+            ) : (
+              <Link
+                href="/biz/kds"
+                onClick={() => setIsOpen(false)}
+                className={`
+                  flex items-center justify-between p-2.5 rounded-xl font-bold text-xs transition-all
+                  ${activeTab === 'kds' 
+                    ? 'bg-blue-50 text-[#0056d2] font-black border border-blue-200/60 shadow-2xs' 
+                    : 'text-[#424654] hover:bg-[#f6f3f2] hover:text-[#0056d2]'}
+                `}
+              >
+                <div className="flex items-center gap-2">
+                  <span>👨‍🍳</span>
+                  <span>Pantalla KDS (Cocina)</span>
+                </div>
+              </Link>
+            )}
+
+            {/* Acceso a Caja & Gerencia */}
             <Link
               href="/biz/manager"
               onClick={() => setIsOpen(false)}
               className={`
-                flex items-center justify-between p-2 rounded-xl font-bold text-xs transition-all
+                flex items-center justify-between p-2 rounded-xl font-bold text-xs transition-all mt-1
                 ${activeTab === 'manager' 
                   ? 'bg-blue-50 text-[#0056d2] font-black border border-blue-200/60 shadow-2xs' 
                   : 'text-[#424654] hover:bg-[#f6f3f2] hover:text-[#0056d2]'}
@@ -255,70 +325,6 @@ export function SidebarBiz({ activeTab }: SidebarBizProps) {
               <div className="flex items-center gap-2">
                 <span>🖥️</span>
                 <span>Caja & Gerencia (Dueño)</span>
-              </div>
-            </Link>
-
-            <Link
-              href="/biz/simple"
-              onClick={() => setIsOpen(false)}
-              className={`
-                flex items-center justify-between p-2 rounded-xl font-bold text-xs transition-all
-                ${activeTab === 'simple' 
-                  ? 'bg-blue-50 text-[#0056d2] font-black border border-blue-200/60 shadow-2xs' 
-                  : 'text-[#424654] hover:bg-[#f6f3f2] hover:text-[#0056d2]'}
-              `}
-            >
-              <div className="flex items-center gap-2">
-                <span>🌮</span>
-                <span>Modo Callejero / Taquero</span>
-              </div>
-            </Link>
-
-            <Link
-              href="/biz/kds"
-              onClick={() => setIsOpen(false)}
-              className={`
-                flex items-center justify-between p-2 rounded-xl font-bold text-xs transition-all
-                ${activeTab === 'kds' 
-                  ? 'bg-blue-50 text-[#0056d2] font-black border border-blue-200/60 shadow-2xs' 
-                  : 'text-[#424654] hover:bg-[#f6f3f2] hover:text-[#0056d2]'}
-              `}
-            >
-              <div className="flex items-center gap-2">
-                <span>👨‍🍳</span>
-                <span>Pantalla KDS (Cocina)</span>
-              </div>
-            </Link>
-
-            <Link
-              href="/biz/pharmacy"
-              onClick={() => setIsOpen(false)}
-              className={`
-                flex items-center justify-between p-2 rounded-xl font-bold text-xs transition-all
-                ${activeTab === 'pharmacy' 
-                  ? 'bg-blue-50 text-[#0056d2] font-black border border-blue-200/60 shadow-2xs' 
-                  : 'text-[#424654] hover:bg-[#f6f3f2] hover:text-[#0056d2]'}
-              `}
-            >
-              <div className="flex items-center gap-2">
-                <span>💊</span>
-                <span>Modo Farmacia & Recetas</span>
-              </div>
-            </Link>
-
-            <Link
-              href="/biz/hardware"
-              onClick={() => setIsOpen(false)}
-              className={`
-                flex items-center justify-between p-2 rounded-xl font-bold text-xs transition-all
-                ${activeTab === 'hardware' 
-                  ? 'bg-blue-50 text-[#0056d2] font-black border border-blue-200/60 shadow-2xs' 
-                  : 'text-[#424654] hover:bg-[#f6f3f2] hover:text-[#0056d2]'}
-              `}
-            >
-              <div className="flex items-center gap-2">
-                <span>🔧</span>
-                <span>Modo Ferretería & Carga</span>
               </div>
             </Link>
           </div>
