@@ -40,56 +40,12 @@ interface VamoMapLibreProps {
   onMapClick?: (coords: { lat: number; lng: number }) => void
 }
 
-const CARTO_LIGHT_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    'carto-voyager-tiles': {
-      type: 'raster',
-      tiles: [
-        'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'
-      ],
-      tileSize: 256,
-      attribution: '&copy; CartoDB &copy; OpenStreetMap'
-    }
-  },
-  layers: [
-    {
-      id: 'carto-voyager-layer',
-      type: 'raster',
-      source: 'carto-voyager-tiles',
-      minzoom: 0,
-      maxzoom: 19
-    }
-  ]
-}
+// Estilos Vectoriales Oficiales de Alta Disponibilidad CartoDB
+const CARTO_GL_VOYAGER = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json'
+const CARTO_GL_DARK = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
+const CARTO_GL_POSITRON = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
 
-const CARTO_DARK_FALLBACK: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    'carto-dark-tiles': {
-      type: 'raster',
-      tiles: [
-        'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
-      ],
-      tileSize: 256,
-      attribution: '&copy; CartoDB &copy; OpenStreetMap'
-    }
-  },
-  layers: [
-    {
-      id: 'carto-dark-layer',
-      type: 'raster',
-      source: 'carto-dark-tiles',
-      minzoom: 0,
-      maxzoom: 19
-    }
-  ]
-}
-
+// Fallback de Emergencia con Mosaicos OpenStreetMap Raster
 const OSM_RASTER_FALLBACK: maplibregl.StyleSpecification = {
   version: 8,
   sources: {
@@ -117,7 +73,7 @@ const OSM_RASTER_FALLBACK: maplibregl.StyleSpecification = {
 
 export default function VamoMapLibre({
   center = [20.5218, -100.8142],
-  zoom = 15.5,
+  zoom = 15,
   theme = 'light',
   mode3D: initialMode3D = false,
   pitch = 0,
@@ -143,7 +99,7 @@ export default function VamoMapLibre({
 
   const routeLayerCreatedRef = useRef(false)
 
-  // 1. Inicialización Inmediata sin Latencia
+  // 1. Inicialización de MapLibre GL
   useEffect(() => {
     if (!mapContainer.current) return
 
@@ -165,13 +121,13 @@ export default function VamoMapLibre({
 
     setIsMapLoaded(false)
     routeLayerCreatedRef.current = false
-    const activeStyle = theme === 'dark' ? CARTO_DARK_FALLBACK : CARTO_LIGHT_STYLE
+    const styleUrl = theme === 'dark' ? CARTO_GL_DARK : CARTO_GL_VOYAGER
 
     let map: maplibregl.Map
     try {
       map = new maplibregl.Map({
         container: mapContainer.current,
-        style: activeStyle,
+        style: styleUrl,
         center: [center[1], center[0]] as [number, number],
         zoom,
         pitch: is3D ? 55 : 0,
@@ -179,7 +135,7 @@ export default function VamoMapLibre({
         attributionControl: false
       })
     } catch (err) {
-      console.warn('⚠️ [VAMO Map] Fallback a OSM Raster:', err)
+      console.warn('⚠️ [VAMO Map] Error iniciando Carto GL, usando OSM Raster:', err)
       map = new maplibregl.Map({
         container: mapContainer.current,
         style: OSM_RASTER_FALLBACK,
@@ -191,28 +147,23 @@ export default function VamoMapLibre({
       })
     }
 
-    // Watchdog Anti-Pantalla en Blanco: Si en 3.5s no cargó el estilo vectorial, aplicar OSM raster
+    // Watchdog Anti-Pantalla Blanca: Si tarda en cargar el estilo, aplicar OSM Raster
     let fallbackApplied = false
     const fallbackTimer = setTimeout(() => {
       if (!fallbackApplied && !map.isStyleLoaded()) {
-        console.warn('🛡️ [VAMO Map Watchdog] Activando Fallback OSM Raster de Alta Disponibilidad')
         fallbackApplied = true
         try {
-          map.setStyle(theme === 'dark' ? CARTO_DARK_FALLBACK : OSM_RASTER_FALLBACK)
-          setTimeout(() => {
-            try { map.resize() } catch (e) {}
-          }, 200)
+          map.setStyle(OSM_RASTER_FALLBACK)
         } catch (e) {}
       }
-    }, 3500)
+    }, 2000)
 
     map.on('error', (e) => {
-      const errorMsg = e.error?.message || ''
-      if (!fallbackApplied && (errorMsg.includes('style') || errorMsg.includes('Failed to fetch') || errorMsg.includes('404') || errorMsg.includes('NetworkError'))) {
-        console.warn('🛡️ [VAMO Map Error] Fallo de vector tiles detectado. Aplicando OSM Raster:', errorMsg)
+      const msg = e.error?.message || ''
+      if (!fallbackApplied && (msg.includes('style') || msg.includes('Failed to fetch') || msg.includes('404'))) {
         fallbackApplied = true
         try {
-          map.setStyle(theme === 'dark' ? CARTO_DARK_FALLBACK : OSM_RASTER_FALLBACK)
+          map.setStyle(OSM_RASTER_FALLBACK)
         } catch (err) {}
       }
     })
@@ -221,10 +172,7 @@ export default function VamoMapLibre({
 
     if (enableGeolocate !== false) {
       const geolocateControl = new maplibregl.GeolocateControl({
-        positionOptions: {
-          enableHighAccuracy: true,
-          timeout: 6000
-        },
+        positionOptions: { enableHighAccuracy: true, timeout: 6000 },
         trackUserLocation: true,
         showUserLocation: true
       })
@@ -242,11 +190,9 @@ export default function VamoMapLibre({
 
     const handleLoadedMap = () => {
       clearTimeout(fallbackTimer)
-      map.resize()
-      setTimeout(() => { try { map.resize() } catch (e) {} }, 100)
+      try { map.resize() } catch (e) {}
+      setTimeout(() => { try { map.resize() } catch (e) {} }, 150)
       setTimeout(() => { try { map.resize() } catch (e) {} }, 500)
-      setTimeout(() => { try { map.resize() } catch (e) {} }, 1200)
-
       createRouteSourceAndLayers(map)
       pushRouteData(map)
       setIsMapLoaded(true)
@@ -260,7 +206,6 @@ export default function VamoMapLibre({
       setIsMapLoaded(true)
     })
 
-    // ResizeObserver para asegurar que cuando el layout móvil termine de calcular dimensiones el mapa se pinte
     let resizeObserver: ResizeObserver | null = null
     if (typeof ResizeObserver !== 'undefined' && mapContainer.current) {
       resizeObserver = new ResizeObserver(() => {
@@ -269,49 +214,19 @@ export default function VamoMapLibre({
       resizeObserver.observe(mapContainer.current)
     }
 
-
-    map.on('load', () => {
-      // Capa de Edificios 3D (fill-extrusion)
-      try {
-        if (map.getSource('openmaptiles') && !map.getLayer('3d-buildings')) {
-          map.addLayer({
-            id: '3d-buildings',
-            source: 'openmaptiles',
-            'source-layer': 'building',
-            type: 'fill-extrusion',
-            minzoom: 14,
-            layout: {
-              visibility: is3D ? 'visible' : 'none'
-            },
-            paint: {
-              'fill-extrusion-color': theme === 'dark' ? '#1e293b' : '#cbd5e1',
-              'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.05, ['get', 'render_height']],
-              'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.05, ['get', 'render_min_height']],
-              'fill-extrusion-opacity': 0.85
-            }
-          })
-        }
-      } catch (e) {}
-
-      createRouteSourceAndLayers(map)
-      pushRouteData(map)
-
-      setIsMapLoaded(true)
-    })
-
     mapRef.current = map
 
     return () => {
+      clearTimeout(fallbackTimer)
+      if (resizeObserver) resizeObserver.disconnect()
       if (mapRef.current) {
-        try {
-          mapRef.current.remove()
-        } catch (e) {}
+        try { mapRef.current.remove() } catch (e) {}
         mapRef.current = null
       }
     }
   }, [theme])
 
-  // Crear Source y Layers de Ruta
+  // 2. Rutas
   const createRouteSourceAndLayers = useCallback((map: maplibregl.Map) => {
     if (routeLayerCreatedRef.current) return
     if (map.getSource('nav-route')) return
@@ -326,7 +241,7 @@ export default function VamoMapLibre({
       type: 'line',
       source: 'nav-route',
       layout: { 'line-join': 'round', 'line-cap': 'round' },
-      paint: { 'line-color': '#ffffff', 'line-width': 14, 'line-opacity': 0.95 }
+      paint: { 'line-color': '#ffffff', 'line-width': 12, 'line-opacity': 0.95 }
     })
 
     map.addLayer({
@@ -334,13 +249,12 @@ export default function VamoMapLibre({
       type: 'line',
       source: 'nav-route',
       layout: { 'line-join': 'round', 'line-cap': 'round' },
-      paint: { 'line-color': '#0056D2', 'line-width': 8, 'line-opacity': 1.0 }
+      paint: { 'line-color': '#0056D2', 'line-width': 7, 'line-opacity': 1.0 }
     })
 
     routeLayerCreatedRef.current = true
   }, [])
 
-  // Actualizar GeoJSON
   const pushRouteData = useCallback((map: maplibregl.Map) => {
     const coords = routeCoordsRef.current
     if (!coords || coords.length < 2) return
@@ -358,7 +272,6 @@ export default function VamoMapLibre({
     })
   }, [])
 
-  // 2. Reactividad a Cambios en Coordenadas de Ruta
   useEffect(() => {
     const map = mapRef.current
     if (!map || !isMapLoaded) return
@@ -371,9 +284,9 @@ export default function VamoMapLibre({
       const bounds = new maplibregl.LngLatBounds()
       routeCoordinates.forEach(pt => bounds.extend(pt as [number, number]))
       map.fitBounds(bounds, {
-        padding: { top: 100, bottom: 140, left: 60, right: 60 },
+        padding: { top: 80, bottom: 100, left: 50, right: 50 },
         maxZoom: 16.5,
-        duration: 800
+        duration: 600
       })
     }
   }, [routeCoordinates, isMapLoaded])
@@ -385,19 +298,14 @@ export default function VamoMapLibre({
     if (onToggle3D) onToggle3D(nextMode)
 
     if (mapRef.current) {
-      const map = mapRef.current
-      map.easeTo({
+      mapRef.current.easeTo({
         pitch: nextMode ? 55 : 0,
         duration: 800
       })
-
-      if (map.getLayer('3d-buildings')) {
-        map.setLayoutProperty('3d-buildings', 'visibility', nextMode ? 'visible' : 'none')
-      }
     }
   }
 
-  // 4. MARCADOR ULTRA-MODERNO: FLECHA DE NAVEGACIÓN 3D TIPO WAZE/GOOGLE MAPS
+  // 4. Marcadores de Choferes
   useEffect(() => {
     if (!mapRef.current || !isMapLoaded) return
     const map = mapRef.current
@@ -415,106 +323,39 @@ export default function VamoMapLibre({
 
       if (markersRef.current[driver.id]) {
         markersRef.current[driver.id].setLngLat(posLngLat)
-        const el = markersRef.current[driver.id].getElement()
-        const arrow = el.querySelector('.driver-heading-arrow') as HTMLElement | null
-        if (arrow) {
-          arrow.style.transform = `rotate(${rotation}deg)`
-        }
       } else {
         const glowColor = driver.status === 'DISPONIBLE' ? '#c3f400' : '#0056D2'
 
-        // 1. Elemento HTML con tamaño cero para anclaje matemático absoluto (0, 0)
         const dotEl = document.createElement('div')
         dotEl.style.cssText = 'width: 0px; height: 0px; position: relative; cursor: pointer;'
         dotEl.innerHTML = `
-          <!-- Flecha de Dirección / Heading (Gira con la moto) -->
-          <div class="driver-heading-arrow" style="
-            position: absolute;
-            top: -15px;
-            left: -15px;
-            width: 30px;
-            height: 30px;
-            transform: rotate(${rotation}deg);
-            transition: transform 0.3s ease;
-            pointer-events: none;
-            display: flex;
-            align-items: flex-start;
-            justify-content: center;
-          ">
-            <div style="
-              width: 0; 
-              height: 0; 
-              border-left: 5px solid transparent;
-              border-right: 5px solid transparent;
-              border-bottom: 7px solid ${theme === 'dark' ? '#c3f400' : '#0040a1'};
-              filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
-            "></div>
-          </div>
-
-          <!-- Halo Pulsante -->
           <div style="
-            position: absolute;
-            top: -11px;
-            left: -11px;
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            background: ${glowColor};
-            opacity: 0.45;
+            position: absolute; top: -11px; left: -11px;
+            width: 22px; height: 22px; border-radius: 50%;
+            background: ${glowColor}; opacity: 0.45;
             animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
           "></div>
-
-          <!-- Punto Central de Ubicación -->
           <div style="
-            position: absolute;
-            top: -7px;
-            left: -7px;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: ${glowColor};
-            border: 2.5px solid #ffffff;
+            position: absolute; top: -7px; left: -7px;
+            width: 14px; height: 14px; border-radius: 50%;
+            background: ${glowColor}; border: 2.5px solid #ffffff;
             box-shadow: 0 2px 6px rgba(0,0,0,0.5);
           "></div>
-
-          <!-- Badge de Nombre del Conductor (SIEMPRE 100% HORIZONTAL Y DERECHO) -->
           <div style="
-            position: absolute;
-            bottom: 12px;
-            left: 0;
-            transform: translateX(-50%);
-            white-space: nowrap;
-            pointer-events: none;
+            position: absolute; bottom: 12px; left: 0;
+            transform: translateX(-50%); white-space: nowrap; pointer-events: none;
             color: ${theme === 'dark' ? '#c3f400' : '#0040a1'};
             background: ${theme === 'dark' ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)'};
             border: 1.5px solid ${theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 86, 210, 0.25)'};
-            padding: 2px 8px;
-            border-radius: 9999px;
-            font-size: 11px;
-            font-weight: 800;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            letter-spacing: -0.2px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.18);
-            display: flex;
-            align-items: center;
-            gap: 4px;
+            padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 800;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.18); display: flex; align-items: center; gap: 4px;
           ">
-            <span>🏍️</span>
-            <span>${driver.name}</span>
+            <span>🏍️</span><span>${driver.name}</span>
           </div>
         `
 
-        const popup = new maplibregl.Popup({ offset: 15 }).setHTML(`
-          <div style="font-family:sans-serif;padding:4px">
-            <strong style="color:#0056D2">${driver.name}</strong><br/>
-            <span style="font-size:12px;color:#555">Estado: <b>${driver.status}</b></span>
-          </div>
-        `)
-
-        // ANCLAJE EXACTO: El centro del punto geométrico es la coordenada GPS real (rotationAlignment: 'viewport' fija el texto derecho)
         const marker = new maplibregl.Marker({ element: dotEl, anchor: 'center', rotationAlignment: 'viewport' })
           .setLngLat(posLngLat)
-          .setPopup(popup)
           .addTo(map)
 
         markersRef.current[driver.id] = marker
@@ -522,7 +363,7 @@ export default function VamoMapLibre({
     })
   }, [drivers, isMapLoaded, theme])
 
-  // 5. Marcadores de Waypoints (Locales: Punto Minimalista Centrado + Texto Compacto con Halo Nítido)
+  // 5. Marcadores de Waypoints
   useEffect(() => {
     if (!mapRef.current || !isMapLoaded) return
     const map = mapRef.current
@@ -545,41 +386,21 @@ export default function VamoMapLibre({
       } else {
         const wpEl = document.createElement('div')
         wpEl.style.cssText = 'width: 0px; height: 0px; position: relative; cursor: pointer;'
-
         wpEl.innerHTML = `
           <div style="
-            position: absolute;
-            top: -7px;
-            left: -7px;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: ${dotColor};
-            border: 2.5px solid #ffffff;
+            position: absolute; top: -7px; left: -7px;
+            width: 14px; height: 14px; border-radius: 50%;
+            background: ${dotColor}; border: 2.5px solid #ffffff;
             box-shadow: 0 2px 6px rgba(0,0,0,0.5);
           "></div>
           <div style="
-            position: absolute;
-            bottom: 9px;
-            left: 0;
-            transform: translateX(-50%);
-            white-space: nowrap;
-            pointer-events: none;
-            color: ${textColor};
-            font-size: 11px;
-            font-weight: 800;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            letter-spacing: -0.2px;
-            text-shadow:
-              -1.5px -1.5px 0 ${theme === 'dark' ? '#0f172a' : '#ffffff'},
-               0   -1.5px 0 ${theme === 'dark' ? '#0f172a' : '#ffffff'},
-               1.5px -1.5px 0 ${theme === 'dark' ? '#0f172a' : '#ffffff'},
-              -1.5px  0   0 ${theme === 'dark' ? '#0f172a' : '#ffffff'},
-               1.5px  0   0 ${theme === 'dark' ? '#0f172a' : '#ffffff'},
-              -1.5px  1.5px 0 ${theme === 'dark' ? '#0f172a' : '#ffffff'},
-               0    1.5px 0 ${theme === 'dark' ? '#0f172a' : '#ffffff'},
-               1.5px  1.5px 0 ${theme === 'dark' ? '#0f172a' : '#ffffff'},
-               0 1.5px 4px rgba(0,0,0,0.4);
+            position: absolute; bottom: 9px; left: 0;
+            transform: translateX(-50%); white-space: nowrap; pointer-events: none;
+            color: ${textColor}; font-size: 11px; font-weight: 800;
+            text-shadow: -1.5px -1.5px 0 ${theme === 'dark' ? '#0f172a' : '#ffffff'},
+                         1.5px -1.5px 0 ${theme === 'dark' ? '#0f172a' : '#ffffff'},
+                        -1.5px 1.5px 0 ${theme === 'dark' ? '#0f172a' : '#ffffff'},
+                         1.5px 1.5px 0 ${theme === 'dark' ? '#0f172a' : '#ffffff'};
           ">
             ${isOrigin ? '🏪' : '📍'} ${wp.title}
           </div>
@@ -593,7 +414,6 @@ export default function VamoMapLibre({
     })
   }, [waypoints, isMapLoaded, theme])
 
-  // Recentrar en la posición actual
   const recenterOnDriver = () => {
     setIsUserInteracting(false)
     if (mapRef.current) {
@@ -601,7 +421,7 @@ export default function VamoMapLibre({
         center: [center[1], center[0]],
         pitch: is3D ? 55 : 0,
         bearing, zoom,
-        duration: 1000
+        duration: 800
       })
     }
   }
@@ -617,19 +437,15 @@ export default function VamoMapLibre({
         style={{ minHeight: '480px', height: '100%', width: '100%', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} 
       />
 
-
-      {/* Botón Flotante Conmutador 2D / 3D en la Parte Inferior Izquierda (100% libre de colisiones con herramientas superiores) */}
+      {/* Botón Flotante 2D / 3D */}
       <button
         onClick={toggle3DMode}
         className={`absolute bottom-4 left-3 z-20 px-3.5 py-2 rounded-xl font-black text-[11px] shadow-2xl flex items-center gap-2 border-2 active:scale-95 transition-all cursor-pointer pointer-events-auto ${
           is3D
-            ? 'bg-[#0056D2] text-white border-white shadow-blue-500/30'
-            : 'bg-white text-[#0056D2] border-[#0056D2] shadow-slate-400/30 dark:bg-slate-900 dark:text-[#c3f400] dark:border-[#c3f400]'
+            ? 'bg-[#0056D2] text-white border-white'
+            : 'bg-white text-[#0056D2] border-[#0056D2] dark:bg-slate-900 dark:text-[#c3f400] dark:border-[#c3f400]'
         }`}
-        title="Alternar vista entre plano 2D y perspectiva 3D"
       >
-
-
         {is3D ? (
           <>
             <Box className="w-4 h-4 text-[#c3f400] animate-pulse shrink-0" />
@@ -643,7 +459,7 @@ export default function VamoMapLibre({
         )}
       </button>
 
-      {/* Botón Flotante para Recentrar */}
+      {/* Recentrar */}
       {isUserInteracting && (
         <button
           onClick={recenterOnDriver}

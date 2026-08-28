@@ -79,17 +79,12 @@ export default function VamoLeafletMap({
       // Controles de zoom
       L.control.zoom({ position: 'topright' }).addTo(map)
 
-      // Capa de mosaicos ultrarrápida (Carto Voyager / Positron para light, DarkMatter para dark)
-      const tileUrl = theme === 'dark'
-        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
+      // Capa de mosaicos OpenStreetMap 100% Limpia, Sin Marcas de Agua y en Español
+      const tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 
       const tiles = L.tileLayer(tileUrl, {
-        subdomains: 'abcd',
         maxZoom: 19,
-        detectRetina: isRetina,
-        // @ts-ignore
-        r: isRetina ? '@2x' : ''
+        attribution: '&copy; OpenStreetMap Contributors'
       }).addTo(map)
 
       // Fallback a OpenStreetMap si Carto tiene problemas

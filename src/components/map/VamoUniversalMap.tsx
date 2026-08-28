@@ -61,7 +61,7 @@ function MapLoadingSkeleton() {
 }
 
 export default function VamoUniversalMap(props: VamoUniversalMapProps) {
-  const [engine, setEngine] = useState<'maplibre' | 'leaflet'>('maplibre')
+  const [engine, setEngine] = useState<'maplibre' | 'leaflet'>('leaflet')
   const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
