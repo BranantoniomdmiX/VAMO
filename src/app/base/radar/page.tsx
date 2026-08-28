@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { SidebarBase } from '@/components/layout/SidebarBase'
 import { Map, Radio, Bike, CheckCircle, Clock, AlertTriangle, Battery, Navigation } from 'lucide-react'
-import VamoMapLibre, { DriverMarkerData } from '@/components/map/VamoMapLibre'
+import VamoUniversalMap, { DriverMarkerData } from '@/components/map/VamoUniversalMap'
 
 export default function BaseRadarPage() {
   const [mapTheme, setMapTheme] = useState<'light' | 'dark'>('light')
@@ -62,9 +62,9 @@ export default function BaseRadarPage() {
         </header>
 
         <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
-          {/* Mapa GPS Interactivo Vectorial MapLibre GL JS */}
+          {/* Mapa GPS Interactivo Universal (MapLibre + Leaflet Fail-Safe) */}
           <div className="h-[420px] rounded-[32px] overflow-hidden relative shadow-md border-2 border-[#e5e2e1]">
-            <VamoMapLibre
+            <VamoUniversalMap
               center={[20.5218, -100.8142]}
               zoom={14}
               theme={mapTheme}

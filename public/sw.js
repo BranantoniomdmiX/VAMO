@@ -73,6 +73,9 @@ self.addEventListener('fetch', (event) => {
     url.hostname.includes('unpkg.com') ||
     url.hostname.includes('fonts.googleapis.com') ||
     url.hostname.includes('fonts.gstatic.com') ||
+    url.hostname.includes('tile.openstreetmap.org') ||
+    url.hostname.includes('basemaps.cartocdn.com') ||
+    url.hostname.includes('openfreemap.org') ||
     request.destination === 'style' ||
     request.destination === 'script' ||
     request.destination === 'image' ||

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { MobileDriverLayout } from '@/components/layout/MobileDriverLayout'
 import { Bike, Power, Wallet, Trophy, ArrowRight, ShieldCheck, MapPin, Flame, Award, Layers } from 'lucide-react'
 import Link from 'next/link'
-import VamoMapLibre from '@/components/map/VamoMapLibre'
+import VamoUniversalMap from '@/components/map/VamoUniversalMap'
 import { gpsSocketService } from '@/lib/services/gpsSocketService'
 import { PushNotificationBanner } from '@/components/ui/PushNotificationBanner'
 
@@ -409,7 +409,7 @@ export default function DriverHomePage() {
                 </button>
               </div>
 
-              <VamoMapLibre
+              <VamoUniversalMap
                 center={mapCenter}
                 zoom={15}
                 theme={mapTheme}

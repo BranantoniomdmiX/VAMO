@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { CustomerLayout } from '@/components/layout/CustomerLayout'
 import { Search, Tag, Utensils, Pill, Wrench, Heart, Clock, Star, MapPin, X, Percent, Store, ChevronRight, ShoppingBag, Plus } from 'lucide-react'
 import Link from 'next/link'
-import VamoMapLibre from '@/components/map/VamoMapLibre'
+import VamoUniversalMap from '@/components/map/VamoUniversalMap'
 import { createClient } from '@/lib/supabase/client'
 
 export interface StoreItem {
@@ -342,9 +342,9 @@ export default function CustomerRadarPage() {
             </button>
           </div>
 
-          {/* Mapa Vectorial VamoMapLibre */}
+          {/* Mapa Universal VamoUniversalMap (WebGL + Leaflet Fail-Safe iOS & Android) */}
           <div className="w-full h-full min-h-[580px] relative flex-1">
-            <VamoMapLibre
+            <VamoUniversalMap
               center={userLocation}
               zoom={14.5}
               theme="light"
