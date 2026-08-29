@@ -1,20 +1,58 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { MobileDriverLayout } from '@/components/layout/MobileDriverLayout'
-import { MapPin, Navigation, DollarSign, Clock, Check, X, ArrowLeft } from 'lucide-react'
+import { MapPin, Navigation, Clock, Check, X, ArrowLeft, Loader2, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function DriverOfferPage() {
+function DriverOfferContent() {
   const [timeLeft, setTimeLeft] = useState(15)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const orderId = searchParams.get('orderId') || 'f1a9b2c3-d4e5-4f6a-8b9c-0d1e2f3a4b5c'
+  const driverId = searchParams.get('driverId') || 'c7e8d9a0-b1c2-4d3e-8f9a-0b1c2d3e4f5a'
 
   useEffect(() => {
-    if (timeLeft <= 0) return
+    if (timeLeft <= 0) {
+      if (!isSubmitting) {
+        setErrorMessage('La oferta expiró.')
+      }
+      return
+    }
     const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000)
     return () => clearInterval(timer)
-  }, [timeLeft])
+  }, [timeLeft, isSubmitting])
+
+  const handleAcceptOrder = async () => {
+    if (isSubmitting || timeLeft <= 0) return
+    setIsSubmitting(true)
+    setErrorMessage(null)
+
+    try {
+      const res = await fetch('/api/dispatch/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, driverId })
+      })
+
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        // Redirigir a la pantalla de navegación GPS
+        router.push(`/driver/navigation?orderId=${orderId}&code=${data.order_code || 'V-9042'}`)
+      } else {
+        setErrorMessage(data.message || 'No fue posible aceptar este viaje.')
+      }
+    } catch {
+      setErrorMessage('Error de conexión con el servidor. Intenta de nuevo.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   return (
     <MobileDriverLayout>
@@ -28,6 +66,20 @@ export default function DriverOfferPage() {
           <span className="font-extrabold text-sm text-[#0056d2]">Oferta #V-9042</span>
           <div className="w-8" />
         </header>
+
+        {/* Alerta de Error / Orden Tomada */}
+        {errorMessage && (
+          <div className="bg-rose-50 border border-rose-200 text-rose-800 p-4 rounded-2xl flex items-start gap-3 animate-fade-in shadow-xs">
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+            <div className="text-xs">
+              <strong className="font-black block">Aviso del Despacho</strong>
+              <p>{errorMessage}</p>
+              <Link href="/driver/home" className="inline-block mt-2 font-bold underline text-rose-900">
+                Volver al Radar de Conductores
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Cronómetro Táctil de Aceptación */}
         <div className="bg-[#fff9db] text-[#744210] p-4 rounded-[24px] text-center space-y-1 shadow-xs border border-[#ffe066]">
@@ -79,11 +131,21 @@ export default function DriverOfferPage() {
         {/* Botones de Acción Gigantes Táctiles */}
         <div className="space-y-2.5 pt-1">
           <button
-            onClick={() => router.push('/driver/navigation')}
-            className="w-full bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-4 rounded-2xl font-black text-sm shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
+            onClick={handleAcceptOrder}
+            disabled={isSubmitting || timeLeft <= 0}
+            className="w-full bg-[#c3f400] hover:bg-[#abd600] disabled:bg-slate-200 disabled:text-slate-500 text-[#161e00] py-4 rounded-2xl font-black text-sm shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
           >
-            <Check className="w-5 h-5" />
-            <span>ACEPTAR VIAJE ($65.00) ⚡</span>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>ASIGNANDO VIAJE...</span>
+              </>
+            ) : (
+              <>
+                <Check className="w-5 h-5" />
+                <span>ACEPTAR VIAJE ($65.00) ⚡</span>
+              </>
+            )}
           </button>
 
           <Link
@@ -94,8 +156,23 @@ export default function DriverOfferPage() {
             <span>Rechazar Oferta</span>
           </Link>
         </div>
-
       </div>
     </MobileDriverLayout>
   )
 }
+
+export default function DriverOfferPage() {
+  return (
+    <Suspense fallback={
+      <MobileDriverLayout>
+        <div className="p-10 flex flex-col items-center justify-center min-h-[60vh] gap-3 text-slate-500">
+          <Loader2 className="w-8 h-8 animate-spin text-[#0056d2]" />
+          <span className="text-xs font-black uppercase tracking-wider">Cargando Oferta de Viaje...</span>
+        </div>
+      </MobileDriverLayout>
+    }>
+      <DriverOfferContent />
+    </Suspense>
+  )
+}
+

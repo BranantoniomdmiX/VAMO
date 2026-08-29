@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { query } from '@/lib/db/postgres'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://cheoxokdpgbjgfdghhzt.supabase.co'
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -40,7 +41,42 @@ export interface DeliveryTaskPayload {
   execution_franchise_fee: number
 }
 
+export interface AtomicAssignmentResult {
+  success: boolean
+  code: string
+  message: string
+  order_id?: string
+  order_code?: string
+  origin_address?: string
+  destination_address?: string
+  total?: number
+}
+
 export const vamoDispatchEngine = {
+  /**
+   * Ejecuta la asignación atómica en PostgreSQL Dokploy con Row-Level Locking
+   * Impide colisiones de concurrencia cuando 2 choferes aceptan al mismo tiempo.
+   */
+  async acceptOrderAtomic(orderId: string, driverId: string): Promise<AtomicAssignmentResult> {
+    try {
+      const res = await query<{ assign_order_atomic: AtomicAssignmentResult }>(
+        'SELECT public.assign_order_atomic($1, $2) as assign_order_atomic;',
+        [orderId, driverId]
+      )
+      return res.rows[0]?.assign_order_atomic || {
+        success: false,
+        code: 'EMPTY_RESPONSE',
+        message: 'No se obtuvo respuesta del motor de asignación atómica.'
+      }
+    } catch (error: any) {
+      console.error('❌ [vamoDispatchEngine.acceptOrderAtomic Error]:', error.message)
+      return {
+        success: false,
+        code: 'EXECUTION_ERROR',
+        message: error.message || 'Error al ejecutar la asignación atómica.'
+      }
+    }
+  },
   /**
    * Calcula el Dispatch Score para asignación inteligente (Punto 5)
    */
