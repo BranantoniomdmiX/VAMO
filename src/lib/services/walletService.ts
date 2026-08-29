@@ -252,6 +252,38 @@ export class WalletService {
   }
 
   /**
+   * Ejecuta la liquidación financiera atómica de una orden con split 50/50
+   */
+  static async settleOrderAtomic(orderId: string): Promise<{ success: boolean; message: string; data?: any }> {
+    try {
+      const res = await fetch('/api/wallet/settle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId })
+      })
+      return await res.json()
+    } catch (e: any) {
+      return { success: false, message: e.message || 'Error al conectar con el servidor.' }
+    }
+  }
+
+  /**
+   * Solicita un retiro SPEI formal con retención de saldo y validación de fondos
+   */
+  static async requestWithdrawalAtomic(params: { profileId: string; amount: number; clabe: string }): Promise<{ success: boolean; message: string; data?: any }> {
+    try {
+      const res = await fetch('/api/wallet/withdraw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params)
+      })
+      return await res.json()
+    } catch (e: any) {
+      return { success: false, message: e.message || 'Error al procesar la solicitud de retiro.' }
+    }
+  }
+
+  /**
    * Historial de transacciones de la billetera
    */
   static getTransactions(driverId: string = 'driver-carlos-1'): WalletTransaction[] {
