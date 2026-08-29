@@ -5,7 +5,13 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
-    const folder = (formData.get('folder') as string) || 'general'
+    const rawFolder = (formData.get('folder') as string) || 'general'
+    
+    // Normalizar carpetas según estrategia de retención Cloudflare R2
+    // Temporales (Auto-delete 30 días): 'packaging', 'pod'
+    // Permanentes (Documentos legales y activos de negocio): 'kyc', 'logos', 'menus', 'products'
+    const allowedFolders = ['packaging', 'pod', 'kyc', 'logos', 'menus', 'products', 'general']
+    const folder = allowedFolders.includes(rawFolder) ? rawFolder : 'general'
 
     if (!file) {
       return NextResponse.json({ error: 'No se envió ningún archivo' }, { status: 400 })
