@@ -56,9 +56,29 @@ export default function BizKdsPage() {
     } catch (e) {}
   }
 
-  const moveTicket = (id: string, newStatus: Ticket['status']) => {
+  const moveTicket = async (id: string, newStatus: Ticket['status']) => {
     const updated = tickets.map(t => t.id === id ? { ...t, status: newStatus } : t)
     saveTickets(updated)
+
+    const statusMap: Record<Ticket['status'], string> = {
+      'new': 'CONFIRMED',
+      'preparing': 'PREPARING',
+      'waiting_driver': 'READY_FOR_PICKUP',
+      'on_way': 'IN_TRANSIT'
+    }
+
+    try {
+      await fetch('/api/biz/kds/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: 'f1a9b2c3-d4e5-4f6a-8b9c-0d1e2f3a4b5c',
+          status: statusMap[newStatus] || 'PREPARING'
+        })
+      })
+    } catch (e) {
+      console.warn('Sincronización Biz KDS:', e)
+    }
   }
 
   const handleSimulateTestTicket = () => {
