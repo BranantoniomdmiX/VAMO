@@ -57,11 +57,22 @@ export async function POST(req: NextRequest) {
           .single()
 
         if (pi) {
-          // Actualizar el pedido principal a PAID
+          // Actualizar el pedido principal a PAID en Supabase y PostgreSQL Dokploy
           await supabase
             .from('customer_orders')
             .update({ payment_status: 'PAID' })
             .eq('id', pi.customer_order_id)
+
+          // Actualizar en PostgreSQL Dokploy
+          try {
+            const { query } = await import('@/lib/db/postgres')
+            await query(
+              "UPDATE public.orders SET payment_status = 'PAID', status = 'CONFIRMED', updated_at = NOW() WHERE id = $1 OR code = $1;",
+              [pi.customer_order_id]
+            )
+          } catch (pgErr) {
+            console.warn('[VAMO Webhook] Dokploy sync warning:', pgErr)
+          }
 
           // Escribir en el ledger financiero (doble entrada)
           await supabase.from('financial_ledger').insert({
