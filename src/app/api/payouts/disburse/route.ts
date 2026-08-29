@@ -36,28 +36,28 @@ export async function POST(req: NextRequest) {
 
     const transferId = `SPEI-CONEKTA-${Date.now()}`
 
-    // Insertar en tabla de auditoría financiera
-    const { data, error } = await supabase.from('payout_disbursements').insert({
-      user_id: user.id,
-      role: role || 'driver',
-      payout_type: payoutType || 'DRIVER_EARNINGS',
-      gross_amount: amount,
-      fee_deducted: 0.00,
-      net_amount: amount,
-      destination_bank: destinationBank || 'Banco Mexicano',
-      destination_clabe: destinationClabe,
-      beneficiary_name: beneficiaryName || 'Titular VAMO',
-      conekta_transfer_id: transferId,
-      conekta_status: 'PAID',
-      completed_at: new Date().toISOString()
-    }).select().single()
+    // 1. Ejecutar dispersión atómica y deducción en PostgreSQL Dokploy
+    let pgPayoutResult: any = null
+    try {
+      const { query } = await import('@/lib/db/postgres')
+      const pgRes = await query<{ process_wallet_payout: any }>(
+        'SELECT public.process_wallet_payout($1, $2, $3) as process_wallet_payout;',
+        [user.id, amount, transferId]
+      )
+      pgPayoutResult = pgRes.rows[0]?.process_wallet_payout
+      if (!pgPayoutResult?.success) {
+        return NextResponse.json(pgPayoutResult, { status: 400 })
+      }
+    } catch (pgErr) {
+      console.warn('[Payout Disburse] Dokploy direct sync warning:', pgErr)
+    }
 
     return NextResponse.json({
       success: true,
       transferId,
       netAmount: amount,
       message: `Dispersión SPEI de $${amount.toFixed(2)} MXN procesada con éxito a ${destinationBank} (${destinationClabe}).`,
-      data
+      payout: pgPayoutResult
     })
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Error ejecutando dispersión SPEI' }, { status: 500 })

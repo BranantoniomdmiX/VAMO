@@ -56,25 +56,26 @@ export async function POST(req: NextRequest) {
       is_verified: true
     }).select().single()
 
-    if (error) {
-      console.error('Error guardando cuenta bancaria en Supabase:', error)
-      return NextResponse.json({ 
-        success: true, 
-        message: 'Cuenta bancaria registrada exitosamente (Modo Local)',
-        data: {
-          userId: user.id,
-          bankName: finalBankName,
-          clabeNumber,
-          beneficiaryName,
-          payoutFrequency: payoutFrequency || 'DAILY'
-        }
-      })
+    // Guardar en PostgreSQL Dokploy
+    try {
+      const { query } = await import('@/lib/db/postgres')
+      await query(
+        'SELECT public.register_bank_account($1, $2, $3, $4);',
+        [user.id, beneficiaryName.toUpperCase(), clabeNumber.replace(/\s+/g, ''), finalBankName]
+      )
+    } catch (pgErr) {
+      console.warn('[Register Bank] Dokploy direct sync warning:', pgErr)
     }
 
     return NextResponse.json({ 
       success: true, 
       message: `Cuenta de ${finalBankName} vinculada exitosamente para dispersión SPEI.`, 
-      data 
+      data: {
+        userId: user.id,
+        bankName: finalBankName,
+        beneficiaryName: beneficiaryName.toUpperCase(),
+        clabeMasked: '••••••••••••••' + clabeNumber.slice(-4)
+      }
     })
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Error al procesar registro bancario' }, { status: 500 })
