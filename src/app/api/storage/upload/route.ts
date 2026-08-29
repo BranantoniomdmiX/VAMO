@@ -8,10 +8,14 @@ export async function POST(request: NextRequest) {
     const rawFolder = (formData.get('folder') as string) || 'general'
     
     // Normalizar carpetas según estrategia de retención Cloudflare R2
-    // Temporales (Auto-delete 30 días): 'packaging', 'pod'
+    // Temporales (Auto-delete 30 días en Cloudflare): 'temporary/packaging', 'temporary/pod'
     // Permanentes (Documentos legales y activos de negocio): 'kyc', 'logos', 'menus', 'products'
-    const allowedFolders = ['packaging', 'pod', 'kyc', 'logos', 'menus', 'products', 'general']
-    const folder = allowedFolders.includes(rawFolder) ? rawFolder : 'general'
+    let folder = 'general'
+    if (rawFolder === 'packaging' || rawFolder === 'pod' || rawFolder.startsWith('temporary')) {
+      folder = rawFolder.startsWith('temporary') ? rawFolder : `temporary/${rawFolder}`
+    } else if (['kyc', 'logos', 'menus', 'products', 'general'].includes(rawFolder)) {
+      folder = rawFolder
+    }
 
     if (!file) {
       return NextResponse.json({ error: 'No se envió ningún archivo' }, { status: 400 })
