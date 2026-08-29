@@ -14,16 +14,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autorizado. Se requiere x-master-key válida.' }, { status: 401 })
     }
 
-    // Ruta al archivo SQL maestro
-    const sqlPath = path.join(process.cwd(), 'supabase', 'VAMO_MASTER_ORACLE_INIT.sql')
+    // Permitir archivo de migración dinámico o por defecto
+    let migrationFile = 'VAMO_MASTER_ORACLE_INIT.sql'
+    try {
+      const body = await request.json()
+      if (body.file) migrationFile = body.file
+    } catch {
+      // Si no hay body, usa el valor por defecto
+    }
+
+    const sqlPath = path.join(process.cwd(), 'supabase', migrationFile.includes('/') ? migrationFile : (migrationFile.startsWith('2026') ? path.join('migrations', migrationFile) : migrationFile))
     if (!fs.existsSync(sqlPath)) {
-      return NextResponse.json({ error: 'Archivo VAMO_MASTER_ORACLE_INIT.sql no encontrado en el servidor.' }, { status: 404 })
+      return NextResponse.json({ error: `Archivo ${migrationFile} no encontrado en el servidor.` }, { status: 404 })
     }
 
     const sqlContent = fs.readFileSync(sqlPath, 'utf8')
     const start = Date.now()
 
-    // Ejecutar el script SQL completo
+    // Ejecutar el script SQL
     await query(sqlContent)
 
     // Obtener las tablas creadas para verificar
