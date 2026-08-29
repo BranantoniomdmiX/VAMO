@@ -6,7 +6,13 @@
 -- 1. Extensiones Principales
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-CREATE EXTENSION IF NOT EXISTS "postgis";
+
+DO $$ 
+BEGIN
+  CREATE EXTENSION IF NOT EXISTS "postgis";
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'PostGIS no disponible en esta instancia base. Usando coordenadas numericas (lat, lng) de alta precision.';
+END $$;
 
 -- 2. Esquema de Autenticación de Compatibilidad
 CREATE SCHEMA IF NOT EXISTS auth;
@@ -39,7 +45,7 @@ CREATE TABLE IF NOT EXISTS public.territories (
   city_id UUID REFERENCES public.cities(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   code VARCHAR(50) UNIQUE NOT NULL,
-  boundary GEOGRAPHY(POLYGON, 4326),
+  boundary JSONB,
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -89,7 +95,6 @@ CREATE TABLE IF NOT EXISTS public.merchants (
   address TEXT NOT NULL,
   lat NUMERIC(10,7) NOT NULL,
   lng NUMERIC(10,7) NOT NULL,
-  location GEOGRAPHY(POINT, 4326),
   phone TEXT,
   rating NUMERIC(3,2) DEFAULT 5.00,
   preparation_time_min INT DEFAULT 15,
@@ -123,7 +128,6 @@ CREATE TABLE IF NOT EXISTS public.drivers (
   status TEXT NOT NULL DEFAULT 'OFFLINE' CHECK (status IN ('AVAILABLE', 'BUSY', 'PAUSED', 'OFFLINE')),
   current_lat NUMERIC(10,7),
   current_lng NUMERIC(10,7),
-  current_location GEOGRAPHY(POINT, 4326),
   heading NUMERIC(5,2) DEFAULT 0,
   battery_level INT DEFAULT 100,
   speed_kmh NUMERIC(5,2) DEFAULT 0,
@@ -195,11 +199,14 @@ CREATE TABLE IF NOT EXISTS public.wallet_transactions (
 );
 
 -- =====================================================================
--- 9. ÍNDICES ESPACIALES POSTGIS (Para Consultas de Radar en Milisegundos)
+-- 9. ÍNDICES DE ALTO RENDIMIENTO (Radar & Consultas en Milisegundos)
 -- =====================================================================
 
-CREATE INDEX IF NOT EXISTS idx_merchants_location ON public.merchants USING GIST(location);
-CREATE INDEX IF NOT EXISTS idx_drivers_location ON public.drivers USING GIST(current_location);
+CREATE INDEX IF NOT EXISTS idx_merchants_coords ON public.merchants(lat, lng);
+CREATE INDEX IF NOT EXISTS idx_drivers_coords ON public.drivers(current_lat, current_lng);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_customer ON public.orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_driver ON public.orders(driver_id);
+CREATE INDEX IF NOT EXISTS idx_orders_merchant ON public.orders(merchant_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_role ON public.profiles(role);
+CREATE INDEX IF NOT EXISTS idx_products_merchant ON public.products(merchant_id);
