@@ -20,38 +20,20 @@ export default function BizManagerPage() {
   const [storeName, setStoreName] = useState('Mi Negocio VAMO')
   const [soundEnabled, setSoundEnabled] = useState(true)
 
-  const [orders, setOrders] = useState<ManagerOrder[]>([
-    {
-      id: '1',
-      orderCode: '#4835',
-      customer: 'Sra. Sofía M.',
-      items: ['2x Taco Gobernador', '1x Agua de Horchata Literaria'],
-      totalPrice: 185.00,
-      status: 'PENDING_APPROVAL',
-      paymentMethod: 'CASH',
-      time: 'Hace 1 min'
-    },
-    {
-      id: '2',
-      orderCode: '#4829',
-      customer: 'Juan P.',
-      items: ['2x Empanada de Carne', '1x Coca Cola 1.5L'],
-      totalPrice: 140.00,
-      status: 'PENDING_APPROVAL',
-      paymentMethod: 'CARD',
-      time: 'Hace 3 min'
-    },
-    {
-      id: '3',
-      orderCode: '#4825',
-      customer: 'Carlos R.',
-      items: ['3x Pizza Muzzarella', '2x Cerveza Artesanal'],
-      totalPrice: 350.00,
-      status: 'APPROVED_KITCHEN',
-      paymentMethod: 'CARD',
-      time: 'Hace 10 min'
+  const [orders, setOrders] = useState<ManagerOrder[]>([])
+
+  useEffect(() => {
+    try {
+      const storedOrders = localStorage.getItem('vamo_manager_orders')
+      if (storedOrders) {
+        setOrders(JSON.parse(storedOrders))
+      } else {
+        setOrders([])
+      }
+    } catch (e) {
+      console.error(e)
     }
-  ])
+  }, [])
 
   useEffect(() => {
     try {

@@ -5,32 +5,20 @@ import { SidebarAdmin } from '@/components/layout/SidebarAdmin'
 import { Radio, AlertTriangle, Clock, MapPin, Bike, CheckCircle2, ShieldAlert, RefreshCw, Zap, Navigation } from 'lucide-react'
 
 export default function AdminControlTowerPage() {
-  const [exceptions, setExceptions] = React.useState([
-    {
-      id: 'ORD-9821',
-      severity: 'CRITICAL',
-      type: 'RETARDO_COCINA',
-      merchant: 'Taquería El Pastor Centro',
-      customer: 'Sra. Elena Rostro',
-      driver: 'Juan P. (Rider #14)',
-      timeElapsedMinutes: 28,
-      slaLimitMinutes: 15,
-      status: 'REQUIERE_INTERVENCION',
-      location: 'Av. Hidalgo #104, CDMX'
-    },
-    {
-      id: 'ORD-9844',
-      severity: 'WARNING',
-      type: 'CHOFER_DETENIDO',
-      merchant: 'Farmacia San Gabriel',
-      customer: 'Carlos M.',
-      driver: 'Pedro S. (Rider #08)',
-      timeElapsedMinutes: 12,
-      slaLimitMinutes: 8,
-      status: 'CHOFER_SIN_MOVIMIENTO',
-      location: 'Calle 5 de Mayo #45, Puebla'
+  const [exceptions, setExceptions] = React.useState<any[]>([])
+
+  React.useEffect(() => {
+    try {
+      const stored = localStorage.getItem('vamo_sla_exceptions')
+      if (stored) {
+        setExceptions(JSON.parse(stored))
+      } else {
+        setExceptions([])
+      }
+    } catch (e) {
+      console.error(e)
     }
-  ])
+  }, [])
 
   const handleAutoReassign = (orderId: string) => {
     setExceptions(prev => prev.filter(e => e.id !== orderId))

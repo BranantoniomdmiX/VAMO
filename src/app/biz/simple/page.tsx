@@ -32,30 +32,20 @@ interface StreetOrder {
 export default function BizSimpleStreetModePage() {
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [storeName, setStoreName] = useState('Puesto de Tacos & Gorditas')
-  const [orders, setOrders] = useState<StreetOrder[]>([
-    {
-      id: '1',
-      folio: '#4835',
-      clientName: 'Don Ricardo G.',
-      items: ['3x Gordita de Chicharrón Prensado', '2x Taco de Suadero', '1x Boing de Mango 500ml'],
-      totalCash: 165.00,
-      driverName: 'Carlos M. (Moto #12)',
-      driverPhone: '4611234567',
-      status: 'NUEVO',
-      createdAt: 'Hace 1 min'
-    },
-    {
-      id: '2',
-      folio: '#4839',
-      clientName: 'Sra. Patricia L.',
-      items: ['5x Tacos al Pastor con Piña', '1x Refresco Coca-Cola Vidrio'],
-      totalCash: 120.00,
-      driverName: 'Pedro V. (Moto #08)',
-      driverPhone: '4619876543',
-      status: 'PREPARANDO',
-      createdAt: 'Hace 4 min'
+  const [orders, setOrders] = useState<StreetOrder[]>([])
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('vamo_street_orders')
+      if (stored) {
+        setOrders(JSON.parse(stored))
+      } else {
+        setOrders([])
+      }
+    } catch (e) {
+      console.error(e)
     }
-  ])
+  }, [])
 
   const [activeOrderIndex, setActiveOrderIndex] = useState(0)
 
