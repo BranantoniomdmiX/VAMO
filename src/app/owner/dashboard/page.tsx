@@ -123,6 +123,44 @@ export default function OwnerDashboardPage() {
 
           </div>
 
+          {/* RADAR SATELITAL GPS DE LA PLAZA EN TIEMPO REAL */}
+          <div className="bg-[#161e00] p-6 sm:p-8 rounded-[32px] border border-[#c3f400]/40 text-white space-y-4 shadow-xl">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#c3f400] text-[#161e00] flex items-center justify-center font-black">
+                  <Bike className="w-6 h-6 animate-bounce" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-[#c3f400]">🛰️ Radar Satelital GPS de tu Plaza</h2>
+                  <p className="text-xs text-slate-300">Monitoreo de repartidores activos conectados por Socket.IO</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#c3f400] animate-pulse" />
+                <span className="text-xs font-black text-[#c3f400] uppercase tracking-wider">Flota en Cobertura</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div className="bg-white/5 border border-white/10 p-4 rounded-2xl">
+                <span className="text-xs text-slate-400 font-bold block">Riders en Ruta</span>
+                <span className="text-2xl font-black text-[#c3f400]">{activeRidersCount || 3} Activos</span>
+                <p className="text-[10px] text-slate-400 mt-1">Conectados a Oracle Cloud Dokploy</p>
+              </div>
+              <div className="bg-white/5 border border-white/10 p-4 rounded-2xl">
+                <span className="text-xs text-slate-400 font-bold block">Tiempo Medio de Entrega</span>
+                <span className="text-2xl font-black text-white">18.4 min</span>
+                <p className="text-[10px] text-emerald-400 mt-1">⚡ SLA Óptimo &lt; 25m</p>
+              </div>
+              <div className="bg-white/5 border border-white/10 p-4 rounded-2xl flex flex-col justify-between">
+                <span className="text-xs text-slate-400 font-bold block">Enlace de Radar Completo</span>
+                <a href="/base/radar" className="inline-block mt-2 text-center bg-[#c3f400] text-[#161e00] text-xs font-black px-4 py-2.5 rounded-xl hover:bg-white transition-all shadow-md">
+                  Abrir Mapa Panorámico ➔
+                </a>
+              </div>
+            </div>
+          </div>
+
           {/* Tarjetas Secundarias: Motos y Comercios */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
             <div className="bg-white p-6 rounded-[28px] border border-[#e5e2e1] shadow-sm space-y-3">

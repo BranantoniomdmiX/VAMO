@@ -238,7 +238,7 @@ export default function BizManagerPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {activeOrders.map(order => (
-                <div key={order.id} className="bg-white p-5 rounded-[24px] border border-[#e5e2e1] shadow-xs space-y-2">
+                <div key={order.id} className="bg-white p-5 rounded-[24px] border border-[#e5e2e1] shadow-xs space-y-3">
                   <div className="flex justify-between items-center">
                     <strong className="text-xs font-black text-[#1c1b1b]">{order.orderCode} &bull; {order.customer}</strong>
                     <span className="text-[10px] font-black bg-[#c3f400] text-[#161e00] px-2 py-0.5 rounded-full">
@@ -247,6 +247,24 @@ export default function BizManagerPage() {
                   </div>
                   <p className="text-xs text-slate-500 font-semibold">{order.items.join(', ')}</p>
                   <span className="text-xs font-black text-[#0056d2] block">${order.totalPrice.toFixed(2)} MXN</span>
+                  
+                  {/* FOTO DE EMPAQUE SELLADO Y ENTREGA AL CHOFER */}
+                  <div className="pt-2 border-t border-[#e5e2e1] flex gap-2">
+                    <button
+                      onClick={() => alert(`📷 Foto de empaque capturada con folio ${order.orderCode}. Bolsa sellada registrada.`)}
+                      className="flex-1 bg-[#161e00] text-[#c3f400] hover:bg-black py-2 rounded-xl text-[11px] font-black flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Foto Sello 📸</span>
+                    </button>
+                    <button
+                      onClick={() => alert(`🛵 Pedido ${order.orderCode} entregado formalmente al repartidor.`)}
+                      className="flex-1 bg-[#0056d2] text-white hover:bg-[#0040a1] py-2 rounded-xl text-[11px] font-black flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                    >
+                      <Bike className="w-3.5 h-3.5" />
+                      <span>Dar Salida</span>
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

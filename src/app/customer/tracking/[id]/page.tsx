@@ -226,7 +226,36 @@ export default function CustomerTrackingPage() {
 
 
 
-        {/* Detalles del Conductor y Estado */}
+        {/* CHECKLIST VISUAL DE ENTREGA (2 TOQUES: CERO FRICCIÓN) */}
+        <div className="bg-white p-5 rounded-[28px] border border-[#e5e2e1] shadow-xs space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-black text-[#1c1b1b] uppercase tracking-wider">
+              📦 Confirmación Visual de Entrega
+            </span>
+            <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+              Cero Reclamos
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 font-medium">
+            Al recibir tu pedido, verifica que la bolsa esté sellada con el logotipo de VAMO antes de ingresar a tu casa.
+          </p>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => alert('✅ ¡Gracias! Confirmaste que tu pedido llegó sellado y completo.')}
+              className="flex-1 bg-[#161e00] text-[#c3f400] hover:bg-black py-2.5 rounded-xl font-black text-xs transition-all shadow-xs"
+            >
+              👍 Bolsa Sellada y Completa
+            </button>
+            <button
+              onClick={() => alert('⚠️ Reporte recibido. Soporte VAMO se contactará contigo de inmediato.')}
+              className="px-3 bg-rose-50 text-rose-700 hover:bg-rose-100 py-2.5 rounded-xl font-bold text-xs transition-all"
+            >
+              Reportar Detalle
+            </button>
+          </div>
+        </div>
+
+        {/* Resumen del Conductor y Estado */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-[28px] border border-[#e5e2e1] dark:border-slate-800 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-[#f0eded] dark:border-slate-800 pb-4">
             <div className="flex items-center gap-3">

@@ -20,7 +20,7 @@ import Link from 'next/link'
 export interface FranchiseEntity {
   id: number
   code?: string
-  type: 'FRANCHISE_TERRITORIAL' | 'SAAS_FLEET' | 'SELF_DELIVERY'
+  type: 'FRANCHISE_TERRITORIAL' | 'SAAS_FLEET' | 'SELF_DELIVERY' | 'MASTER_DIRECT'
   name: string
   owner: string
   city: string
@@ -52,7 +52,27 @@ export default function AdminFleetsPage() {
       if (stored) {
         setFleets(JSON.parse(stored))
       } else {
-        setFleets([])
+        // Inicializar con la Flota Central Directa de Branmix
+        const masterDirectFleet: FranchiseEntity = {
+          id: 1,
+          code: 'VAMO-MASTER-CENTRAL',
+          type: 'MASTER_DIRECT',
+          name: '👑 Flota Titular Central VAMO (Branmix)',
+          owner: 'Branmix (Superadmin Master)',
+          city: 'Operación Matriz Central',
+          riders: 12,
+          planName: 'Operación Directa Matriz (100% Utilidad Central)',
+          entryFee: 0,
+          monthlySaaS: 0,
+          royaltyPerTrip: 0,
+          billingCycle: 'MENSUAL',
+          totalDue: 0,
+          paymentStatus: 'PAGADO',
+          status: 'active',
+          createdAt: new Date().toISOString()
+        }
+        setFleets([masterDirectFleet])
+        localStorage.setItem('vamo_fleets', JSON.stringify([masterDirectFleet]))
       }
     } catch (e) {
       console.error(e)

@@ -319,18 +319,38 @@ export default function CustomerPaymentPage({ params }: PaymentPageProps) {
               </div>
             )}
 
-            {/* ERROR */}
+            {/* ERROR / FONDOS INSUFICIENTES */}
             {!paymentResult.success && (
-              <div className="bg-red-50 border border-red-200 rounded-[32px] p-8 text-center space-y-3">
-                <XCircle className="w-14 h-14 text-red-500 mx-auto" />
-                <h2 className="text-lg font-black text-red-800">Error al procesar el pago</h2>
-                <p className="text-sm text-red-600">{paymentResult.error}</p>
-                <button
-                  onClick={() => setStep('select')}
-                  className="bg-red-600 text-white px-6 py-3 rounded-full font-black text-sm hover:bg-red-700"
-                >
-                  Intentar de nuevo
-                </button>
+              <div className="bg-white border-2 border-rose-200 rounded-[32px] p-6 text-center space-y-4 shadow-md">
+                <div className="w-14 h-14 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+                  <AlertTriangle className="w-8 h-8" />
+                </div>
+                <div className="space-y-1">
+                  <h2 className="text-lg font-black text-[#1c1b1b]">Tu banco no pudo autorizar el cargo</h2>
+                  <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                    Es posible que tu tarjeta no cuente con fondos suficientes o requiera autorización en tu app bancaria.
+                  </p>
+                </div>
+
+                <div className="bg-[#fcf9f8] p-4 rounded-2xl border border-[#e5e2e1] space-y-2">
+                  <span className="text-[10px] font-black text-[#737785] uppercase block">OPCIONES RÁPIDAS (1 TOQUE):</span>
+                  <button
+                    onClick={() => {
+                      setSelectedMethod('cash')
+                      handlePay()
+                    }}
+                    className="w-full bg-[#161e00] text-[#c3f400] hover:bg-black py-3 rounded-full font-black text-xs flex items-center justify-center gap-2 transition-all shadow-sm"
+                  >
+                    <Banknote className="w-4 h-4" />
+                    <span>PAGAR EN EFECTIVO AL RECIBIR ($ {amount.toFixed(2)} MXN)</span>
+                  </button>
+                  <button
+                    onClick={() => setStep('select')}
+                    className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-full font-bold text-xs transition-all"
+                  >
+                    Intentar con otra Tarjeta o SPEI
+                  </button>
+                </div>
               </div>
             )}
           </div>

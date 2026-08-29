@@ -34,21 +34,29 @@ class GpsSocketService {
   )
   private gpsInterval: NodeJS.Timeout | null = null
   private watchId: number | null = null
+  private status: 'CONNECTED' | 'DISCONNECTED' | 'CONNECTING' = 'DISCONNECTED'
+  private reconnectAttempts = 0
 
   constructor() {
-    const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://212.1.213.44'
+    const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://163.192.147.231:3000'
+    console.log(`🔌 [GPS Socket] Conectando a Oracle Cloud Dokploy: ${socketServerUrl}`)
+    this.status = 'CONNECTING'
+
     try {
       this.socket = io(socketServerUrl, {
+        transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         timeout: 10000,
-        transports: ['websocket', 'polling']
+        autoConnect: true
       })
 
       this.socket.on('connect', () => {
-        console.log('📡 [GPS Socket] Conectado exitosamente al VPS Hostinger (212.1.213.44)')
+        this.status = 'CONNECTED'
+        this.reconnectAttempts = 0
+        console.log('📡 [GPS Socket] Conectado exitosamente al VPS Oracle Cloud Dokploy')
       })
 
       this.socket.on('connect_error', (err) => {
