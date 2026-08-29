@@ -12,7 +12,7 @@ export function getPostgresPool(): Pool {
       max: 20, // Máximo de conexiones concurrentes en pool
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,
-      ssl: process.env.NODE_ENV === 'production' && !connectionString.includes('localhost') && !connectionString.includes('163.192')
+      ssl: process.env.NODE_ENV === 'production' && !connectionString.includes('localhost') && !connectionString.includes('163.192') && !connectionString.includes('vamo-db') && !connectionString.includes('internal')
         ? { rejectUnauthorized: false }
         : false,
     })
