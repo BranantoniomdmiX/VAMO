@@ -1,18 +1,37 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { SidebarBase } from '@/components/layout/SidebarBase'
-import { Map, Radio, Bike, CheckCircle, Clock, AlertTriangle, Battery, Navigation } from 'lucide-react'
+import { Bike, Battery, Navigation } from 'lucide-react'
 import VamoUniversalMap, { DriverMarkerData } from '@/components/map/VamoUniversalMap'
+import { gpsSocketService } from '@/lib/services/gpsSocketService'
 
 export default function BaseRadarPage() {
   const [mapTheme, setMapTheme] = useState<'light' | 'dark'>('light')
 
-  const driversList = [
+  const [driversList, setDriversList] = useState([
     { id: 'MOTO-14', name: 'Carlos M. (Rider #14)', status: 'busy', statusLabel: 'En Viaje (#V-9042)', lat: 20.5260, lng: -100.8090, heading: 45, battery: '85%', speed: '32 km/h' },
     { id: 'MOTO-08', name: 'Roberto M. (Rider #08)', status: 'available', statusLabel: 'Disponible en Base', lat: 20.5218, lng: -100.8142, heading: 0, battery: '92%', speed: '0 km/h' },
     { id: 'MOTO-21', name: 'Ana P. (Rider #21)', status: 'busy', statusLabel: 'En Viaje (#V-9040)', lat: 20.5180, lng: -100.8200, heading: 180, battery: '64%', speed: '28 km/h' }
-  ]
+  ])
+
+  useEffect(() => {
+    const unsub = gpsSocketService.subscribeLivePositions((payload) => {
+      setDriversList(prev => prev.map(d => {
+        if (d.id === payload.driverId || d.name.includes(payload.driverId)) {
+          return {
+            ...d,
+            lat: payload.lat,
+            lng: payload.lng,
+            heading: payload.heading,
+            speed: `${payload.speed} km/h`
+          }
+        }
+        return d
+      }))
+    })
+    return () => unsub()
+  }, [])
 
   const driverMarkers: DriverMarkerData[] = driversList.map(d => ({
     id: d.id,

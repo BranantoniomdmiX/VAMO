@@ -40,7 +40,9 @@ class GpsSocketService {
     try {
       this.socket = io(socketServerUrl, {
         reconnection: true,
-        reconnectionAttempts: 5,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
         timeout: 10000,
         transports: ['websocket', 'polling']
       })
@@ -50,7 +52,7 @@ class GpsSocketService {
       })
 
       this.socket.on('connect_error', (err) => {
-        console.warn('⚠️ [GPS Socket] Error de conexión VPS, activando fallback silencioso Supabase:', err.message)
+        console.warn('⚠️ [GPS Socket] Error de conexión VPS, reintentando automáticamente:', err.message)
       })
     } catch (e) {
       console.warn('⚠️ [GPS Socket] Error al inicializar socket:', e)
