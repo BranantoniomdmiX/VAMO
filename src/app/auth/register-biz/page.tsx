@@ -525,9 +525,9 @@ export default function RegisterBizPage() {
                 )}
               </button>
 
-              <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500 font-semibold pt-1">
+              <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-500 pt-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span>0% comisiones por venta directa &bull; Datos protegidos con cifrado SSL</span>
+                <span>0% comisiones por venta directa &bull; Tus datos y ventas están 100% protegidos</span>
               </div>
 
             </form>

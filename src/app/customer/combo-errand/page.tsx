@@ -100,9 +100,9 @@ export default function CustomerComboErrandPage() {
     <CustomerLayout>
       <div className="max-w-2xl mx-auto space-y-6">
         <header className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 bg-[#0040a1] text-white text-xs font-black px-4 py-1.5 rounded-full uppercase tracking-wider shadow-xs border border-blue-800">
-            <Sparkles className="w-4 h-4 text-[#c3f400]" />
-            <span>ALGORITMO MULTITIENDA MEITUAN (CLI-01)</span>
+          <div className="inline-flex items-center gap-2 bg-[#161e00] text-[#c3f400] px-4 py-1.5 rounded-full text-xs font-black shadow-xs">
+            <Sparkles className="w-4 h-4" />
+            <span>ENCARGO MULTITIENDA EN 1 SOLO VIAJE</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Encargo Combinado Multitienda</h1>
           <p className="text-xs sm:text-sm font-semibold text-slate-500">

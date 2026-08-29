@@ -81,7 +81,7 @@ export default function CustomerPaymentPage({ params }: PaymentPageProps) {
       id: 'card' as PaymentMethod,
       icon: CreditCard,
       title: 'Tarjeta de Crédito / Débito',
-      subtitle: 'Visa, Mastercard, American Express — pago seguro 3D Secure',
+      subtitle: 'Visa, Mastercard, American Express — Pago directo y seguro',
       badge: 'Inmediato',
       badgeColor: 'bg-emerald-100 text-emerald-800',
       color: 'border-blue-200 hover:border-[#0040A1]'
@@ -122,7 +122,7 @@ export default function CustomerPaymentPage({ params }: PaymentPageProps) {
         {/* Header */}
         <header className="text-center space-y-1">
           <span className="bg-[#0040A1] text-white text-xs font-black px-3.5 py-1 rounded-full uppercase">
-            M9 — MÉTODO DE PAGO
+            PAGO SEGURO
           </span>
           <h1 className="text-2xl font-extrabold text-[#1c1b1b]">¿Cómo quieres pagar?</h1>
           {amount > 0 && (
@@ -175,10 +175,10 @@ export default function CustomerPaymentPage({ params }: PaymentPageProps) {
               })}
             </div>
 
-            {/* Sello de Seguridad */}
-            <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-500">
+            {/* Sello de Seguridad Humano */}
+            <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-600">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Pagos procesados con cifrado SSL por Conekta</span>
+              <span>Tus pagos y tarjetas están 100% protegidos</span>
             </div>
 
             <button

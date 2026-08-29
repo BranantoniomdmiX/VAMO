@@ -192,8 +192,8 @@ export default function AuthLoginPage() {
 
       </main>
 
-      <footer className="text-center text-xs font-semibold text-[#737785] pt-4">
-        VAMO Logística &bull; Acceso Seguro Encriptado (SSL/TLS)
+      <footer className="text-center text-xs text-slate-400 font-medium pt-4">
+        VAMO &bull; Tus datos y pedidos están protegidos
       </footer>
     </div>
   )
