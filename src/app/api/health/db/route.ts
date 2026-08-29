@@ -31,7 +31,7 @@ export async function GET() {
       latency_ms: latencyMs,
       timestamp: new Date().toISOString(),
       postgres_version: versionRes.rows[0]?.version || 'unknown',
-      postgis_version: postgisRes.rows[0]?.postgis_version || 'unknown',
+      postgis_version: postgisVersion,
       tables_count: tablesRes.rowCount,
       tables: tablesRes.rows.map(r => r.table_name),
     }, { status: 200 })
