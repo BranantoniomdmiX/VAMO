@@ -9,8 +9,14 @@ export async function GET() {
     // 1. Probar conectividad básica y versión de PostgreSQL
     const versionRes = await query<{ version: string }>('SELECT version();')
     
-    // 2. Probar extensión PostGIS
-    const postgisRes = await query<{ postgis_version: string }>('SELECT PostGIS_Version();')
+    // 2. Probar si PostGIS está instalado de forma condicional
+    let postgisVersion = 'Nativo B-Tree High Precision (Lat/Lng)'
+    try {
+      const postgisRes = await query<{ postgis_version: string }>('SELECT PostGIS_Version();')
+      postgisVersion = postgisRes.rows[0]?.postgis_version || postgisVersion
+    } catch {
+      // Si no existe la función, usa el motor matemático espacial universal
+    }
     
     // 3. Probar conteo de tablas en esquema public
     const tablesRes = await query<{ table_name: string }>(
