@@ -32,14 +32,20 @@ export async function POST(req: NextRequest) {
         },
         { onConflict: 'device_token' }
       )
-      .select()
-
-    if (error) {
-      console.error('[RegisterToken API] Error en upsert:', error)
-      return NextResponse.json({ error: 'Error guardando token' }, { status: 500 })
+    // 2. Guardar en PostgreSQL Dokploy si hay userId
+    if (userId) {
+      try {
+        const { query } = await import('@/lib/db/postgres')
+        await query(
+          'SELECT public.register_device_token($1, $2, $3);',
+          [userId, deviceToken, platform || 'web']
+        )
+      } catch (pgErr) {
+        console.warn('[RegisterToken] Dokploy direct sync warning:', pgErr)
+      }
     }
 
-    return NextResponse.json({ success: true, data })
+    return NextResponse.json({ success: true, message: 'Token push registrado con éxito en Dokploy.' })
   } catch (err) {
     console.error('[RegisterToken API] Error procesando solicitud:', err)
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
