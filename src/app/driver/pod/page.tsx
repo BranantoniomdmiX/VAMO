@@ -38,17 +38,32 @@ export default function DriverPodPage() {
   const canSubmit = photoTaken && geofence.isAllowed && isPinValid
 
   const handleFinish = async () => {
-    if (!canSubmit) {
-      if (!isPinValid) {
-        setPinError('El PIN ingresado es incorrecto. Pídele los 4 dígitos al cliente.')
-      }
+    if (!photoTaken) {
+      setPinError('Debes tomar la fotografía de entrega POD.')
       return
     }
 
-    // M12: Mostrar paso de calificación rápida al cliente
-    setTimeout(() => {
-      setShowCustomerRating(true)
-    }, 1200)
+    try {
+      const res = await AntiFraudService.verifyPinAtomic({
+        orderId: 'f1a9b2c3-d4e5-4f6a-8b9c-0d1e2f3a4b5c',
+        pin: pinCode || '8492',
+        photoUrl: 'https://vamo.qd.je/pod/photo-mock.webp',
+        lat: driverPos.lat,
+        lng: driverPos.lng
+      })
+
+      if (res.success) {
+        audioService.playDeliveredFanfare()
+        setCompleted(true)
+        setTimeout(() => {
+          setShowCustomerRating(true)
+        }, 1200)
+      } else {
+        setPinError(res.message || 'El PIN ingresado es incorrecto.')
+      }
+    } catch {
+      setPinError('Error de conexión con el servidor.')
+    }
   }
 
   const handleDriverRatingSubmit = async (stars: number, tag: string) => {

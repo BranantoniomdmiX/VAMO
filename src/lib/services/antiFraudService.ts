@@ -98,6 +98,28 @@ export class AntiFraudService {
   }
 
   /**
+   * Valida el PIN directamente contra el endpoint atómico de backend y dispara la liquidación contable
+   */
+  static async verifyPinAtomic(params: {
+    orderId: string
+    pin?: string
+    photoUrl?: string
+    lat?: number
+    lng?: number
+  }): Promise<{ success: boolean; message: string; data?: any }> {
+    try {
+      const res = await fetch('/api/dispatch/pod', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params)
+      })
+      return await res.json()
+    } catch (e: any) {
+      return { success: false, message: e.message || 'Error al verificar el PIN con el servidor.' }
+    }
+  }
+
+  /**
    * Motor de Desborde Inteligente entre Flotas (3 minutos -> Flota vecina)
    */
   static evaluateOrderOverflow(
