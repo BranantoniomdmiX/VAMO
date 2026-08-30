@@ -48,48 +48,17 @@ export default function BaseCallRegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
-  // Bitácora de llamadas del turno
-  const [callHistory, setCallHistory] = useState<PhoneOrderRecord[]>([
-    {
-      id: '1',
-      folio: '#TEL-9045',
-      customerName: 'Don Manuel Rodríguez',
-      phone: '461-123-4567',
-      origin: 'Farmacia Guadalajara Centro',
-      destination: 'Calle Morelos #89, Centro',
-      category: 'Farmacia / Urgente',
-      amount: 45.00,
-      driver: 'Carlos M. (MOTO-01)',
-      status: 'EN_CAMINO',
-      time: 'Hace 8 min'
-    },
-    {
-      id: '2',
-      folio: '#TEL-9041',
-      customerName: 'Sra. Carmen Ortiz',
-      phone: '461-876-5432',
-      origin: 'Taquería El Pastor',
-      destination: 'Av. Tecnológico #402',
-      category: 'Comida / Restaurante',
-      amount: 55.00,
-      driver: 'Roberto M. (MOTO-08)',
-      status: 'ENTREGADO',
-      time: 'Hace 32 min'
-    },
-    {
-      id: '3',
-      folio: '#TEL-9038',
-      customerName: 'Lic. Fernando Soto',
-      phone: '461-445-9988',
-      origin: 'Notaría Pública #4',
-      destination: 'Banco Banorte Plaza',
-      category: 'Documentos / Paquetería',
-      amount: 60.00,
-      driver: 'Ana P. (MOTO-21)',
-      status: 'ENTREGADO',
-      time: 'Hace 1 hr'
-    }
-  ])
+  // Bitácora de llamadas del turno (Carga reactiva limpia)
+  const [callHistory, setCallHistory] = useState<PhoneOrderRecord[]>([])
+
+  React.useEffect(() => {
+    try {
+      const stored = localStorage.getItem('vamo_call_register_history')
+      if (stored) {
+        setCallHistory(JSON.parse(stored))
+      }
+    } catch {}
+  }, [])
 
   const [searchTerm, setSearchTerm] = useState('')
 

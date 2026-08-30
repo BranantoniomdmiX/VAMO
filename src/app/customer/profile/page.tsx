@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { CustomerLayout } from '@/components/layout/CustomerLayout'
 import Link from 'next/link'
 import { 
@@ -18,24 +18,64 @@ import {
   Share2,
   CheckCircle2
 } from 'lucide-react'
-
-
 import { CancellationService } from '@/lib/services/cancellationService'
+import { createClient } from '@/lib/supabase/client'
 
 export default function CustomerProfilePage() {
-  const [profile] = React.useState({
-    fullName: 'Carlos Mendoza',
-    phone: '+52 (461) 123-4567',
-    email: 'carlos.mendoza@gmail.com',
-    memberSince: 'Agosto 2026',
-    savedAddressesCount: 3,
-    favoritePlacesCount: 8,
-    referralCode: 'CARLOS-VAMO'
+  const [profile, setProfile] = useState({
+    fullName: 'Cliente VAMO',
+    phone: 'Sin registrar',
+    email: 'cliente@vamo.app',
+    memberSince: '2026',
+    savedAddressesCount: 0,
+    favoritePlacesCount: 0,
+    referralCode: 'VAMO-GUEST',
+    userId: ''
   })
+  const [points, setPoints] = useState<number>(0)
+  const [copiedToast, setCopiedToast] = useState(false)
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [cancelReason, setCancelReason] = useState('NO_USO_SERVICIO')
 
-  const [copiedToast, setCopiedToast] = React.useState(false)
-  const [showCancelModal, setShowCancelModal] = React.useState(false)
-  const [cancelReason, setCancelReason] = React.useState('NO_USO_SERVICIO')
+  useEffect(() => {
+    async function loadUserProfile() {
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Cliente VAMO'
+          const phone = user.user_metadata?.phone || user.phone || 'Sin registrar'
+          const email = user.email || 'Sin correo'
+          const refCode = `VAMO-${name.slice(0, 4).toUpperCase()}-${user.id.slice(0, 4).toUpperCase()}`
+
+          setProfile({
+            fullName: name,
+            phone,
+            email,
+            memberSince: new Date(user.created_at || Date.now()).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }),
+            savedAddressesCount: 0,
+            favoritePlacesCount: 0,
+            referralCode: refCode,
+            userId: user.id
+          })
+
+          // Obtener balance de puntos
+          const { data: wallet } = await supabase
+            .from('wallets')
+            .select('balance')
+            .eq('user_id', user.id)
+            .single()
+
+          if (wallet) {
+            setPoints(Math.floor(Number(wallet.balance) * 10))
+          }
+        }
+      } catch (err) {
+        console.warn('Error al cargar perfil:', err)
+      }
+    }
+    loadUserProfile()
+  }, [])
 
 
   const handleShare = () => {
@@ -147,7 +187,7 @@ export default function CustomerProfilePage() {
                 <strong className="text-xs font-extrabold text-[#1c1b1b] block group-hover:text-[#0056d2] transition-colors">
                   VAMO Puntos & Beneficios
                 </strong>
-                <span className="text-[11px] text-[#737785]">420 puntos listos para canjear en envíos</span>
+                <span className="text-[11px] text-[#737785]">{points} puntos listos para canjear en envíos</span>
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-[#737785] group-hover:translate-x-1 transition-transform" />

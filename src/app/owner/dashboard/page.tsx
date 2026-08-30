@@ -62,19 +62,28 @@ export default function OwnerDashboardPage() {
     }
   }
 
-  const handleGenerateCode = () => {
-    const randomDigits = Math.floor(1000 + Math.random() * 9000)
-    const newCode = `VAMO-FLT-${randomDigits}`
+  const handleGenerateCode = async () => {
+    const { InviteService } = await import('@/lib/services/inviteService')
+    const res = await InviteService.createInvite({
+      targetRole: 'driver',
+      phoneOrEmail: 'conductor@plaza.vamo',
+      createdById: 'owner-current',
+      ownerId: 'owner-current',
+      plazaName: flotaName
+    })
+
+    const token = res.invite?.inviteToken || `VAMO-FLT-${Math.floor(1000 + Math.random() * 9000)}`
     const newEntry: DriverCode = {
-      code: newCode,
+      code: token,
       status: 'available',
       createdAt: new Date().toISOString()
     }
     const updated = [newEntry, ...driverCodes]
     saveCodes(updated)
 
-    navigator.clipboard?.writeText(newCode)
-    setCopiedCode(newCode)
+    const fullUrl = res.inviteUrl || `${window.location.origin}/auth/join?token=${token}`
+    navigator.clipboard?.writeText(fullUrl)
+    setCopiedCode(token)
     setTimeout(() => setCopiedCode(null), 3000)
   }
 

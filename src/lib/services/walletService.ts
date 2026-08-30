@@ -34,21 +34,21 @@ export const NEGATIVE_TOLERANCE = -100.00
 // Almacén reactivo local con fallback para demo/desconexión
 const LOCAL_STORAGE_KEY = 'vamo_driver_wallet'
 
-function getInitialLocalWallet(driverId: string = 'driver-carlos-1'): UserWallet {
+function getInitialLocalWallet(driverId: string = 'driver'): UserWallet {
   if (typeof window === 'undefined') {
     return {
       id: `wallet-${driverId}`,
       userId: driverId,
       userRole: 'driver',
-      balance: 480.00,
-      codBalance: 650.00,
+      balance: 0.00,
+      codBalance: 0.00,
       maxCodLimit: MAX_COD_CASH,
       weeklyFee: WEEKLY_FEE,
       negativeTolerance: NEGATIVE_TOLERANCE,
-      tier: 'ORO',
+      tier: 'PLATA',
       status: 'ACTIVE',
       isCodBlocked: false,
-      lastSettlementAt: new Date(Date.now() - 86400000).toISOString()
+      lastSettlementAt: new Date().toISOString()
     }
   }
 

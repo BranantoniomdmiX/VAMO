@@ -9,13 +9,28 @@ import { gpsSocketService } from '@/lib/services/gpsSocketService'
 import { PushNotificationBanner } from '@/components/ui/PushNotificationBanner'
 
 export default function DriverHomePage() {
-
+  const [driverName, setDriverName] = useState('Conductor')
   const [isAvailable, setIsAvailable] = useState(true)
   const [viewMode, setViewMode] = useState<'dashboard' | 'heatmap'>('dashboard')
   const [selectedZoneId, setSelectedZoneId] = useState<string>('HOT-01')
   const [isNavigatingToZone, setIsNavigatingToZone] = useState<boolean>(false)
   const [mapCenter, setMapCenter] = useState<[number, number]>([20.5260, -100.8090])
-  const [mapTheme, setMapTheme] = useState<'light' | 'dark'>('light') // 'light' por defecto para alta visibilidad bajo el sol
+  const [mapTheme, setMapTheme] = useState<'light' | 'dark'>('light')
+
+  useEffect(() => {
+    async function loadDriver() {
+      try {
+        const { createClient } = await import('@/lib/supabase/client')
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Conductor'
+          setDriverName(name)
+        }
+      } catch {}
+    }
+    loadDriver()
+  }, [])
 
   // Desconexión inteligente de GPS y Estado en la Base Operativa
   useEffect(() => {
@@ -125,10 +140,10 @@ export default function DriverHomePage() {
             />
             <div>
               <h1 className="text-lg font-extrabold text-slate-900 leading-tight flex items-center gap-1.5">
-                ¡Hola, Carlos! <span className="text-xs bg-[#c3f400] text-[#161e00] px-2 py-0.5 rounded-full font-black">MOTO</span>
+                ¡Hola, {driverName}! <span className="text-xs bg-[#c3f400] text-[#161e00] px-2 py-0.5 rounded-full font-black">MOTO</span>
               </h1>
               <p className="text-xs font-bold text-slate-500 flex items-center gap-1">
-                <MapPin className="w-3 h-3 text-[#0056d2]" /> Zona Centro &bull; Socio VAMO
+                <MapPin className="w-3 h-3 text-[#0056d2]" /> Conductor Conectado &bull; VAMO
               </p>
             </div>
           </div>

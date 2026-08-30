@@ -77,8 +77,8 @@ export default function RegisterCustomerPage() {
   return (
     <div className="min-h-screen bg-[#f5fff6] text-[#1c1b1b] font-sans flex flex-col justify-between p-4 sm:p-8 selection:bg-[#0056d2] selection:text-white">
       <header className="max-w-md mx-auto w-full flex justify-between items-center">
-        <Link href="/auth/login" className="flex items-center gap-2 bg-white border border-[#e5e2e1] px-4 py-2 rounded-full text-xs font-bold text-[#0056d2] w-fit shadow-sm hover:bg-[#f0eded]">
-          <ArrowLeft className="w-4 h-4" /> Volver a Login
+        <Link href="/customer/home" className="flex items-center gap-2 bg-white border border-[#e5e2e1] px-4 py-2 rounded-full text-xs font-bold text-[#0056d2] w-fit shadow-sm hover:bg-[#f0eded]">
+          <ArrowLeft className="w-4 h-4" /> Volver a Inicio VAMO
         </Link>
         <span className="text-xs font-extrabold text-[#737785]">CLIENTE VAMO</span>
       </header>

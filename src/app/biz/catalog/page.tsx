@@ -23,13 +23,7 @@ export default function BizCatalogPage() {
     unit?: string
   }
 
-  const [quickProducts, setQuickProducts] = useState<QuickProduct[]>([
-    { id: '1', name: 'Torta Cubana Gigante', category: 'Especialidades', price: 95.00, inStock: true, unit: 'pza' },
-    { id: '2', name: 'Torta de Pierna Adobada', category: 'Clásicas', price: 75.00, inStock: true, unit: 'pza' },
-    { id: '3', name: 'Refresco Coca-Cola 600ml', category: 'Bebidas', price: 25.00, inStock: true, unit: 'botella' },
-    { id: '4', name: 'Agua Fresca de Horchata 1L', category: 'Bebidas', price: 35.00, inStock: true, unit: 'litro' },
-    { id: '5', name: 'Orden de Papas a la Francesa', category: 'Complementos', price: 45.00, inStock: true, unit: 'orden' }
-  ])
+  const [quickProducts, setQuickProducts] = useState<QuickProduct[]>([])
 
   const [newQuickName, setNewQuickName] = useState('')
   const [newQuickCategory, setNewQuickCategory] = useState('General')

@@ -7,8 +7,8 @@ import { Download, Wallet, TrendingUp, Receipt, CheckCircle, Clock, Building2, C
 export default function BizFinancesPage() {
   const [storeName, setStoreName] = useState('Mi Negocio VAMO')
   const [ownerName, setOwnerName] = useState('Titular Registrado')
-  const [bankName, setBankName] = useState('BBVA México')
-  const [clabe, setClabe] = useState('012180009876543210')
+  const [bankName, setBankName] = useState('Sin registrar')
+  const [clabe, setClabe] = useState('Por configurar en ajustes')
   const [balance, setBalance] = useState(0.00)
   const [settledOrders, setSettledOrders] = useState<{
     id: string

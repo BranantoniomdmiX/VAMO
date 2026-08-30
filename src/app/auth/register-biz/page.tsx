@@ -226,8 +226,8 @@ export default function RegisterBizPage() {
     <div className="min-h-screen bg-[#fcf9f8] text-[#1c1b1b] font-sans flex flex-col justify-between p-4 sm:p-8 selection:bg-[#0056d2] selection:text-white">
       {/* Header */}
       <header className="max-w-xl mx-auto w-full flex items-center justify-between">
-        <Link href="/auth/login" className="flex items-center gap-2 bg-white border border-[#e5e2e1] px-4 py-2 rounded-full text-xs font-bold text-[#0056d2] hover:bg-slate-50 transition-all shadow-xs">
-          <ArrowLeft className="w-4 h-4" /> Volver a Iniciar Sesión
+        <Link href="/customer/home" className="flex items-center gap-2 bg-white border border-[#e5e2e1] px-4 py-2 rounded-full text-xs font-bold text-[#0056d2] hover:bg-slate-50 transition-all shadow-xs">
+          <ArrowLeft className="w-4 h-4" /> Volver a Inicio VAMO
         </Link>
         <div className="flex items-center gap-2">
           <span className="bg-[#0056d2] text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
@@ -275,7 +275,7 @@ export default function RegisterBizPage() {
               </div>
 
               {/* PIN KDS de Cocina */}
-              <div className="bg-[#f6f3f2] border-2 border-[#0056d2]/30 rounded-2xl p-5 space-y-1">
+              <div className="bg-[#f6f3f2] border-2 border-[#0056d2]/30 rounded-2xl p-5 space-y-2">
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">
                   TU PIN DE CONSOLA DE COCINA (KDS)
                 </span>
@@ -285,6 +285,24 @@ export default function RegisterBizPage() {
                 <p className="text-[11px] font-semibold text-slate-500">
                   Usa este PIN o escanea el QR en cualquier tablet o celular para abrir tu pantalla de comandas sin contraseña.
                 </p>
+                
+                {/* Botones de Descarga APK */}
+                <div className="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <a
+                    href="/downloads/VAMO_Comercios.apk"
+                    download
+                    className="bg-[#0056d2] hover:bg-[#0040a1] text-white py-2.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-xs"
+                  >
+                    <span>Descargar App Comercios APK 🏬</span>
+                  </a>
+                  <a
+                    href="/downloads/VAMO_Cocina_KDS.apk"
+                    download
+                    className="bg-[#161e00] hover:bg-black text-[#c3f400] py-2.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-xs"
+                  >
+                    <span>Descargar Pantalla KDS APK 🍳</span>
+                  </a>
+                </div>
               </div>
 
               <div className="flex items-center justify-center gap-2 text-xs font-bold text-[#0056d2] pt-2">

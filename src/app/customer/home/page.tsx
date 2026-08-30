@@ -1,49 +1,59 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { CustomerLayout } from '@/components/layout/CustomerLayout'
-import { Truck, ShoppingBag, Route, Compass, Bell, ArrowRight, ChevronRight, Package, Wallet, User, Home, Star, CheckCircle2 } from 'lucide-react'
+import { Truck, ShoppingBag, Route, Compass, Bell, ArrowRight, ChevronRight, Package, Wallet, User, Home, Star, CheckCircle2, Clock, Sparkles } from 'lucide-react'
 import { RatingService } from '@/lib/services/ratingService'
+import { getCustomerServices, getPendingRatingService } from '@/lib/services/serviceActions'
+import { createClient } from '@/lib/supabase/client'
+import { Service } from '@/types/database.types'
 
-function RatingModalSection() {
-
+function RatingModalSection({ 
+  pendingService, 
+  onDismiss 
+}: { 
+  pendingService: any
+  onDismiss: () => void 
+}) {
   const [rating, setRating] = useState<number>(5)
   const [hoverRating, setHoverRating] = useState<number>(0)
   const [tip, setTip] = useState<number>(20)
   const [comment, setComment] = useState<string>('')
   const [submitted, setSubmitted] = useState<boolean>(false)
-  const [showModal, setShowModal] = useState<boolean>(true)
 
-  if (!showModal) return null
+  if (!pendingService) return null
+
+  const driverName = pendingService.driver?.full_name || 'tu conductor VAMO'
+  const orderCode = pendingService.service_code || `#VAMO-${pendingService.id?.slice(0, 4) || 'ORD'}`
 
   const handleRatingSubmit = async () => {
     await RatingService.submitRating({
-      orderCode: 'VAMO-8842',
+      orderCode: pendingService.service_code || pendingService.id,
       raterRole: 'customer',
       ratedRole: 'driver',
       stars: rating,
       tags: ['⚡ Súper rápido', '😊 Muy amable'],
       comment,
       tipAmount: tip,
-      ratedUserId: 'driver-carlos-1'
+      ratedUserId: pendingService.driver_id || 'driver'
     })
     setSubmitted(true)
   }
 
   if (submitted) {
     return (
-      <div className="bg-[#e6f4ea] border border-[#34a853]/40 p-4 rounded-xl flex items-center justify-between shadow-xs">
+      <div className="bg-[#e6f4ea] border border-[#34a853]/40 p-4 rounded-2xl flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-3">
-          <CheckCircle2 className="w-6 h-6 text-[#34a853]" />
+          <CheckCircle2 className="w-6 h-6 text-[#34a853] shrink-0" />
           <div>
             <h4 className="text-sm font-bold text-[#1e8e3e]">¡Gracias por tu calificación!</h4>
             <p className="text-xs text-slate-700">Tu retroalimentación sumó <strong>+50 VAMO Coins</strong> a tu perfil.</p>
           </div>
         </div>
         <button 
-          onClick={() => setShowModal(false)}
-          className="text-xs font-bold text-slate-600 hover:text-slate-900 underline"
+          onClick={onDismiss}
+          className="text-xs font-bold text-slate-600 hover:text-slate-900 underline ml-2"
         >
           Cerrar
         </button>
@@ -51,14 +61,13 @@ function RatingModalSection() {
     )
   }
 
-
   return (
     <div className="bg-white border-2 border-[#fddf33] p-5 rounded-2xl shadow-sm space-y-4">
       <div className="flex justify-between items-start">
         <div>
           <span className="bg-[#fddf33] text-[#726200] text-[10px] font-black px-2 py-0.5 rounded-full uppercase">ÚLTIMO PEDIDO ENTREGADO</span>
-          <h3 className="text-base font-bold text-[#1c1b1b] mt-1">¿Cómo fue tu entrega con Carlos M.?</h3>
-          <p className="text-xs text-[#424654]">Pedido #VAMO-8842 • Hace 15 min</p>
+          <h3 className="text-base font-bold text-[#1c1b1b] mt-1">¿Cómo fue tu entrega con {driverName}?</h3>
+          <p className="text-xs text-[#424654]">Pedido {orderCode}</p>
         </div>
       </div>
 
@@ -81,7 +90,7 @@ function RatingModalSection() {
       </div>
 
       {/* Propina Opcional */}
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <span className="text-xs font-bold text-[#1c1b1b]">Propina para el conductor:</span>
         <div className="flex gap-1.5">
           {[0, 10, 20, 50].map((amount) => (
@@ -122,13 +131,52 @@ function RatingModalSection() {
 }
 
 export default function CustomerHomePage() {
+  const [userName, setUserName] = useState<string>('Cliente')
+  const [recentOrders, setRecentOrders] = useState<Service[]>([])
+  const [pendingRating, setPendingRating] = useState<any>(null)
+  const [loading, setLoading] = useState<boolean>(true)
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (user) {
+          const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Cliente'
+          setUserName(name)
+          
+          const orders = await getCustomerServices(user.id)
+          setRecentOrders(orders)
+
+          const pending = await getPendingRatingService(user.id)
+          setPendingRating(pending)
+        } else {
+          // Modo sin sesión o invitado
+          const orders = await getCustomerServices()
+          setRecentOrders(orders)
+        }
+      } catch (err) {
+        console.warn('Error al cargar datos del cliente:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadData()
+  }, [])
+
   return (
     <CustomerLayout>
       <div className="w-full max-w-4xl mx-auto flex flex-col gap-6">
         
-        {/* Header Section Saludo */}
+        {/* Header Section Saludo Dinámico */}
         <section className="space-y-1">
-          <h2 className="text-lg font-semibold text-[#424654]">¡Hola, Carlos!</h2>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#0056d2] bg-blue-50 px-2.5 py-0.5 rounded-full">
+              Tu Ciudad en Movimiento
+            </span>
+          </div>
+          <h2 className="text-lg font-semibold text-[#424654]">¡Hola, {userName}!</h2>
           <h1 className="text-3xl md:text-5xl font-extrabold text-[#1c1b1b] leading-tight max-w-[14ch]">
             ¿Qué necesitas hoy?
           </h1>
@@ -211,69 +259,147 @@ export default function CustomerHomePage() {
           </Link>
         </section>
 
-        {/* Re-ordenamiento Rápido 1-Tap */}
+        {/* Re-ordenamiento Rápido 1-Tap / Pedidos Recientes Dinámicos */}
         <section className="mt-2 space-y-3">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-bold text-[#1c1b1b]">Pedidos Recientes (Re-ordenar 1-Tap)</h3>
-            <span className="text-xs font-semibold text-[#0056d2]">1-Tap Express</span>
+            <Link href="/customer/tracking" className="text-xs font-semibold text-[#0056d2] hover:underline">
+              Ver todos los pedidos ➔
+            </Link>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="bg-white border border-[#e5e2e1] p-4 rounded-xl flex items-center justify-between shadow-xs hover:border-[#0056d2] transition-all">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#fddf33]/30 text-[#726200] flex items-center justify-center font-bold">
-                  🍕
+
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[1, 2].map((i) => (
+                <div key={i} className="bg-white border border-[#e5e2e1] p-4 rounded-xl animate-pulse h-20" />
+              ))}
+            </div>
+          ) : recentOrders.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {recentOrders.map((order) => (
+                <div key={order.id} className="bg-white border border-[#e5e2e1] p-4 rounded-xl flex items-center justify-between shadow-xs hover:border-[#0056d2] transition-all">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-[#0056d2]/10 text-[#0056d2] flex items-center justify-center font-bold shrink-0">
+                      {order.service_type === 'PURCHASE' ? '🛒' : order.service_type === 'MULTI_STOP' ? '🔄' : '📦'}
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-sm font-bold text-[#1c1b1b] truncate">
+                        {order.service_code || `Servicio ${order.service_type}`}
+                      </h4>
+                      <p className="text-xs font-medium text-[#424654] truncate">
+                        {order.origin_address ? `${order.origin_address.slice(0, 20)}...` : 'Origen'} ➔ {order.destination_address ? `${order.destination_address.slice(0, 20)}...` : 'Destino'} • ${order.total_price || 0} MXN
+                      </p>
+                    </div>
+                  </div>
+                  <Link 
+                    href={`/customer/quote?mode=direct&repeat=${order.id}`} 
+                    className="bg-[#0056d2] hover:bg-[#0040a1] text-white text-xs font-bold px-3 py-2 rounded-lg active:scale-95 transition-all shrink-0 ml-2"
+                  >
+                    Repetir ⚡
+                  </Link>
                 </div>
-                <div>
-                  <h4 className="text-sm font-bold text-[#1c1b1b]">Torta de Pierna + Refresco</h4>
-                  <p className="text-xs font-medium text-[#424654]">Tortas El Pariente • $145.00 MXN</p>
-                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white border border-dashed border-[#c3c6d6] p-6 rounded-2xl flex flex-col items-center justify-center text-center space-y-2">
+              <div className="w-12 h-12 rounded-full bg-blue-50 text-[#0056d2] flex items-center justify-center">
+                <Sparkles className="w-6 h-6" />
               </div>
-              <Link href="/customer/quote?mode=direct" className="bg-[#0056d2] hover:bg-[#0040a1] text-white text-xs font-bold px-3 py-2 rounded-lg active:scale-95 transition-all">
-                Pedir 1-Tap ⚡
+              <h4 className="text-sm font-bold text-[#1c1b1b]">Aún no tienes pedidos registrados</h4>
+              <p className="text-xs text-[#737785] max-w-sm">
+                Cuando realices tu primer envío de paquete o mandado, aparecerá aquí para re-ordenarlo con 1 solo toque.
+              </p>
+              <Link
+                href="/customer/quote?mode=direct"
+                className="mt-2 bg-[#0056d2] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xs hover:bg-[#0040a1] transition-all"
+              >
+                Solicitar mi primer envío 📦
               </Link>
             </div>
+          )}
+        </section>
 
-            <div className="bg-white border border-[#e5e2e1] p-4 rounded-xl flex items-center justify-between shadow-xs hover:border-[#0056d2] transition-all">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#0056d2]/10 text-[#0056d2] flex items-center justify-center font-bold">
-                  📦
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-[#1c1b1b]">Envío Llaves & Llaves de Repuesto</h4>
-                  <p className="text-xs font-medium text-[#424654]">Centro ➔ Fracc. Las Palmas • $45.00 MXN</p>
-                </div>
+        {/* Modal de Calificación 5 Estrellas (Solo si hay pedido entregado pendiente) */}
+        {pendingRating && (
+          <RatingModalSection 
+            pendingService={pendingRating} 
+            onDismiss={() => setPendingRating(null)} 
+          />
+        )}
+
+        {/* SECCIÓN DE AFILIACIÓN Y DESCARGA DE APKS PARA CLIENTES (COMERCIOS Y CONDUCTORES) */}
+        <section className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+          {/* Tarjeta 1: ¿Quieres ser Conductor / Repartidor? */}
+          <div className="bg-[#161e00] text-white p-6 rounded-[28px] border border-[#c3f400]/40 flex flex-col justify-between shadow-md space-y-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="bg-[#c3f400] text-[#161e00] text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                  GENERA INGRESOS
+                </span>
+                <span className="text-xl">🛵</span>
               </div>
-              <Link href="/customer/quote?mode=direct" className="bg-[#0056d2] hover:bg-[#0040a1] text-white text-xs font-bold px-3 py-2 rounded-lg active:scale-95 transition-all">
-                Pedir 1-Tap ⚡
+              <h3 className="text-base sm:text-lg font-extrabold text-white">¿Quieres ser Conductor VAMO?</h3>
+              <p className="text-xs font-semibold text-slate-300">
+                Únete a la flotilla con tu moto o bicicleta. Pagos al día, propinas 100% tuyas y soporte de base.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-1">
+              <Link 
+                href="/auth/register-driver"
+                className="flex-1 bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3 rounded-full text-xs font-black text-center shadow-xs active:scale-95 transition-all cursor-pointer"
+              >
+                Registrarme como Chofer 🏍️
               </Link>
+              <a 
+                href="/downloads/VAMO_Conductor.apk"
+                download
+                className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-3 rounded-full text-xs font-bold text-center flex items-center justify-center gap-1.5 transition-all"
+              >
+                <span>Descargar APK</span>
+                <span className="text-[10px] opacity-70">⬇</span>
+              </a>
             </div>
           </div>
-        </section>
 
-        {/* Modal de Calificación 5 Estrellas Integrado */}
-        <RatingModalSection />
+          {/* Tarjeta 2: ¿Tienes un restaurante o negocio local? */}
+          <div className="bg-[#0040a1] text-white p-6 rounded-[28px] border border-blue-700 flex flex-col justify-between shadow-md space-y-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="bg-[#c3f400] text-[#161e00] text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                  0% COMISIONES
+                </span>
+                <span className="text-xl">🏬</span>
+              </div>
+              <h3 className="text-base sm:text-lg font-extrabold text-white">¿Tienes un local comercial?</h3>
+              <p className="text-xs font-semibold text-blue-200">
+                Vende en tu colonia sin perder el 30% en comisiones. Conecta tu cocina KDS y manda en moto express.
+              </p>
+            </div>
 
-        {/* Banner de Afiliación de Negocios (Sustituye la duplicidad del Radar) */}
-        <section className="mt-2 bg-[#161e00] text-white p-6 rounded-[28px] border border-[#c3f400]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md">
-          <div className="space-y-1">
-            <span className="bg-[#c3f400] text-[#161e00] text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block">
-              0% COMISIONES ABUSIVAS
-            </span>
-            <h3 className="text-base sm:text-lg font-extrabold text-white">¿Tienes un restaurante o negocio local?</h3>
-            <p className="text-xs font-semibold text-slate-300">
-              Afíliate a VAMO, conecta tu cocina con la pantalla KDS y vende sin perder el 30% de tus ganancias.
-            </p>
+            <div className="flex flex-col sm:flex-row gap-2 pt-1">
+              <Link 
+                href="/auth/register-biz"
+                className="flex-1 bg-white hover:bg-slate-100 text-[#0040a1] py-3 rounded-full text-xs font-black text-center shadow-xs active:scale-95 transition-all cursor-pointer"
+              >
+                Afiliar mi Negocio 🏪
+              </Link>
+              <a 
+                href="/downloads/VAMO_Comercios.apk"
+                download
+                className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-3 rounded-full text-xs font-bold text-center flex items-center justify-center gap-1.5 transition-all"
+              >
+                <span>Descargar APK</span>
+                <span className="text-[10px] opacity-70">⬇</span>
+              </a>
+            </div>
           </div>
-          <Link 
-            href="/auth/register-biz"
-            className="bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] px-5 py-3 rounded-full text-xs font-black shadow-sm active:scale-95 transition-all shrink-0 cursor-pointer"
-          >
-            Afiliar mi Local 🏬
-          </Link>
-        </section>
 
+        </section>
 
       </div>
     </CustomerLayout>
   )
 }
+

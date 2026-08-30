@@ -39,19 +39,52 @@ export async function createServiceFromBase(data: {
   return { success: true, service: newService }
 }
 
-export async function getActiveServices(tenantId: string) {
+export async function getCustomerServices(userId?: string) {
   const supabase = createClient()
+  try {
+    let query = supabase
+      .from('services')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(5)
+      
+    if (userId) {
+      query = query.eq('customer_id', userId)
+    }
 
-  const { data, error } = await supabase
-    .from('services')
-    .select('*')
-    .eq('tenant_id', tenantId)
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    console.error('Error al obtener servicios:', error)
+    const { data, error } = await query
+    if (error) {
+      console.warn('No se pudieron obtener pedidos recientes del cliente:', error.message)
+      return []
+    }
+    return (data || []) as Service[]
+  } catch (err) {
+    console.warn('Excepción al consultar servicios del cliente:', err)
     return []
   }
+}
 
-  return data as Service[]
+export async function getPendingRatingService(userId?: string) {
+  const supabase = createClient()
+  try {
+    let query = supabase
+      .from('services')
+      .select('*, driver:drivers(*)')
+      .eq('status', 'ENTREGADO')
+      .is('customer_rating', null)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+
+    if (userId) {
+      query = query.eq('customer_id', userId)
+    }
+
+    const { data, error } = await query
+    if (error || !data || data.length === 0) {
+      return null
+    }
+    return data[0]
+  } catch (err) {
+    return null
+  }
 }
