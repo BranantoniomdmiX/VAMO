@@ -95,7 +95,7 @@ export default function AdminDashboardPage() {
                 </div>
                 <div>
                   <strong className="text-xs font-black text-slate-900 block">Sincronización Supabase Realtime & Socket VPS</strong>
-                  <span className="text-[10px] font-bold text-slate-500">Hostinger VPS 212.1.213.44 &bull; Sincronizado</span>
+                  <span className="text-[10px] font-bold text-slate-500">Oracle Cloud Infrastructure (OCI) &bull; Dokploy 163.192.147.231</span>
                 </div>
               </div>
               <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2.5 py-1 rounded-full">

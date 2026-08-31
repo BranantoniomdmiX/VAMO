@@ -15,12 +15,13 @@ import {
   X,
   Users,
   Radio,
-  Inbox
+  Inbox,
+  MapPin
 } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 
 interface SidebarAdminProps {
-  activeTab: 'dashboard' | 'requests' | 'fleets' | 'new-fleet' | 'plans' | 'infrastructure' | 'crm' | 'control-tower'
+  activeTab: 'dashboard' | 'requests' | 'map' | 'fleets' | 'new-fleet' | 'clearing' | 'control-tower' | 'infrastructure'
 }
 
 export function SidebarAdmin({ activeTab }: SidebarAdminProps) {
@@ -29,12 +30,11 @@ export function SidebarAdmin({ activeTab }: SidebarAdminProps) {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard Maestro Global', route: '/admin/dashboard', icon: Globe },
     { id: 'requests', label: 'Bandeja de Solicitudes & KYC', route: '/admin/requests', icon: Inbox },
+    { id: 'map', label: 'Mapa Nacional de Plazas', route: '/admin/map', icon: MapPin },
     { id: 'control-tower', label: 'Torre de Control (Meituan Style)', route: '/admin/control-tower', icon: Radio },
     { id: 'clearing', label: 'VAMO Clearing & Ledger', route: '/admin/clearing', icon: CreditCard },
-    { id: 'crm', label: 'CRM Hyper-Local 360°', route: '/admin/crm', icon: Users },
-    { id: 'fleets', label: 'Gestión de Tenants & Flotas', route: '/admin/fleets', icon: Building2 },
-    { id: 'new-fleet', label: 'Alta Nueva Flota / Tenant', route: '/admin/new-fleet', icon: PlusCircle },
-    { id: 'plans', label: 'Configuración de Planes SaaS', route: '/admin/plans', icon: CreditCard },
+    { id: 'fleets', label: 'Gestión de Plazas & Códigos', route: '/admin/fleets', icon: Building2 },
+    { id: 'new-fleet', label: 'Alta Nueva Plaza ($0 Setup)', route: '/admin/new-fleet', icon: PlusCircle },
     { id: 'infrastructure', label: 'Monitor de Infraestructura', route: '/admin/infrastructure', icon: Activity }
   ]
 

@@ -4,11 +4,13 @@ import React, { useState, useEffect } from 'react'
 import { MobileDriverLayout } from '@/components/layout/MobileDriverLayout'
 import { Bike, Power, Wallet, Trophy, ArrowRight, ShieldCheck, MapPin, Flame, Award, Layers } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import VamoUniversalMap from '@/components/map/VamoUniversalMap'
 import { gpsSocketService } from '@/lib/services/gpsSocketService'
 import { PushNotificationBanner } from '@/components/ui/PushNotificationBanner'
 
 export default function DriverHomePage() {
+  const router = useRouter()
   const [driverName, setDriverName] = useState('Conductor')
   const [isAvailable, setIsAvailable] = useState(true)
   const [viewMode, setViewMode] = useState<'dashboard' | 'heatmap'>('dashboard')
@@ -16,9 +18,12 @@ export default function DriverHomePage() {
   const [isNavigatingToZone, setIsNavigatingToZone] = useState<boolean>(false)
   const [mapCenter, setMapCenter] = useState<[number, number]>([20.5260, -100.8090])
   const [mapTheme, setMapTheme] = useState<'light' | 'dark'>('light')
+  const [earningsToday, setEarningsToday] = useState(0)
+  const [tripsCompletedToday, setTripsCompletedToday] = useState(0)
+  const [activePendingOffer, setActivePendingOffer] = useState<{ id: string; code: string; earnings: number; origin: string; distance: number } | null>(null)
 
   useEffect(() => {
-    async function loadDriver() {
+    async function loadDriverData() {
       try {
         const { createClient } = await import('@/lib/supabase/client')
         const supabase = createClient()
@@ -26,18 +31,61 @@ export default function DriverHomePage() {
         if (user) {
           const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Conductor'
           setDriverName(name)
+
+          // 1. Consultar balance de billetera real y viajes de hoy
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+
+          const { data: completedOrders } = await supabase
+            .from('service_orders')
+            .select('driver_fee, delivery_fee')
+            .eq('driver_id', user.id)
+            .eq('status', 'DELIVERED')
+            .gte('created_at', today.toISOString())
+
+          if (completedOrders && completedOrders.length > 0) {
+            const total = completedOrders.reduce((sum, o) => sum + (o.driver_fee || o.delivery_fee || 0), 0)
+            setEarningsToday(total)
+            setTripsCompletedToday(completedOrders.length)
+          } else {
+            setEarningsToday(0)
+            setTripsCompletedToday(0)
+          }
         }
-      } catch {}
+
+        // 2. Consultar si hay órdenes disponibles para despacho
+        const { data: pendingOrder } = await supabase
+          .from('service_orders')
+          .select('*')
+          .in('status', ['PENDING', 'ASSIGNING', 'READY_FOR_PICKUP'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (pendingOrder) {
+          setActivePendingOffer({
+            id: pendingOrder.id,
+            code: pendingOrder.order_code || `V-${pendingOrder.id.slice(0, 4).toUpperCase()}`,
+            earnings: pendingOrder.driver_fee || pendingOrder.delivery_fee || 0,
+            origin: pendingOrder.pickup_contact_name || pendingOrder.merchant_name || 'Comercio Local',
+            distance: pendingOrder.distance_km || 1.5
+          })
+        } else {
+          setActivePendingOffer(null)
+        }
+      } catch (err) {
+        console.warn('Error cargando métricas reales de conductor:', err)
+      }
     }
-    loadDriver()
+    loadDriverData()
   }, [])
 
   // Desconexión inteligente de GPS y Estado en la Base Operativa
   useEffect(() => {
     if (isAvailable) {
       // Iniciar transmisión de GPS en vivo a la Base Operativa y VPS
-      gpsSocketService.startGpsTransmitter('MOTO-01', (pos) => {
-        setMapCenter([pos.lat, pos.lng])
+      gpsSocketService.startGpsTransmitter('MOTO-01', (_pos) => {
+        // Transmite en background sin forzar la cámara del mapa
       })
     } else {
       // Apagar GPS de inmediato para que la Base Operativa no lo vea en ruta
@@ -140,7 +188,7 @@ export default function DriverHomePage() {
             />
             <div>
               <h1 className="text-lg font-extrabold text-slate-900 leading-tight flex items-center gap-1.5">
-                ¡Hola, {driverName}! <span className="text-xs bg-[#c3f400] text-[#161e00] px-2 py-0.5 rounded-full font-black">MOTO</span>
+                {driverName} <span className="text-xs bg-[#c3f400] text-[#161e00] px-2 py-0.5 rounded-full font-black">MOTO</span>
               </h1>
               <p className="text-xs font-bold text-slate-500 flex items-center gap-1">
                 <MapPin className="w-3 h-3 text-[#0056d2]" /> Conductor Conectado &bull; VAMO
@@ -295,7 +343,7 @@ export default function DriverHomePage() {
           </Link>
         </div>
 
-        {/* Gamificación Socio VAMO: Niveles Plata, Oro, Platino y Diamante (REP-05) */}
+        {/* Gamificación Socio VAMO: Niveles y Prioridad Real de Despacho */}
         <div className="bg-[#0040a1] text-white p-5 rounded-[28px] shadow-md space-y-3.5 border border-blue-800">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
@@ -303,8 +351,12 @@ export default function DriverHomePage() {
                 <Award className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-xs font-black text-white uppercase tracking-wider block">SOCIO VAMO &bull; NIVEL PLATA</span>
-                <span className="text-[10px] text-blue-200 font-bold">0 Viajes completados &bull; 5.0 ★</span>
+                <span className="text-xs font-black text-white uppercase tracking-wider block">
+                  SOCIO VAMO &bull; {tripsCompletedToday >= 30 ? 'NIVEL ORO' : 'NIVEL INICIAL'}
+                </span>
+                <span className="text-[10px] text-blue-200 font-bold">
+                  {tripsCompletedToday} Viajes completados hoy &bull; 5.0 ★
+                </span>
               </div>
             </div>
             <span className="text-[10px] font-black bg-[#c3f400] text-[#161e00] px-3 py-1 rounded-full uppercase">
@@ -312,17 +364,20 @@ export default function DriverHomePage() {
             </span>
           </div>
 
-          {/* Barra de progreso al siguiente nivel (Oro) */}
+          {/* Barra de progreso al siguiente nivel */}
           <div className="space-y-1.5 bg-black/20 p-3 rounded-2xl border border-white/10">
             <div className="flex justify-between text-[11px] font-bold text-blue-100">
-              <span>Nivel: <strong>PLATA</strong></span>
-              <span className="text-[#c3f400]">Siguiente: <strong>ORO (Faltan 30 viajes)</strong></span>
+              <span>Nivel Actual: <strong>{tripsCompletedToday >= 30 ? 'ORO' : 'INICIAL'}</strong></span>
+              <span className="text-[#c3f400]">Meta: <strong>ORO (Faltan {Math.max(0, 30 - tripsCompletedToday)} viajes)</strong></span>
             </div>
             <div className="w-full bg-white/20 h-2.5 rounded-full overflow-hidden">
-              <div className="bg-[#c3f400] h-full transition-all duration-500 rounded-full" style={{ width: '5%' }} />
+              <div 
+                className="bg-[#c3f400] h-full transition-all duration-500 rounded-full" 
+                style={{ width: `${Math.min(100, Math.max(5, (tripsCompletedToday / 30) * 100))}%` }} 
+              />
             </div>
             <div className="flex justify-between text-[10px] text-blue-200/90 font-medium pt-0.5">
-              <span>0 viajes</span>
+              <span>{tripsCompletedToday} viajes</span>
               <span>30 viajes (+5% Bono en Horas Pico)</span>
             </div>
           </div>
@@ -333,7 +388,7 @@ export default function DriverHomePage() {
               <span>Prioridad de Despacho en Servidor:</span>
             </div>
             <span className="bg-[#c3f400] text-[#161e00] text-[10px] font-black px-2.5 py-0.5 rounded-full">
-              ALTA (ORO)
+              {tripsCompletedToday >= 30 ? 'MÁXIMA (ORO)' : 'ESTÁNDAR (ACTIVO)'}
             </span>
           </div>
         </div>
@@ -426,40 +481,57 @@ export default function DriverHomePage() {
 
               <VamoUniversalMap
                 center={mapCenter}
-                zoom={15}
+                zoom={14}
                 theme={mapTheme}
                 mode3D={false}
-                drivers={hotZones.map(zone => ({
+                drivers={[]}
+                waypoints={[]}
+                heatZones={hotZones.map(zone => ({
                   id: zone.id,
-                  name: `🔥 ${zone.name} (${zone.ordersPerHour} envíos/h)`,
                   lat: zone.lat,
                   lng: zone.lng,
-                  heading: 0,
-                  status: zone.id === selectedZoneId ? 'EN_SERVICIO' : 'DISPONIBLE'
+                  radiusMeters: zone.id === 'HOT-01' ? 520 : zone.id === 'HOT-02' ? 420 : 350,
+                  intensity: zone.id === 'HOT-01' ? 0.90 : zone.id === 'HOT-02' ? 0.65 : 0.40,
+                  name: zone.name,
+                  bonusText: zone.bonusText
                 }))}
+                onMapClick={(coords) => {
+                  // Encontrar la zona más cercana al toque del chofer
+                  let closest = hotZones[0]
+                  let minDist = 999999
+                  hotZones.forEach(z => {
+                    const dist = Math.hypot(z.lat - coords.lat, z.lng - coords.lng)
+                    if (dist < minDist) {
+                      minDist = dist
+                      closest = z
+                    }
+                  })
+                  setSelectedZoneId(closest.id)
+                  setMapCenter([closest.lat, closest.lng])
+                }}
                 className="w-full h-full"
               />
               
-              {/* Leyenda de Zonas */}
-              <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-md text-slate-900 p-3 rounded-2xl border border-slate-200 shadow-md text-[10px] space-y-1">
-                <span className="font-black text-[#0056d2] block uppercase">Leyenda de Zonas:</span>
-                <div className="flex items-center gap-2 font-bold">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#ff5722]" /> Alta Demanda (+25% Tarifa)
+              {/* Leyenda de Capa Térmica Meteorológica Estilo Meituan */}
+              <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-md text-slate-900 p-3 rounded-2xl border border-slate-200 shadow-md text-[10px] space-y-1.5 pointer-events-none">
+                <span className="font-black text-[#0056d2] block uppercase tracking-wider">RADAR TÉRMICO (DEMANDA EN VIVO):</span>
+                <div className="flex items-center gap-2 font-bold text-slate-800">
+                  <span className="w-3 h-3 rounded-full bg-[#dc2626] shadow-xs" /> Núcleo Crítico (+25% Tarifa)
                 </div>
-                <div className="flex items-center gap-2 font-bold">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#ff9800]" /> Demanda Media (+15% Tarifa)
+                <div className="flex items-center gap-2 font-bold text-slate-800">
+                  <span className="w-3 h-3 rounded-full bg-[#f97316] shadow-xs" /> Alta Demanda (+15% Tarifa)
                 </div>
-                <div className="flex items-center gap-2 font-bold">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#a7d600]" /> Demanda Normal (+10% Tarifa)
+                <div className="flex items-center gap-2 font-bold text-slate-800">
+                  <span className="w-3 h-3 rounded-full bg-[#c3f400] border border-slate-300 shadow-xs" /> Demanda Moderada (+10% Tarifa)
                 </div>
               </div>
             </div>
 
-            {/* Tarjeta Detalle de la Zona Seleccionada */}
+            {/* Tarjeta Detalle de la Zona Seleccionada (Estilo Meituan SuperApp) */}
             <div className="bg-white p-5 rounded-[28px] border border-[#e5e2e1] shadow-sm space-y-3">
               <div className="flex justify-between items-start">
                 <div>
-                  <span className="text-[10px] font-black uppercase text-[#737785] tracking-wider block">DETALLE DE ZONA</span>
+                  <span className="text-[10px] font-black uppercase text-[#737785] tracking-wider block">ZONA SELECCIONADA EN MAPA</span>
                   <h3 className="text-base font-extrabold text-[#1c1b1b]">{currentZone.name}</h3>
                   <p className="text-xs font-semibold text-[#737785]">{currentZone.desc}</p>
                 </div>
@@ -482,23 +554,25 @@ export default function DriverHomePage() {
               <button
                 onClick={() => {
                   setIsNavigatingToZone(true)
-                  setTimeout(() => setIsNavigatingToZone(false), 4000)
+                  setTimeout(() => {
+                    router.push('/driver/navigation')
+                  }, 1200)
                 }}
-                className={`w-full py-3.5 rounded-full text-xs font-black shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all ${
+                className={`w-full py-3.5 rounded-full text-xs font-black shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer ${
                   isNavigatingToZone
-                    ? 'bg-[#00e676] text-slate-900'
+                    ? 'bg-[#00e676] text-slate-900 animate-pulse'
                     : 'bg-[#c3f400] hover:bg-[#abd600] text-[#161e00]'
                 }`}
               >
                 {isNavigatingToZone ? (
                   <>
                     <span className="w-2 h-2 rounded-full bg-slate-900 animate-ping" />
-                    <span>¡NAVEGANDO A {currentZone.name.toUpperCase()} (GPS ACTIVO)!</span>
+                    <span>TRAZANDO RUTA GPS A {currentZone.name.toUpperCase()}...</span>
                   </>
                 ) : (
                   <>
                     <MapPin className="w-4 h-4" />
-                    <span>NAVEGAR A ESTA ZONA CALIENTE 🏍️</span>
+                    <span>GUIAR MI GPS A ESTA ZONA CALIENTE 🏍️</span>
                   </>
                 )}
               </button>
@@ -507,15 +581,15 @@ export default function DriverHomePage() {
         ) : (
           /* MÓDULO DASHBOARD HABITUAL */
           <>
-            {/* Tarjetas Métricas Rápidas */}
+            {/* Tarjetas Métricas Rápidas Reales de Base de Datos */}
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-white p-4 rounded-[24px] border border-[#e5e2e1] shadow-sm space-y-1">
                 <div className="flex items-center gap-1.5 text-[#0056d2] font-bold text-xs">
                   <Wallet className="w-4 h-4" />
                   <span>Ganancias Hoy</span>
                 </div>
-                <p className="text-xl font-extrabold text-[#1c1b1b]">$480.00</p>
-                <span className="text-[10px] font-semibold text-[#737785]">6 viajes realizados</span>
+                <p className="text-xl font-extrabold text-[#1c1b1b]">${earningsToday.toFixed(2)}</p>
+                <span className="text-[10px] font-semibold text-[#737785]">{tripsCompletedToday} viajes realizados</span>
               </div>
 
               <div className="bg-white p-4 rounded-[24px] border border-[#e5e2e1] shadow-sm space-y-1">
@@ -523,35 +597,47 @@ export default function DriverHomePage() {
                   <Trophy className="w-4 h-4 text-[#fddf33]" />
                   <span>Bono Meta</span>
                 </div>
-                <p className="text-xl font-extrabold text-[#1c1b1b]">$150.00</p>
+                <p className="text-xl font-extrabold text-[#1c1b1b]">${tripsCompletedToday >= 8 ? '150.00' : '0.00'}</p>
                 <span className="text-[10px] font-bold text-[#c3f400] bg-[#161e00] px-1.5 py-0.5 rounded">
-                  Faltan 2 viajes
+                  {tripsCompletedToday >= 8 ? '¡Meta Lograda!' : `Faltan ${Math.max(0, 8 - tripsCompletedToday)} viajes`}
                 </span>
               </div>
             </div>
 
-            {/* Banner de Oferta Entrante Simulada */}
-            <div className="bg-[#0056d2] text-white p-5 rounded-[28px] shadow-lg space-y-3 relative overflow-hidden">
-              <div className="flex justify-between items-center">
-                <span className="bg-[#c3f400] text-[#161e00] text-[10px] font-black px-2.5 py-1 rounded-full uppercase">
-                  OFERTA DISPONIBLE
-                </span>
-                <span className="text-xs font-extrabold text-[#ccd8ff]">Paga $65.00 en efectivo</span>
-              </div>
+            {/* Banner de Oferta Entrante Real o Estado en Espera */}
+            {activePendingOffer ? (
+              <div className="bg-[#0056d2] text-white p-5 rounded-[28px] shadow-lg space-y-3 relative overflow-hidden animate-pulse">
+                <div className="flex justify-between items-center">
+                  <span className="bg-[#c3f400] text-[#161e00] text-[10px] font-black px-2.5 py-1 rounded-full uppercase">
+                    OFERTA DISPONIBLE #{activePendingOffer.code}
+                  </span>
+                  <span className="text-xs font-extrabold text-[#ccd8ff]">Ganancia: ${Number(activePendingOffer.earnings).toFixed(2)}</span>
+                </div>
 
-              <div>
-                <h3 className="text-base font-extrabold text-white">Taquería El Pastor &bull; Centro</h3>
-                <p className="text-xs font-medium text-[#ccd8ff]">Distancia: 1.8 km &bull; Entrega a 3.2 km</p>
-              </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-white">{activePendingOffer.origin}</h3>
+                  <p className="text-xs font-medium text-[#ccd8ff]">Distancia: {activePendingOffer.distance} km</p>
+                </div>
 
-              <Link
-                href="/driver/offer"
-                className="w-full bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3 rounded-full font-black text-xs shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all"
-              >
-                <span>VER OFERTA COMPLETA</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
+                <Link
+                  href={`/driver/offer?orderId=${activePendingOffer.id}`}
+                  className="w-full bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3 rounded-full font-black text-xs shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all"
+                >
+                  <span>VER OFERTA COMPLETA</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            ) : (
+              <div className="bg-white p-5 rounded-[28px] border border-slate-200 shadow-sm text-center space-y-2">
+                <div className="w-10 h-10 rounded-2xl bg-blue-50 text-[#0056d2] flex items-center justify-center mx-auto">
+                  <Bike className="w-5 h-5" />
+                </div>
+                <strong className="text-xs font-black text-slate-800 block">Sin Pedidos Pendientes de Asignación</strong>
+                <p className="text-[11px] font-semibold text-slate-500 max-w-xs mx-auto">
+                  Estás conectado al despacho central. En cuanto un comercio o cliente pida un mandado, sonará tu alerta en vivo.
+                </p>
+              </div>
+            )}
           </>
         )}
 

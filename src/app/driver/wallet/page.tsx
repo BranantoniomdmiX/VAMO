@@ -2,52 +2,156 @@
 
 import React, { useState, useEffect } from 'react'
 import { MobileDriverLayout } from '@/components/layout/MobileDriverLayout'
-import { Wallet, ArrowDownRight, ArrowUpRight, ShieldCheck, History, PlusCircle, CheckCircle2, AlertTriangle, Lock, Award } from 'lucide-react'
-import { WalletService, UserWallet, WalletTransaction, MAX_COD_CASH } from '@/lib/services/walletService'
+import { Wallet, ArrowDownRight, ArrowUpRight, History, PlusCircle, CheckCircle2, AlertTriangle, Lock, Award, Loader2, ArrowLeft } from 'lucide-react'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
+
+export interface DriverWalletState {
+  balance: number // Saldo digital a favor
+  codBalance: number // Efectivo físico en mano
+  maxCodLimit: number // Límite de $1,500 MXN
+  weeklyFee: number // $50 o $100 semanal pactado
+  tier: string
+  isCodBlocked: boolean
+}
+
+export interface DriverTransaction {
+  id: string
+  title: string
+  date: string
+  amount: number
+  isPositive: boolean
+}
 
 export default function DriverWalletPage() {
-  const [wallet, setWallet] = useState<UserWallet | null>(null)
-  const [transactions, setTransactions] = useState<WalletTransaction[]>([])
+  const supabase = createClient()
+  const [wallet, setWallet] = useState<DriverWalletState>({
+    balance: 0,
+    codBalance: 0,
+    maxCodLimit: 1500,
+    weeklyFee: 100,
+    tier: 'PLATA',
+    isCodBlocked: false
+  })
+  const [transactions, setTransactions] = useState<DriverTransaction[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [topupSuccess, setTopupSuccess] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string>('driver')
 
   useEffect(() => {
-    loadWalletData()
+    async function loadRealWallet() {
+      try {
+        setIsLoading(true)
+        const { data: { user } } = await supabase.auth.getUser()
+        const currentUserId = user?.id || 'guest-driver'
+        setUserId(currentUserId)
+
+        // 1. Consultar balance real desde API / Supabase
+        const res = await fetch(`/api/wallet/balance?profileId=${currentUserId}`, { cache: 'no-store' })
+        const data = await res.json()
+
+        if (res.ok && data.success && data.wallet) {
+          const bal = parseFloat(data.wallet.balance) || 0
+          const cod = 0 // Inicialmente $0 en efectivo acumulado para bases limpias
+
+          // Conteo de viajes para gamificación real
+          const { count: completedCount } = await supabase
+            .from('service_orders')
+            .select('*', { count: 'exact', head: true })
+            .eq('driver_id', currentUserId)
+            .eq('status', 'DELIVERED')
+
+          const realTier = (completedCount || 0) >= 30 ? 'NIVEL ORO' : (completedCount || 0) > 0 ? 'NIVEL ACTIVO' : 'NIVEL INICIAL'
+
+          setWallet({
+            balance: bal,
+            codBalance: cod,
+            maxCodLimit: 1500,
+            weeklyFee: 100,
+            tier: realTier,
+            isCodBlocked: cod >= 1500
+          })
+
+          if (data.transactions && data.transactions.length > 0) {
+            setTransactions(data.transactions.map((tx: any) => ({
+              id: tx.id,
+              title: tx.description || 'Movimiento de Billetera',
+              date: new Date(tx.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
+              amount: Math.abs(parseFloat(tx.amount)),
+              isPositive: parseFloat(tx.amount) >= 0
+            })))
+          } else {
+            setTransactions([])
+          }
+        } else {
+          // Si no hay datos, inicializar en $0.00 limpio
+          setWallet({
+            balance: 0,
+            codBalance: 0,
+            maxCodLimit: 1500,
+            weeklyFee: 100,
+            tier: 'NIVEL INICIAL',
+            isCodBlocked: false
+          })
+          setTransactions([])
+        }
+      } catch (err) {
+        console.warn('Error cargando billetera real:', err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadRealWallet()
   }, [])
 
-  const loadWalletData = async () => {
-    const data = await WalletService.getDriverWallet('driver-carlos-1')
-    const txs = WalletService.getTransactions('driver-carlos-1')
-    setWallet(data)
-    setTransactions(txs)
+  const handleTopup = (amount: number) => {
+    setWallet(prev => ({ ...prev, balance: prev.balance + amount }))
+    setTransactions(prev => [
+      {
+        id: `TX-TOPUP-${Date.now()}`,
+        title: 'Recarga Exprés de Saldo Digital',
+        date: 'Hace un momento',
+        amount: amount,
+        isPositive: true
+      },
+      ...prev
+    ])
+    setTopupSuccess(`+$${amount}.00 MXN ingresados a tu saldo digital`)
+    setTimeout(() => setTopupSuccess(null), 3500)
   }
-
-  const handleTopup = async (amount: number) => {
-    const res = await WalletService.topupBalance(amount, 'driver-carlos-1')
-    if (res.success) {
-      setWallet({ ...res.wallet })
-      setTransactions(WalletService.getTransactions('driver-carlos-1'))
-      setTopupSuccess(`+$${amount}.00 MXN ingresados a tu saldo digital`)
-      setTimeout(() => setTopupSuccess(null), 3500)
-    }
-  }
-
-  if (!wallet) return null
 
   const codPercent = Math.min(100, Math.round((wallet.codBalance / wallet.maxCodLimit) * 100))
   const isNearCodLimit = wallet.codBalance >= 1200 && !wallet.isCodBlocked
+
+  if (isLoading) {
+    return (
+      <MobileDriverLayout>
+        <div className="p-10 flex flex-col items-center justify-center min-h-[60vh] gap-3 text-slate-500">
+          <Loader2 className="w-8 h-8 animate-spin text-[#0056d2]" />
+          <span className="text-xs font-black uppercase tracking-wider">Cargando Billetera del Conductor...</span>
+        </div>
+      </MobileDriverLayout>
+    )
+  }
 
   return (
     <MobileDriverLayout>
       <div className="p-5 space-y-5">
         
         {/* Header Billetera */}
-        <header className="text-center space-y-1 pt-2">
-          <div className="inline-flex items-center gap-1.5 bg-[#0040a1] text-white px-3.5 py-1 rounded-full text-[10px] font-black tracking-wide border border-blue-800 shadow-xs">
-            <Award className="w-3.5 h-3.5 text-[#c3f400]" />
-            <span>SOCIO VAMO &bull; NIVEL {wallet.tier}</span>
+        <header className="flex items-center justify-between pt-2">
+          <Link href="/driver/home" className="p-2 rounded-full bg-[#f0eded] text-[#1c1b1b]">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <div className="text-center">
+            <div className="inline-flex items-center gap-1.5 bg-[#0040a1] text-white px-3 py-0.5 rounded-full text-[10px] font-black tracking-wide border border-blue-800 shadow-xs">
+              <Award className="w-3.5 h-3.5 text-[#c3f400]" />
+              <span>SOCIO VAMO &bull; {wallet.tier}</span>
+            </div>
+            <h1 className="text-lg font-extrabold text-slate-900 leading-tight">Billetera & Caja COD</h1>
           </div>
-          <h1 className="text-xl font-extrabold text-slate-900">Billetera & Caja COD</h1>
-          <p className="text-xs font-semibold text-slate-500">Control de efectivo en mano y saldo digital</p>
+          <div className="w-8" />
         </header>
 
         {/* Toast Notificación de Recarga */}
@@ -70,9 +174,6 @@ export default function DriverWalletPage() {
             <p className="text-xs font-bold leading-relaxed text-rose-900">
               Has acumulado <strong>${wallet.codBalance.toFixed(2)} MXN</strong> en efectivo. El sistema ha restringido nuevos viajes en efectivo. Acude a la <strong>Base de Operaciones</strong> a entregar el corte de caja para desbloquear tu asignación.
             </p>
-            <div className="text-[11px] font-bold text-rose-700 bg-white px-3 py-1.5 rounded-xl inline-block border border-rose-200">
-              ℹ️ Solo puedes recibir viajes pagados con tarjeta mientras tanto.
-            </div>
           </div>
         )}
 
@@ -114,24 +215,20 @@ export default function DriverWalletPage() {
             </div>
           </div>
 
-          {/* Botón Liquidar / Rendir Corte en Base */}
+          {/* Botón Rendir Corte en Base */}
           {wallet.codBalance > 0 && (
             <button
               onClick={() => {
                 const amountSettled = wallet.codBalance
-                setWallet(prev => prev ? ({ ...prev, codBalance: 0, isCodBlocked: false }) : null)
+                setWallet(prev => ({ ...prev, codBalance: 0, isCodBlocked: false }))
                 setTransactions(prev => [
                   {
                     id: `TX-SETTLE-${Date.now()}`,
-                    userId: 'driver-carlos-1',
-                    type: 'BASE_SETTLEMENT',
                     title: 'Liquidación de Efectivo COD en Base Operativa',
-                    amount: -amountSettled,
-                    balanceAfter: wallet.balance,
+                    amount: amountSettled,
                     date: 'Hoy, ' + new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
                     isPositive: false
                   },
-
                   ...prev
                 ])
                 setTopupSuccess(`¡Corte de $${amountSettled.toFixed(2)} MXN entregado en Base! Límite de efectivo desbloqueado.`)
@@ -143,7 +240,6 @@ export default function DriverWalletPage() {
             </button>
           )}
         </div>
-
 
         {/* Tarjeta 2: Saldo Digital a Favor & Cuota Semanal */}
         <div className="bg-white p-5 rounded-[28px] border border-[#e5e2e1] shadow-xs space-y-3.5">
@@ -176,35 +272,32 @@ export default function DriverWalletPage() {
             <div className="grid grid-cols-2 gap-2 pt-1">
               <button
                 onClick={() => {
-                  if (wallet.balance >= 100) {
-                    setWallet(prev => prev ? ({ ...prev, balance: prev.balance - 100 }) : null)
+                  if (wallet.balance >= wallet.weeklyFee) {
+                    setWallet(prev => ({ ...prev, balance: prev.balance - prev.weeklyFee }))
                     setTransactions(prev => [
                       {
                         id: `TX-FEE-${Date.now()}`,
-                        userId: 'driver-carlos-1',
-                        type: 'WEEKLY_FEE',
                         title: 'Pago de Membresía Semanal VAMO (Digital)',
-                        amount: -100.00,
-                        balanceAfter: wallet.balance - 100,
+                        amount: wallet.weeklyFee,
                         date: 'Hoy, ' + new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
                         isPositive: false
                       },
                       ...prev
                     ])
-                    setTopupSuccess('¡Membresía semanal de $100.00 MXN pagada con saldo digital!')
+                    setTopupSuccess(`¡Membresía semanal de $${wallet.weeklyFee.toFixed(2)} MXN pagada con saldo digital!`)
                     setTimeout(() => setTopupSuccess(null), 4000)
                   } else {
-                    alert('Saldo digital insuficiente. Recarga saldo o paga tus $100 en efectivo en Base Operativa.')
+                    alert(`Saldo digital insuficiente. Recarga saldo o paga tus $${wallet.weeklyFee.toFixed(2)} en efectivo en Base Operativa.`)
                   }
                 }}
                 className="bg-[#0056d2] hover:bg-[#0040a1] text-white py-2.5 rounded-xl font-black text-[11px] flex items-center justify-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer"
               >
-                💳 Pagar con Saldo ($100)
+                💳 Pagar con Saldo (${wallet.weeklyFee.toFixed(0)})
               </button>
 
               <button
                 onClick={() => {
-                  alert('Acude con el cajero de la Base Operativa y entrega tus $100.00 MXN en efectivo. Te entregarán tu comprobante foliado al instante.')
+                  alert(`Acude con el cajero de la Base Operativa y entrega tus $${wallet.weeklyFee.toFixed(2)} MXN en efectivo. Te entregarán tu comprobante foliado al instante.`)
                 }}
                 className="bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-2.5 rounded-xl font-black text-[11px] flex items-center justify-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer"
               >
@@ -234,7 +327,6 @@ export default function DriverWalletPage() {
           </div>
         </div>
 
-
         {/* Movimientos Recientes */}
         <div className="space-y-3 pt-1">
           <h2 className="text-sm font-extrabold text-[#1c1b1b] flex items-center gap-1.5">
@@ -243,25 +335,32 @@ export default function DriverWalletPage() {
           </h2>
 
           <div className="space-y-2.5">
-            {transactions.map(t => (
-              <div key={t.id} className="bg-white p-4 rounded-[20px] border border-[#e5e2e1] shadow-sm flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold ${
-                    t.isPositive ? 'bg-[#c3f400]/40 text-[#161e00]' : 'bg-[#ffdad6] text-[#ba1a1a]'
-                  }`}>
-                    {t.isPositive ? <ArrowDownRight className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
-                  </div>
-                  <div>
-                    <strong className="text-xs sm:text-sm font-extrabold text-[#1c1b1b] block">{t.title}</strong>
-                    <span className="text-[10px] font-semibold text-[#737785]">{t.date}</span>
-                  </div>
-                </div>
-
-                <span className={`text-sm font-extrabold ${t.isPositive ? 'text-[#161e00]' : 'text-[#ba1a1a]'}`}>
-                  {t.isPositive ? '+' : '-'}${Math.abs(t.amount).toFixed(2)}
-                </span>
+            {transactions.length === 0 ? (
+              <div className="bg-white p-6 rounded-[20px] border border-[#e5e2e1] text-center space-y-1">
+                <span className="text-xs font-black text-slate-800 block">Sin Movimientos Registrados</span>
+                <p className="text-[11px] text-slate-500 font-semibold">Tus cobros en efectivo y pagos de membresía aparecerán aquí en tiempo real.</p>
               </div>
-            ))}
+            ) : (
+              transactions.map(t => (
+                <div key={t.id} className="bg-white p-4 rounded-[20px] border border-[#e5e2e1] shadow-sm flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold ${
+                      t.isPositive ? 'bg-[#c3f400]/40 text-[#161e00]' : 'bg-[#ffdad6] text-[#ba1a1a]'
+                    }`}>
+                      {t.isPositive ? <ArrowDownRight className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                    </div>
+                    <div>
+                      <strong className="text-xs sm:text-sm font-extrabold text-[#1c1b1b] block">{t.title}</strong>
+                      <span className="text-[10px] font-semibold text-[#737785]">{t.date}</span>
+                    </div>
+                  </div>
+
+                  <span className={`text-sm font-extrabold ${t.isPositive ? 'text-[#161e00]' : 'text-[#ba1a1a]'}`}>
+                    {t.isPositive ? '+' : '-'}${Math.abs(t.amount).toFixed(2)}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

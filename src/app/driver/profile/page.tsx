@@ -16,53 +16,117 @@ import {
   LogOut, 
   ChevronRight,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react'
-
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import { PayoutService } from '@/lib/services/payoutService'
 import { CancellationService } from '@/lib/services/cancellationService'
 
 export default function DriverProfilePage() {
+  const supabase = createClient()
+  const [isLoading, setIsLoading] = useState(true)
   const [driverData, setDriverData] = useState({
-    name: 'Carlos Mendoza',
-    phone: '461-987-6543',
-    email: 'carlos.mendoza@vamo.app',
-    motorcycle: 'Italika FT150 (Negra)',
-    plates: 'GTO-842-X',
-    level: 'NIVEL ORO',
-    rating: '4.9 ★',
-    totalTrips: 342,
-    baseFleet: 'Flota Centro Titular',
-    status: 'Activo / Certificado'
+    name: 'Conductor Registrado',
+    phone: 'Sin teléfono registrado',
+    email: '',
+    motorcycle: 'Motocicleta Estándar',
+    plates: 'S/P',
+    level: 'NIVEL PLATA',
+    rating: '5.0 ★',
+    totalTrips: 0,
+    baseFleet: 'Plaza VAMO Oficial',
+    status: 'Activo / Certificado',
+    referralCode: 'VAMO-MOTO-01',
+    referredCount: 0,
+    referralEarnings: 0
   })
 
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [cancelReason, setCancelReason] = useState('CAMBIO_TRABAJO')
-
 
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [heavyCargoEnabled, setHeavyCargoEnabled] = useState(true)
   const [autoAccept, setAutoAccept] = useState(false)
 
   // Estados Bancarios M16 (CLABE & Dispersión SPEI)
-  const [clabeInput, setClabeInput] = useState('012180001234567890')
-  const [detectedBank, setDetectedBank] = useState('BBVA México')
-  const [beneficiaryInput, setBeneficiaryInput] = useState('CARLOS MENDOZA')
+  const [clabeInput, setClabeInput] = useState('')
+  const [detectedBank, setDetectedBank] = useState('')
+  const [beneficiaryInput, setBeneficiaryInput] = useState('')
   const [payoutFreq, setPayoutFreq] = useState<'DAILY' | 'WEEKLY' | 'MANUAL'>('DAILY')
-  const [isBankSaved, setIsBankSaved] = useState(true)
+  const [isBankSaved, setIsBankSaved] = useState(false)
   const [bankSavedSuccess, setBankSavedSuccess] = useState<string | null>(null)
+  const [driverUserId, setDriverUserId] = useState<string>('driver')
 
   useEffect(() => {
-    PayoutService.getBankAccount('driver-carlos-1').then(res => {
-      if (res) {
-        setClabeInput(res.clabeNumber)
-        setDetectedBank(res.bankName)
-        setBeneficiaryInput(res.beneficiaryName)
-        setPayoutFreq(res.payoutFrequency)
-        setIsBankSaved(true)
+    async function loadDriverRealProfile() {
+      try {
+        setIsLoading(true)
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (user) {
+          const uId = user.id
+          setDriverUserId(uId)
+          const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Conductor VAMO'
+          const userPhone = user.user_metadata?.phone || user.phone || 'Teléfono no especificado'
+          const userEmail = user.email || ''
+
+          // 1. Consultar registro del chofer en tabla 'drivers' o 'profiles'
+          const { data: driverRow } = await supabase
+            .from('drivers')
+            .select('*')
+            .eq('id', uId)
+            .maybeSingle()
+
+          // 2. Conteo de viajes completados reales
+          const { count: completedTrips } = await supabase
+            .from('service_orders')
+            .select('*', { count: 'exact', head: true })
+            .eq('driver_id', uId)
+            .eq('status', 'DELIVERED')
+
+          const cleanName = userName.replace(/\s*\(.*?\)\s*/g, '').trim() || 'Conductor VAMO'
+          const realLevel = (completedTrips || 0) >= 30 ? 'NIVEL ORO' : (completedTrips || 0) > 0 ? 'NIVEL ACTIVO' : 'NIVEL INICIAL'
+          const cleanCode = `MOTO-${cleanName.slice(0, 4).toUpperCase()}-${uId.slice(0, 3).toUpperCase()}`
+
+          setDriverData({
+            name: cleanName,
+            phone: driverRow?.phone || userPhone,
+            email: userEmail,
+            motorcycle: driverRow?.vehicle_model || driverRow?.vehicle_type || 'Motocicleta Registrada',
+            plates: driverRow?.vehicle_plates || 'S/P (Pendiente)',
+            level: realLevel,
+            rating: '5.0 ★',
+            totalTrips: completedTrips || 0,
+            baseFleet: driverRow?.franchise_name || 'Base Operativa Local',
+            status: driverRow?.status === 'BLOCKED' ? 'Suspendido' : 'Activo / Certificado',
+            referralCode: cleanCode,
+            referredCount: 0,
+            referralEarnings: 0
+          })
+
+          // 3. Consultar cuenta bancaria real
+          const bankData = await PayoutService.getBankAccount(uId)
+          if (bankData && bankData.clabeNumber) {
+            setClabeInput(bankData.clabeNumber)
+            setDetectedBank(bankData.bankName)
+            setBeneficiaryInput(bankData.beneficiaryName)
+            setPayoutFreq(bankData.payoutFrequency)
+            setIsBankSaved(true)
+          } else {
+            setBeneficiaryInput(userName.toUpperCase())
+            setIsBankSaved(false)
+          }
+        }
+      } catch (err) {
+        console.warn('Error cargando perfil real de chofer:', err)
+      } finally {
+        setIsLoading(false)
       }
-    })
+    }
+
+    loadDriverRealProfile()
   }, [])
 
   const handleClabeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,8 +142,13 @@ export default function DriverProfilePage() {
 
   const handleSaveBank = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!clabeInput || clabeInput.length < 18) {
+      alert('Por favor ingresa una CLABE interbancaria válida de 18 dígitos.')
+      return
+    }
+
     const result = await PayoutService.saveBankAccount({
-      userId: 'driver-carlos-1',
+      userId: driverUserId,
       role: 'driver',
       bankName: detectedBank || 'Banco Mexicano',
       clabeNumber: clabeInput,
@@ -96,6 +165,16 @@ export default function DriverProfilePage() {
     }
   }
 
+  if (isLoading) {
+    return (
+      <MobileDriverLayout>
+        <div className="p-10 flex flex-col items-center justify-center min-h-[60vh] gap-3 text-slate-500">
+          <Loader2 className="w-8 h-8 animate-spin text-[#0056d2]" />
+          <span className="text-xs font-black uppercase tracking-wider">Cargando Perfil del Conductor...</span>
+        </div>
+      </MobileDriverLayout>
+    )
+  }
 
   return (
     <MobileDriverLayout>
@@ -112,13 +191,11 @@ export default function DriverProfilePage() {
         {/* Tarjeta de Identidad & Nivel */}
         <div className="bg-white rounded-[28px] p-5 border border-slate-200 shadow-xs space-y-4 text-center">
           <div className="relative w-20 h-20 mx-auto">
-            <img 
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop" 
-              alt="Foto Conductor" 
-              className="w-full h-full rounded-full object-cover border-4 border-[#0056d2] shadow-md"
-            />
+            <div className="w-full h-full rounded-full bg-[#0040a1] text-[#c3f400] flex items-center justify-center text-3xl font-black border-4 border-[#0056d2] shadow-md">
+              🛵
+            </div>
             <span className="absolute bottom-0 right-0 bg-[#c3f400] text-[#161e00] text-[10px] font-black px-2 py-0.5 rounded-full border border-[#161e00] shadow-xs">
-              4.9 ★
+              {driverData.rating}
             </span>
           </div>
 
@@ -156,14 +233,14 @@ export default function DriverProfilePage() {
           <div className="bg-white/10 p-3 rounded-2xl border border-white/20 flex items-center justify-between">
             <div>
               <span className="text-[9px] font-bold text-slate-300 block uppercase">CÓDIGO EXCLUSIVO:</span>
-              <strong className="font-mono text-base font-black text-[#c3f400]">MOTO-CARLOS-77</strong>
+              <strong className="font-mono text-base font-black text-[#c3f400]">{driverData.referralCode}</strong>
             </div>
             <button
               onClick={() => {
-                navigator.clipboard?.writeText('MOTO-CARLOS-77')
-                alert('¡Código MOTO-CARLOS-77 copiado! Compártelo con el dueño del negocio.')
+                navigator.clipboard?.writeText(driverData.referralCode)
+                alert(`¡Código ${driverData.referralCode} copiado! Compártelo con el dueño del negocio.`)
               }}
-              className="bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] text-xs font-black px-3.5 py-2 rounded-full active:scale-95 transition-transform"
+              className="bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] text-xs font-black px-3.5 py-2 rounded-full active:scale-95 transition-transform cursor-pointer"
             >
               Copiar Código 📋
             </button>
@@ -171,11 +248,11 @@ export default function DriverProfilePage() {
 
           <div className="grid grid-cols-2 gap-2 text-center text-xs font-bold pt-1">
             <div className="bg-white/5 p-2 rounded-xl border border-white/10">
-              <span className="text-[#c3f400] text-base font-black block">2 Locales</span>
+              <span className="text-[#c3f400] text-base font-black block">{driverData.referredCount} Locales</span>
               <span className="text-[10px] text-slate-300">Afiliados por ti</span>
             </div>
             <div className="bg-white/5 p-2 rounded-xl border border-white/10">
-              <span className="text-[#c3f400] text-base font-black block">$300.00 MXN</span>
+              <span className="text-[#c3f400] text-base font-black block">${Number(driverData.referralEarnings).toFixed(2)} MXN</span>
               <span className="text-[10px] text-slate-300">Ganados en Bonos</span>
             </div>
           </div>
@@ -240,7 +317,7 @@ export default function DriverProfilePage() {
                 maxLength={18}
                 value={clabeInput}
                 onChange={handleClabeChange}
-                placeholder="012180001234567890"
+                placeholder="Ingresa los 18 dígitos de tu CLABE"
                 className="w-full bg-[#f6f3f2] border border-[#e5e2e1] focus:border-[#0056d2] rounded-xl p-3 text-xs font-mono font-bold outline-none"
               />
               {detectedBank && (
@@ -256,7 +333,7 @@ export default function DriverProfilePage() {
                 type="text"
                 value={beneficiaryInput}
                 onChange={e => setBeneficiaryInput(e.target.value)}
-                placeholder="CARLOS MENDOZA"
+                placeholder="Nombre del Titular de la Cuenta"
                 className="w-full bg-[#f6f3f2] border border-[#e5e2e1] focus:border-[#0056d2] rounded-xl p-3 text-xs font-bold outline-none"
               />
             </div>
@@ -328,7 +405,6 @@ export default function DriverProfilePage() {
               </div>
             </div>
 
-
             <button
               type="submit"
               className="w-full bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3.5 rounded-full font-black text-xs shadow-sm active:scale-95 transition-all cursor-pointer mt-1"
@@ -338,7 +414,6 @@ export default function DriverProfilePage() {
           </form>
         </div>
 
-
         {/* Documentación & Validación Oficial */}
         <div className="bg-white rounded-[24px] p-4 border border-slate-200 shadow-xs space-y-2.5">
           <h3 className="text-xs font-black text-[#0056d2] uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">
@@ -346,9 +421,8 @@ export default function DriverProfilePage() {
             <span>Documentación & Seguros</span>
           </h3>
 
-
           {[
-            { label: 'Licencia de Conducir Tipo Moto', status: 'Vigente hasta 2028' },
+            { label: 'Licencia de Conducir Tipo Moto', status: 'Vigente' },
             { label: 'Tarjeta de Circulación', status: 'Verificada' },
             { label: 'Póliza de Seguro de Cobertura Amplia', status: 'Activa' }
           ].map((doc, idx) => (
@@ -496,7 +570,7 @@ export default function DriverProfilePage() {
                 <button
                   type="button"
                   onClick={() => setShowCancelModal(false)}
-                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-full text-xs font-black"
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-full text-xs font-black cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -505,10 +579,10 @@ export default function DriverProfilePage() {
                   type="button"
                   onClick={async () => {
                     const res = await CancellationService.cancelAccount({
-                      userId: 'driver-carlos-1',
+                      userId: driverUserId,
                       role: 'driver',
                       reason: cancelReason,
-                      codBalance: 0 // Verificación de 0 efectivo retenido
+                      codBalance: 0
                     })
                     if (res.success) {
                       alert('Tu baja como conductor ha sido procesada exitosamente.')
@@ -530,4 +604,3 @@ export default function DriverProfilePage() {
     </MobileDriverLayout>
   )
 }
-

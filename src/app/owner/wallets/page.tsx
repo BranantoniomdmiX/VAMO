@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { SidebarOwner } from '@/components/layout/SidebarOwner'
-import { Wallet, Bike, ShieldCheck, Edit, PlusCircle, CheckCircle2, X, AlertTriangle, RefreshCw } from 'lucide-react'
+import { Wallet, Bike, ShieldCheck, Edit, PlusCircle, CheckCircle2, X, AlertTriangle, RefreshCw, Loader2 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 interface DriverWalletItem {
-  id: number
+  id: string
   driver: string
   balance: number
   limit: number
@@ -14,11 +15,9 @@ interface DriverWalletItem {
 }
 
 export default function OwnerWalletsPage() {
-  const [wallets, setWallets] = useState<DriverWalletItem[]>([
-    { id: 1, driver: 'Carlos Mendoza', balance: 480.00, limit: 1500.00, tripsToday: 6, status: 'ok' },
-    { id: 2, driver: 'Ana Paula Gómez', balance: 1320.00, limit: 1500.00, tripsToday: 11, status: 'warning' },
-    { id: 3, driver: 'Roberto Morales', balance: 1650.00, limit: 1500.00, tripsToday: 14, status: 'blocked' }
-  ])
+  const supabase = createClient()
+  const [wallets, setWallets] = useState<DriverWalletItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   const [selectedWallet, setSelectedWallet] = useState<DriverWalletItem | null>(null)
   const [newLimitAmount, setNewLimitAmount] = useState<string>('')
@@ -26,7 +25,38 @@ export default function OwnerWalletsPage() {
   const [modalMode, setModalMode] = useState<'limit' | 'topup' | null>(null)
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null)
 
-  const handleSettleInBase = (driverId: number) => {
+  useEffect(() => {
+    async function loadDriverWallets() {
+      try {
+        setIsLoading(true)
+        // Consultar conductores reales
+        const { data: drivers } = await supabase
+          .from('drivers')
+          .select('*')
+
+        if (drivers && drivers.length > 0) {
+          setWallets(drivers.map(d => ({
+            id: d.id,
+            driver: d.full_name || 'Conductor VAMO',
+            balance: 0.00,
+            limit: 1500.00,
+            tripsToday: 0,
+            status: 'ok'
+          })))
+        } else {
+          setWallets([])
+        }
+      } catch (err) {
+        console.warn('Error al cargar billeteras:', err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadDriverWallets()
+  }, [])
+
+  const handleSettleInBase = (driverId: string) => {
     setWallets(prev => prev.map(w => {
       if (w.id === driverId) {
         return { ...w, balance: 0, status: 'ok' }
@@ -98,190 +128,88 @@ export default function OwnerWalletsPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {wallets.map(w => {
-              const percent = Math.min(100, Math.round((w.balance / w.limit) * 100))
-              return (
+          {isLoading ? (
+            <div className="p-12 flex flex-col items-center justify-center gap-3 text-slate-500">
+              <Loader2 className="w-8 h-8 animate-spin text-[#0056d2]" />
+              <span className="text-xs font-bold">Cargando billeteras de la flotilla...</span>
+            </div>
+          ) : wallets.length === 0 ? (
+            <div className="bg-white p-12 rounded-[32px] border border-[#e5e2e1] text-center space-y-3 shadow-xs">
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 text-[#0056d2] flex items-center justify-center mx-auto text-xl">
+                🛵
+              </div>
+              <h3 className="text-base font-black text-slate-900">Sin motociclistas registrados</h3>
+              <p className="text-xs text-slate-500 font-semibold max-w-md mx-auto">
+                Cuando afilies conductores a tu base con tus códigos de invitación, sus balances de efectivo en mano y límites COD aparecerán aquí en tiempo real.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {wallets.map(w => (
                 <div key={w.id} className="bg-white p-6 rounded-[28px] border border-[#e5e2e1] shadow-xs space-y-4 flex flex-col justify-between">
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
+                  <div>
+                    <div className="flex justify-between items-start">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-[#0056d2]/10 text-[#0056d2] flex items-center justify-center font-black text-xs">
+                        <div className="w-8 h-8 rounded-full bg-blue-50 text-[#0056d2] flex items-center justify-center font-bold">
                           <Bike className="w-4 h-4" />
                         </div>
                         <strong className="text-sm font-black text-slate-900">{w.driver}</strong>
                       </div>
-                      <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase ${
-                        w.status === 'blocked' ? 'bg-rose-100 text-rose-800 border border-rose-200' :
-                        w.status === 'warning' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
-                        'bg-emerald-100 text-emerald-800'
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
+                        w.status === 'blocked' ? 'bg-rose-100 text-rose-800' : w.status === 'warning' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
                       }`}>
-                        {w.status === 'blocked' ? 'Bloqueado COD' : w.status === 'warning' ? 'Cerca del Límite' : 'Caja Normal'}
+                        {w.status === 'blocked' ? 'Bloqueado COD' : w.status === 'warning' ? 'Cerca Límite' : 'Caja Normal'}
                       </span>
                     </div>
 
-                    <div className="p-3.5 rounded-2xl bg-[#fcf9f8] border border-[#e5e2e1] space-y-2">
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-[11px] font-bold text-slate-500">Efectivo Retenido</span>
-                        <p className="text-2xl font-black text-[#0056d2]">${w.balance.toFixed(2)}</p>
-                      </div>
-
-                      <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                    <div className="mt-4 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Efectivo Retenido</span>
+                      <p className="text-2xl font-black text-slate-900">${w.balance.toFixed(2)} MXN</p>
+                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                         <div 
-                          className={`h-full rounded-full transition-all ${
-                            w.status === 'blocked' ? 'bg-rose-600' : percent > 80 ? 'bg-amber-500' : 'bg-[#0056d2]'
-                          }`}
-                          style={{ width: `${percent}%` }}
+                          className={`h-full ${w.status === 'blocked' ? 'bg-rose-600' : w.status === 'warning' ? 'bg-amber-500' : 'bg-[#0056d2]'}`}
+                          style={{ width: `${Math.min(100, (w.balance / w.limit) * 100)}%` }}
                         />
                       </div>
-
-                      <div className="flex justify-between text-[10px] font-bold text-slate-500">
-                        <span>{percent}% utilizado</span>
-                        <span>Tope: ${w.limit.toFixed(2)} MXN</span>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between text-xs font-semibold text-slate-500 px-1">
-                      <span>Viajes completados hoy:</span>
-                      <strong className="text-slate-900 font-black">{w.tripsToday} pedidos</strong>
+                      <span className="text-[10px] text-slate-400 font-semibold block text-right">Tope: ${w.limit.toFixed(2)} MXN</span>
                     </div>
                   </div>
 
                   <div className="space-y-2 pt-2 border-t border-slate-100">
                     <div className="flex gap-2">
-                      <button 
+                      <button
                         onClick={() => {
                           setSelectedWallet(w)
-                          setNewLimitAmount(w.limit.toString())
                           setModalMode('limit')
                         }}
-                        className="flex-1 bg-[#f0eded] hover:bg-[#e5e2e1] text-slate-900 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                        className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 py-2 rounded-xl text-xs font-bold"
                       >
-                        <Edit className="w-3.5 h-3.5" />
-                        <span>Límite</span>
+                        Ajustar Límite
                       </button>
-
-                      <button 
+                      <button
                         onClick={() => {
                           setSelectedWallet(w)
-                          setTopupAmount('200')
                           setModalMode('topup')
                         }}
-                        className="flex-1 bg-[#0056d2]/10 hover:bg-[#0056d2]/20 text-[#0056d2] py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                        className="flex-1 bg-blue-50 hover:bg-blue-100 text-[#0056d2] py-2 rounded-xl text-xs font-bold"
                       >
-                        <PlusCircle className="w-3.5 h-3.5" />
-                        <span>Abonar</span>
+                        Abonar
                       </button>
                     </div>
 
-                    <button 
+                    <button
                       onClick={() => handleSettleInBase(w.id)}
-                      className="w-full bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1 transition-all active:scale-95 shadow-xs cursor-pointer"
+                      className="w-full bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-2.5 rounded-xl text-xs font-black cursor-pointer shadow-xs active:scale-95 transition-all"
                     >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      <span>Liquidar Caja en Base ($0.00)</span>
+                      Liquidar Caja en Base ($0.00)
                     </button>
                   </div>
                 </div>
-              )
-            })}
-          </div>
+              ))}
+            </div>
+          )}
+
         </main>
-
-        {/* Modal Modificar Límite */}
-        {modalMode === 'limit' && selectedWallet && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-[32px] max-w-sm w-full p-6 space-y-4 shadow-2xl border border-[#e5e2e1]">
-              <div className="flex justify-between items-center">
-                <h3 className="text-base font-black text-slate-900">Ajustar Límite de Caja COD</h3>
-                <button onClick={() => setModalMode(null)} className="p-1 rounded-full text-slate-400 hover:text-slate-700">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <p className="text-xs font-semibold text-slate-500">
-                Modifica el tope máximo de efectivo que <strong>{selectedWallet.driver}</strong> puede acumular antes de bloquearse para viajes en efectivo.
-              </p>
-
-              <form onSubmit={handleSaveLimit} className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-500 uppercase">Nuevo Límite (MXN)</label>
-                  <input
-                    type="number"
-                    value={newLimitAmount}
-                    onChange={e => setNewLimitAmount(e.target.value)}
-                    className="w-full bg-[#f6f3f2] border border-[#e5e2e1] focus:border-[#0056d2] rounded-xl p-3 text-sm font-black outline-none"
-                    placeholder="1500"
-                  />
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setModalMode(null)}
-                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-full text-xs font-black"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 bg-[#0056d2] hover:bg-[#0040a1] text-white py-3 rounded-full text-xs font-black shadow-md cursor-pointer"
-                  >
-                    Guardar
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Modal Abonar Saldo */}
-        {modalMode === 'topup' && selectedWallet && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-[32px] max-w-sm w-full p-6 space-y-4 shadow-2xl border border-[#e5e2e1]">
-              <div className="flex justify-between items-center">
-                <h3 className="text-base font-black text-slate-900">Abonar Saldo a Conductor</h3>
-                <button onClick={() => setModalMode(null)} className="p-1 rounded-full text-slate-400 hover:text-slate-700">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <p className="text-xs font-semibold text-slate-500">
-                Registra un abono directo o saldo a favor a la billetera de <strong>{selectedWallet.driver}</strong>.
-              </p>
-
-              <form onSubmit={handleTopupDriver} className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-500 uppercase">Monto a Abonar (MXN)</label>
-                  <input
-                    type="number"
-                    value={topupAmount}
-                    onChange={e => setTopupAmount(e.target.value)}
-                    className="w-full bg-[#f6f3f2] border border-[#e5e2e1] focus:border-[#0056d2] rounded-xl p-3 text-sm font-black outline-none"
-                    placeholder="200"
-                  />
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setModalMode(null)}
-                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-full text-xs font-black"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3 rounded-full text-xs font-black shadow-md cursor-pointer"
-                  >
-                    Abonar
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
       </div>
     </div>
   )

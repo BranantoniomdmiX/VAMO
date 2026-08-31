@@ -91,7 +91,7 @@ export default function AdminPlansPage() {
 
   return (
     <div className="min-h-screen bg-[#fcf9f8] text-[#1c1b1b] flex flex-col md:flex-row font-sans selection:bg-[#0056d2] selection:text-white">
-      <SidebarAdmin activeTab="plans" />
+      <SidebarAdmin activeTab={'new-fleet' as any} />
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-white border-b border-[#e5e2e1] px-4 md:px-8 py-4 flex justify-between items-center shadow-sm">

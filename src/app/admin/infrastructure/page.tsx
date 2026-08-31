@@ -6,14 +6,14 @@ import { Activity, CheckCircle2, Server, Database, Radio, Cpu, HardDrive, Wifi, 
 
 export default function AdminInfrastructurePage() {
   const [oracleMetrics, setOracleMetrics] = React.useState({
-    cpuCores: 3,
+    cpuCores: 4,
     cpuUsagePercent: 15.2,
-    ramGb: 17.5,
-    ramUsedGb: 1.25,
-    diskGb: 45,
-    diskUsedGb: 8,
+    ramGb: 24,
+    ramUsedGb: 1.85,
+    diskGb: 200,
+    diskUsedGb: 14.5,
     bandwidthMonthlyTb: 10,
-    bandwidthUsedTb: 0.001,
+    bandwidthUsedTb: 0.002,
     publicIpsUsed: 1,
     dokployStatus: 'RUNNING (Dokploy Traefik v3)',
     antiReclaimStatus: 'PROTEGIDO (Dokploy + Always Free Guard)',
@@ -21,37 +21,52 @@ export default function AdminInfrastructurePage() {
     uptime: 'Activo'
   })
 
+  const [interactions, setInteractions] = React.useState({
+    activeSockets: 0,
+    httpRequestsPerMin: 0,
+    gpsEventsPerSec: 0,
+    activeDbConnections: 0,
+    totalOrdersToday: 0
+  })
+
+  const [servicesLatency, setServicesLatency] = React.useState({
+    vpsLatency: '24 ms',
+    vpsStatus: 'ONLINE',
+    dbLatency: '38 ms',
+    dbStatus: 'OPTIMAL'
+  })
+
   const [isLoadingMetrics, setIsLoadingMetrics] = React.useState(false)
 
   const fetchLiveMetrics = React.useCallback(async () => {
     try {
       setIsLoadingMetrics(true)
-      const res = await fetch('http://163.192.147.231:3001/api/metrics', {
+      const res = await fetch('/api/admin/metrics', {
         headers: { 'Accept': 'application/json' },
         cache: 'no-store'
       })
       if (res.ok) {
         const data = await res.json()
-        if (data && data.alwaysFreeLimits) {
-          setOracleMetrics({
-            cpuCores: data.alwaysFreeLimits.cpu.coresAllocated,
-            cpuUsagePercent: data.alwaysFreeLimits.cpu.usagePercent,
-            ramGb: data.alwaysFreeLimits.ram.allocatedGb,
-            ramUsedGb: data.alwaysFreeLimits.ram.usedGb,
-            diskGb: data.alwaysFreeLimits.disk.allocatedGb,
-            diskUsedGb: data.alwaysFreeLimits.disk.usedGb,
-            bandwidthMonthlyTb: data.alwaysFreeLimits.bandwidth.maxFreeMonthlyTb,
-            bandwidthUsedTb: data.alwaysFreeLimits.bandwidth.usedTbThisMonth,
-            publicIpsUsed: data.alwaysFreeLimits.publicIps.used,
-            dokployStatus: 'RUNNING (Dokploy Traefik v3)',
-            antiReclaimStatus: data.antiReclaimStatus || 'PROTEGIDO (Always Free Guard)',
-            serverName: data.server || 'instance-20260810-1032',
-            uptime: data.uptime || 'Activo'
+        if (data && data.realtime) {
+          setInteractions({
+            activeSockets: data.realtime.activeSockets || 0,
+            httpRequestsPerMin: data.realtime.httpRequestsPerMin || 0,
+            gpsEventsPerSec: data.realtime.gpsEventsPerSec || 0,
+            activeDbConnections: data.realtime.activeDbConnections || 1,
+            totalOrdersToday: data.realtime.totalOrdersToday || 0
+          })
+        }
+        if (data && data.supabase) {
+          setServicesLatency({
+            vpsLatency: `${data.vps?.latencyMs || 24} ms`,
+            vpsStatus: data.vps?.status || 'ONLINE',
+            dbLatency: `${data.supabase?.latencyMs || 38} ms`,
+            dbStatus: data.supabase?.status || 'OPTIMAL'
           })
         }
       }
     } catch (err) {
-      console.warn('Usando telemetría local o VPS offline:', err)
+      console.warn('Error consultando /api/admin/metrics:', err)
     } finally {
       setIsLoadingMetrics(false)
     }
@@ -59,17 +74,9 @@ export default function AdminInfrastructurePage() {
 
   React.useEffect(() => {
     fetchLiveMetrics()
-    const interval = setInterval(fetchLiveMetrics, 15000)
+    const interval = setInterval(fetchLiveMetrics, 10000)
     return () => clearInterval(interval)
   }, [fetchLiveMetrics])
-
-  const [interactions, setInteractions] = React.useState({
-    activeSockets: 42,
-    httpRequestsPerMin: 380,
-    gpsEventsPerSec: 18,
-    activeDbConnections: 14,
-    totalOrdersToday: 248
-  })
 
   const services = [
     { name: 'Oracle Cloud Always Free (Dokploy VPS)', status: 'Gratuito Ilimitado', latency: '24 ms', uptime: '100.00%', icon: Server },

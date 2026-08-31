@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import dynamic from 'next/dynamic'
 import { LatLng, LngLat } from '@/lib/services/gpsSocketService'
 
@@ -22,6 +22,16 @@ export interface MapWaypoint {
   type: 'ORIGIN' | 'DESTINATION'
 }
 
+export interface HeatZoneItem {
+  id: string
+  lat: number
+  lng: number
+  radiusMeters: number
+  intensity: number
+  name?: string
+  bonusText?: string
+}
+
 export interface VamoUniversalMapProps {
   center?: LatLng
   zoom?: number
@@ -32,18 +42,14 @@ export interface VamoUniversalMapProps {
   drivers?: DriverMarkerData[]
   waypoints?: MapWaypoint[]
   routeCoordinates?: LngLat[]
+  heatZones?: HeatZoneItem[]
   className?: string
   enableGeolocate?: boolean
   onToggle3D?: (is3D: boolean) => void
   onMapClick?: (coords: { lat: number; lng: number }) => void
 }
 
-// Carga Dinámica Segura para Next.js App Router (Cero errores de SSR en servidor)
-const VamoMapLibreComponent = dynamic(
-  () => import('./VamoMapLibre'),
-  { ssr: false, loading: () => <MapLoadingSkeleton /> }
-)
-
+// Carga Dinámica Segura de Leaflet en Cliente (100% de compatibilidad garantizada)
 const VamoLeafletMapComponent = dynamic(
   () => import('./VamoLeafletMap'),
   { ssr: false, loading: () => <MapLoadingSkeleton /> }
@@ -61,57 +67,5 @@ function MapLoadingSkeleton() {
 }
 
 export default function VamoUniversalMap(props: VamoUniversalMapProps) {
-  const [engine, setEngine] = useState<'maplibre' | 'leaflet'>('leaflet')
-  const [isClient, setIsClient] = useState(false)
-
-  useEffect(() => {
-    setIsClient(true)
-
-    // 1. Diagnóstico de Hardware & GPU
-    try {
-      const canvas = document.createElement('canvas')
-      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
-      
-      // Si el dispositivo no tiene soporte WebGL o el canvas falla, activar Leaflet 2D inmediatamente
-      if (!gl) {
-        console.warn('🛡️ [VAMO Map Engine] WebGL no disponible en este dispositivo. Activando Leaflet 2D Fail-Safe.')
-        setEngine('leaflet')
-        return
-      }
-
-      // Detección de dispositivos con memoria baja (ej. Android Go / móviles de 1GB-2GB RAM)
-      // @ts-ignore
-      if (navigator.deviceMemory && navigator.deviceMemory < 2) {
-        console.info('🛡️ [VAMO Map Engine] Dispositivo de memoria ligera detectado. Optimizando con Leaflet 2D.')
-        setEngine('leaflet')
-        return
-      }
-
-      // Escuchar eventos globales de pérdida de contexto WebGL
-      const handleContextLost = (e: Event) => {
-        console.warn('🛡️ [VAMO Map Watchdog] Contexto WebGL perdido por el sistema. Conmutando a Leaflet 2D en caliente.')
-        e.preventDefault()
-        setEngine('leaflet')
-      }
-
-      window.addEventListener('webglcontextlost', handleContextLost, true)
-      return () => {
-        window.removeEventListener('webglcontextlost', handleContextLost, true)
-      }
-    } catch (err) {
-      console.warn('🛡️ [VAMO Map Engine] Excepción en diagnóstico WebGL, fallback a Leaflet:', err)
-      setEngine('leaflet')
-    }
-  }, [])
-
-  if (!isClient) {
-    return <MapLoadingSkeleton />
-  }
-
-  // Renderizar MapLibre para 3D en dispositivos capaces, o Leaflet para máxima compatibilidad
-  if (engine === 'leaflet') {
-    return <VamoLeafletMapComponent {...props} />
-  }
-
-  return <VamoMapLibreComponent {...props} />
+  return <VamoLeafletMapComponent {...props} />
 }

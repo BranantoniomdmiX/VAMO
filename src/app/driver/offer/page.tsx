@@ -2,33 +2,77 @@
 
 import React, { useState, useEffect, Suspense } from 'react'
 import { MobileDriverLayout } from '@/components/layout/MobileDriverLayout'
-import { MapPin, Navigation, Clock, Check, X, ArrowLeft, Loader2, AlertCircle } from 'lucide-react'
+import { MapPin, Navigation, Clock, Check, X, ArrowLeft, Loader2, AlertCircle, Bike, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+
+interface OfferData {
+  id: string
+  code: string
+  originName: string
+  originAddress: string
+  destinationName: string
+  destinationAddress: string
+  earnings: number
+  paymentMethod: string
+  distanceKm: number
+  status: string
+}
 
 function DriverOfferContent() {
   const [timeLeft, setTimeLeft] = useState(15)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [activeOffer, setActiveOffer] = useState<OfferData | null>(null)
+  
   const router = useRouter()
   const searchParams = useSearchParams()
-
-  const orderId = searchParams.get('orderId') || 'f1a9b2c3-d4e5-4f6a-8b9c-0d1e2f3a4b5c'
+  const orderId = searchParams.get('orderId')
   const driverId = searchParams.get('driverId') || 'c7e8d9a0-b1c2-4d3e-8f9a-0b1c2d3e4f5a'
 
+  // 1. Cargar oferta real desde Supabase
   useEffect(() => {
+    async function fetchOffer() {
+      try {
+        setIsLoading(true)
+        const res = await fetch(`/api/dispatch/active-offer${orderId ? `?orderId=${orderId}` : ''}`, {
+          cache: 'no-store'
+        })
+        const data = await res.json()
+        if (res.ok && data.hasOffer && data.offer) {
+          setActiveOffer(data.offer)
+          setTimeLeft(15)
+        } else {
+          setActiveOffer(null)
+        }
+      } catch (err) {
+        console.warn('Error consultando oferta activa:', err)
+        setActiveOffer(null)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchOffer()
+  }, [orderId])
+
+  // 2. Cronómetro regresivo solo si hay oferta viva
+  useEffect(() => {
+    if (!activeOffer) return
+
     if (timeLeft <= 0) {
       if (!isSubmitting) {
-        setErrorMessage('La oferta expiró.')
+        setErrorMessage('La oferta de viaje expiró o fue reasignada.')
       }
       return
     }
     const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000)
     return () => clearInterval(timer)
-  }, [timeLeft, isSubmitting])
+  }, [timeLeft, isSubmitting, activeOffer])
 
   const handleAcceptOrder = async () => {
-    if (isSubmitting || timeLeft <= 0) return
+    if (!activeOffer || isSubmitting || timeLeft <= 0) return
     setIsSubmitting(true)
     setErrorMessage(null)
 
@@ -36,14 +80,14 @@ function DriverOfferContent() {
       const res = await fetch('/api/dispatch/accept', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, driverId })
+        body: JSON.stringify({ orderId: activeOffer.id, driverId })
       })
 
       const data = await res.json()
 
       if (res.ok && data.success) {
         // Redirigir a la pantalla de navegación GPS
-        router.push(`/driver/navigation?orderId=${orderId}&code=${data.order_code || 'V-9042'}`)
+        router.push(`/driver/navigation?orderId=${activeOffer.id}&code=${data.order_code || activeOffer.code}`)
       } else {
         setErrorMessage(data.message || 'No fue posible aceptar este viaje.')
       }
@@ -52,6 +96,52 @@ function DriverOfferContent() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // Estado de Carga Inicial
+  if (isLoading) {
+    return (
+      <MobileDriverLayout>
+        <div className="p-10 flex flex-col items-center justify-center min-h-[60vh] gap-3 text-slate-500">
+          <Loader2 className="w-8 h-8 animate-spin text-[#0056d2]" />
+          <span className="text-xs font-black uppercase tracking-wider">Verificando Viajes en Base Operativa...</span>
+        </div>
+      </MobileDriverLayout>
+    )
+  }
+
+  // Estado Limpio (Sin Viajes en Espera)
+  if (!activeOffer) {
+    return (
+      <MobileDriverLayout>
+        <div className="p-6 space-y-6 flex flex-col items-center justify-center min-h-[70vh] text-center">
+          
+          <div className="w-16 h-16 rounded-3xl bg-blue-50 text-[#0056d2] flex items-center justify-center shadow-inner">
+            <Bike className="w-8 h-8 text-[#0056d2]" />
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-lg font-black text-slate-900">Radar de Conductor Activo</h2>
+            <p className="text-xs font-bold text-slate-500 max-w-xs leading-relaxed">
+              No tienes viajes pendientes en este momento. Tu GPS está transmitiendo en vivo a la Base Operativa y recibirás una alerta en cuanto un comercio o cliente solicite un servicio.
+            </p>
+          </div>
+
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-2xl flex items-center gap-2.5 text-xs font-black">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>Sistema Conectado &bull; Base de Datos Limpia</span>
+          </div>
+
+          <Link
+            href="/driver/home"
+            className="w-full max-w-xs bg-[#0056d2] hover:bg-[#0040a1] text-white py-3.5 rounded-2xl font-black text-xs shadow-md active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Volver a Mi Panel de Conductor</span>
+          </Link>
+        </div>
+      </MobileDriverLayout>
+    )
   }
 
   return (
@@ -63,7 +153,7 @@ function DriverOfferContent() {
           <Link href="/driver/home" className="p-2 rounded-full bg-[#f0eded] text-[#1c1b1b]">
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <span className="font-extrabold text-sm text-[#0056d2]">Oferta #V-9042</span>
+          <span className="font-extrabold text-sm text-[#0056d2]">Oferta #{activeOffer.code}</span>
           <div className="w-8" />
         </header>
 
@@ -93,9 +183,9 @@ function DriverOfferContent() {
         {/* Tarjeta de Ganancia Estimada */}
         <div className="bg-[#0040a1] text-white p-6 rounded-[28px] text-center space-y-1 shadow-md relative overflow-hidden border border-blue-800">
           <span className="text-xs font-black text-blue-200 uppercase tracking-wider block">GANANCIA TOTAL ESTIMADA</span>
-          <p className="text-5xl font-black text-[#c3f400]">$65.00</p>
+          <p className="text-5xl font-black text-[#c3f400]">${Number(activeOffer.earnings).toFixed(2)}</p>
           <span className="text-xs font-black text-slate-900 bg-[#c3f400] px-3.5 py-1 rounded-full inline-block mt-2 shadow-xs">
-            💵 Cobro en Efectivo con Cliente
+            {activeOffer.paymentMethod === 'CASH' ? '💵 Cobro en Efectivo con Cliente' : '💳 Pago Digital Acreditado'}
           </span>
         </div>
 
@@ -108,8 +198,8 @@ function DriverOfferContent() {
             </div>
             <div>
               <span className="text-[10px] font-black text-slate-500 uppercase block">ORIGEN (RECOGER)</span>
-              <strong className="text-sm font-black text-slate-900">Taquería El Pastor</strong>
-              <p className="text-xs font-semibold text-slate-600">Av. Hidalgo #104, Centro &bull; 1.8 km</p>
+              <strong className="text-sm font-black text-slate-900">{activeOffer.originName}</strong>
+              <p className="text-xs font-semibold text-slate-600">{activeOffer.originAddress}</p>
             </div>
           </div>
 
@@ -122,8 +212,8 @@ function DriverOfferContent() {
             </div>
             <div>
               <span className="text-[10px] font-black text-slate-500 uppercase block">DESTINO (ENTREGAR)</span>
-              <strong className="text-sm font-black text-slate-900">Calle Juárez #452, Col. San José</strong>
-              <p className="text-xs font-semibold text-slate-600">Cliente: Maria G. &bull; 3.2 km</p>
+              <strong className="text-sm font-black text-slate-900">{activeOffer.destinationName}</strong>
+              <p className="text-xs font-semibold text-slate-600">{activeOffer.destinationAddress}</p>
             </div>
           </div>
         </div>
@@ -143,7 +233,7 @@ function DriverOfferContent() {
             ) : (
               <>
                 <Check className="w-5 h-5" />
-                <span>ACEPTAR VIAJE ($65.00) ⚡</span>
+                <span>ACEPTAR VIAJE (${Number(activeOffer.earnings).toFixed(2)}) ⚡</span>
               </>
             )}
           </button>
@@ -175,4 +265,3 @@ export default function DriverOfferPage() {
     </Suspense>
   )
 }
-

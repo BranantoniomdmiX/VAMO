@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { Navigation, Box, Map as MapIcon } from 'lucide-react'
+import { Navigation, Box, Map as MapIcon, Moon, Sun } from 'lucide-react'
 import { LatLng, LngLat } from '@/lib/services/gpsSocketService'
 
 export interface DriverMarkerData {
@@ -40,41 +40,14 @@ interface VamoMapLibreProps {
   onMapClick?: (coords: { lat: number; lng: number }) => void
 }
 
-// Estilos Vectoriales Oficiales de Alta Disponibilidad CartoDB
-const CARTO_GL_VOYAGER = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json'
-const CARTO_GL_DARK = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
-const CARTO_GL_POSITRON = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
-
-// Fallback de Emergencia con Mosaicos OpenStreetMap Raster
-const OSM_RASTER_FALLBACK: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    'osm-raster-tiles': {
-      type: 'raster',
-      tiles: [
-        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
-      ],
-      tileSize: 256,
-      attribution: '&copy; OpenStreetMap Contributors'
-    }
-  },
-  layers: [
-    {
-      id: 'osm-raster-layer',
-      type: 'raster',
-      source: 'osm-raster-tiles',
-      minzoom: 0,
-      maxzoom: 19
-    }
-  ]
-}
+// Estilos Vectoriales 100% Libres y Nativos para MapLibre (OpenFreeMap Oficial)
+const STYLE_3D_LIGHT = 'https://tiles.openfreemap.org/styles/liberty'
+const STYLE_3D_DARK = 'https://tiles.openfreemap.org/styles/dark'
 
 export default function VamoMapLibre({
   center = [20.5218, -100.8142],
   zoom = 15,
-  theme = 'light',
+  theme: initialTheme = 'light',
   mode3D: initialMode3D = false,
   pitch = 0,
   bearing = 0,
@@ -90,14 +63,58 @@ export default function VamoMapLibre({
   const mapRef = useRef<maplibregl.Map | null>(null)
   const markersRef = useRef<{ [key: string]: maplibregl.Marker }>({})
   const waypointsRef = useRef<{ [key: string]: maplibregl.Marker }>({})
+  
   const [isUserInteracting, setIsUserInteracting] = useState(false)
   const [isMapLoaded, setIsMapLoaded] = useState(false)
   const [is3D, setIs3D] = useState(initialMode3D)
+  const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>(initialTheme)
 
   const routeCoordsRef = useRef<LngLat[]>(routeCoordinates)
   routeCoordsRef.current = routeCoordinates
-
   const routeLayerCreatedRef = useRef(false)
+
+  // Inyectar edificios 3D cuando el estilo vectorial OpenFreeMap esté listo
+  const add3DBuildingsLayer = (map: maplibregl.Map) => {
+    try {
+      if (map.getLayer('3d-buildings')) return
+      
+      const layers = map.getStyle().layers || []
+      let labelLayerId: string | undefined
+      for (let i = 0; i < layers.length; i++) {
+        const layer = layers[i]
+        if (layer.type === 'symbol' && layer.layout && 'text-field' in layer.layout) {
+          labelLayerId = layer.id
+          break
+        }
+      }
+
+      // Añadir capa de extrusión 3D usando la fuente openmaptiles estándar
+      map.addLayer({
+        id: '3d-buildings',
+        source: 'openmaptiles',
+        'source-layer': 'building',
+        filter: ['==', 'extrude', 'true'],
+        type: 'fill-extrusion',
+        minzoom: 14,
+        paint: {
+          'fill-extrusion-color': currentTheme === 'dark' ? '#334155' : '#cbd5e1',
+          'fill-extrusion-height': [
+            'interpolate', ['linear'], ['zoom'],
+            14, 0,
+            16, ['coalesce', ['get', 'render_height'], ['get', 'height'], 15]
+          ],
+          'fill-extrusion-base': [
+            'interpolate', ['linear'], ['zoom'],
+            14, 0,
+            16, ['coalesce', ['get', 'render_min_height'], ['get', 'min_height'], 0]
+          ],
+          'fill-extrusion-opacity': 0.85
+        }
+      }, labelLayerId)
+    } catch (err) {
+      console.warn('⚠️ Capa 3D procesada:', err)
+    }
+  }
 
   // 1. Inicialización de MapLibre GL
   useEffect(() => {
@@ -121,51 +138,17 @@ export default function VamoMapLibre({
 
     setIsMapLoaded(false)
     routeLayerCreatedRef.current = false
-    const styleUrl = theme === 'dark' ? CARTO_GL_DARK : CARTO_GL_VOYAGER
 
-    let map: maplibregl.Map
-    try {
-      map = new maplibregl.Map({
-        container: mapContainer.current,
-        style: styleUrl,
-        center: [center[1], center[0]] as [number, number],
-        zoom,
-        pitch: is3D ? 55 : 0,
-        bearing,
-        attributionControl: false
-      })
-    } catch (err) {
-      console.warn('⚠️ [VAMO Map] Error iniciando Carto GL, usando OSM Raster:', err)
-      map = new maplibregl.Map({
-        container: mapContainer.current,
-        style: OSM_RASTER_FALLBACK,
-        center: [center[1], center[0]] as [number, number],
-        zoom,
-        pitch: 0,
-        bearing,
-        attributionControl: false
-      })
-    }
+    const styleUrl = currentTheme === 'dark' ? STYLE_3D_DARK : STYLE_3D_LIGHT
 
-    // Watchdog Anti-Pantalla Blanca: Si tarda en cargar el estilo, aplicar OSM Raster
-    let fallbackApplied = false
-    const fallbackTimer = setTimeout(() => {
-      if (!fallbackApplied && !map.isStyleLoaded()) {
-        fallbackApplied = true
-        try {
-          map.setStyle(OSM_RASTER_FALLBACK)
-        } catch (e) {}
-      }
-    }, 2000)
-
-    map.on('error', (e) => {
-      const msg = e.error?.message || ''
-      if (!fallbackApplied && (msg.includes('style') || msg.includes('Failed to fetch') || msg.includes('404'))) {
-        fallbackApplied = true
-        try {
-          map.setStyle(OSM_RASTER_FALLBACK)
-        } catch (err) {}
-      }
+    const map = new maplibregl.Map({
+      container: mapContainer.current,
+      style: styleUrl,
+      center: [center[1], center[0]] as [number, number],
+      zoom,
+      pitch: is3D ? 58 : 0,
+      bearing: is3D ? -15 : 0,
+      attributionControl: false
     })
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right')
@@ -189,10 +172,10 @@ export default function VamoMapLibre({
     map.on('zoomstart', () => setIsUserInteracting(true))
 
     const handleLoadedMap = () => {
-      clearTimeout(fallbackTimer)
       try { map.resize() } catch (e) {}
       setTimeout(() => { try { map.resize() } catch (e) {} }, 150)
       setTimeout(() => { try { map.resize() } catch (e) {} }, 500)
+      add3DBuildingsLayer(map)
       createRouteSourceAndLayers(map)
       pushRouteData(map)
       setIsMapLoaded(true)
@@ -201,6 +184,7 @@ export default function VamoMapLibre({
     map.on('load', handleLoadedMap)
     map.on('style.load', () => {
       try { map.resize() } catch (e) {}
+      add3DBuildingsLayer(map)
       createRouteSourceAndLayers(map)
       pushRouteData(map)
       setIsMapLoaded(true)
@@ -217,16 +201,39 @@ export default function VamoMapLibre({
     mapRef.current = map
 
     return () => {
-      clearTimeout(fallbackTimer)
       if (resizeObserver) resizeObserver.disconnect()
       if (mapRef.current) {
         try { mapRef.current.remove() } catch (e) {}
         mapRef.current = null
       }
     }
-  }, [theme])
+  }, [currentTheme])
 
-  // 2. Rutas
+  // 2. Conmutador 3D / 2D
+  const toggle3DMode = () => {
+    const nextMode = !is3D
+    setIs3D(nextMode)
+    if (onToggle3D) onToggle3D(nextMode)
+
+    if (mapRef.current) {
+      mapRef.current.easeTo({
+        pitch: nextMode ? 58 : 0,
+        bearing: nextMode ? -15 : 0,
+        duration: 800
+      })
+      if (nextMode) {
+        add3DBuildingsLayer(mapRef.current)
+      }
+    }
+  }
+
+  // 3. Conmutador de Tema (Claro / Gris Dark)
+  const toggleTheme = () => {
+    const nextTheme = currentTheme === 'light' ? 'dark' : 'light'
+    setCurrentTheme(nextTheme)
+  }
+
+  // 4. Manejo de Rutas
   const createRouteSourceAndLayers = useCallback((map: maplibregl.Map) => {
     if (routeLayerCreatedRef.current) return
     if (map.getSource('nav-route')) return
@@ -291,21 +298,7 @@ export default function VamoMapLibre({
     }
   }, [routeCoordinates, isMapLoaded])
 
-  // 3. Conmutador 2D / 3D
-  const toggle3DMode = () => {
-    const nextMode = !is3D
-    setIs3D(nextMode)
-    if (onToggle3D) onToggle3D(nextMode)
-
-    if (mapRef.current) {
-      mapRef.current.easeTo({
-        pitch: nextMode ? 55 : 0,
-        duration: 800
-      })
-    }
-  }
-
-  // 4. Marcadores de Choferes
+  // 5. Marcadores de Choferes
   useEffect(() => {
     if (!mapRef.current || !isMapLoaded) return
     const map = mapRef.current
@@ -339,31 +332,39 @@ export default function VamoMapLibre({
             position: absolute; top: -7px; left: -7px;
             width: 14px; height: 14px; border-radius: 50%;
             background: ${glowColor}; border: 2.5px solid #ffffff;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
           "></div>
           <div style="
-            position: absolute; bottom: 12px; left: 0;
-            transform: translateX(-50%); white-space: nowrap; pointer-events: none;
-            color: ${theme === 'dark' ? '#c3f400' : '#0040a1'};
-            background: ${theme === 'dark' ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)'};
-            border: 1.5px solid ${theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 86, 210, 0.25)'};
-            padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 800;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.18); display: flex; align-items: center; gap: 4px;
+            position: absolute; top: -20px; left: -20px;
+            width: 40px; height: 40px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            transform: rotate(${rotation}deg);
+            pointer-events: none;
           ">
-            <span>🏍️</span><span>${driver.name}</span>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); transform: translateY(-7px);">
+              <polygon points="12 2 19 21 12 17 5 21 12 2" fill="#0056D2" />
+            </svg>
+          </div>
+          <div style="
+            position: absolute; top: 12px; left: 0;
+            transform: translateX(-50%); white-space: nowrap; pointer-events: none;
+            background: rgba(15, 23, 42, 0.85); color: #c3f400; font-size: 10px; font-weight: 800;
+            padding: 2px 6px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            border: 1px solid rgba(195, 244, 0, 0.4);
+          ">
+            🛵 ${driver.name}
           </div>
         `
-
-        const marker = new maplibregl.Marker({ element: dotEl, anchor: 'center', rotationAlignment: 'viewport' })
+        const marker = new maplibregl.Marker({ element: dotEl, anchor: 'center' })
           .setLngLat(posLngLat)
           .addTo(map)
 
         markersRef.current[driver.id] = marker
       }
     })
-  }, [drivers, isMapLoaded, theme])
+  }, [drivers, isMapLoaded])
 
-  // 5. Marcadores de Waypoints
+  // 6. Marcadores de Waypoints (Comercios / Destinos)
   useEffect(() => {
     if (!mapRef.current || !isMapLoaded) return
     const map = mapRef.current
@@ -377,7 +378,7 @@ export default function VamoMapLibre({
 
     waypoints.forEach(wp => {
       const isOrigin = wp.type === 'ORIGIN'
-      const textColor = isOrigin ? (theme === 'dark' ? '#ffffff' : '#0040A1') : '#ba1a1a'
+      const textColor = isOrigin ? '#0056D2' : '#ba1a1a'
       const dotColor = isOrigin ? '#0056D2' : '#ba1a1a'
       const posLngLat: [number, number] = [wp.lng, wp.lat]
 
@@ -397,10 +398,10 @@ export default function VamoMapLibre({
             position: absolute; bottom: 9px; left: 0;
             transform: translateX(-50%); white-space: nowrap; pointer-events: none;
             color: ${textColor}; font-size: 11px; font-weight: 800;
-            text-shadow: -1.5px -1.5px 0 ${theme === 'dark' ? '#0f172a' : '#ffffff'},
-                         1.5px -1.5px 0 ${theme === 'dark' ? '#0f172a' : '#ffffff'},
-                        -1.5px 1.5px 0 ${theme === 'dark' ? '#0f172a' : '#ffffff'},
-                         1.5px 1.5px 0 ${theme === 'dark' ? '#0f172a' : '#ffffff'};
+            background: rgba(255, 255, 255, 0.95);
+            padding: 2px 8px; border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            border: 1px solid rgba(0, 86, 210, 0.2);
           ">
             ${isOrigin ? '🏪' : '📍'} ${wp.title}
           </div>
@@ -412,15 +413,16 @@ export default function VamoMapLibre({
         waypointsRef.current[wp.id] = marker
       }
     })
-  }, [waypoints, isMapLoaded, theme])
+  }, [waypoints, isMapLoaded])
 
   const recenterOnDriver = () => {
     setIsUserInteracting(false)
     if (mapRef.current) {
       mapRef.current.easeTo({
         center: [center[1], center[0]],
-        pitch: is3D ? 55 : 0,
-        bearing, zoom,
+        pitch: is3D ? 58 : 0,
+        bearing: is3D ? -15 : 0,
+        zoom,
         duration: 800
       })
     }
@@ -428,7 +430,7 @@ export default function VamoMapLibre({
 
   return (
     <div
-      className={`rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-inner relative z-0 ${className}`}
+      className={`rounded-2xl overflow-hidden border border-slate-200 shadow-inner relative z-0 ${className}`}
       style={{ minHeight: '480px', height: '100%', width: '100%', position: 'relative' }}
     >
       <div 
@@ -437,33 +439,58 @@ export default function VamoMapLibre({
         style={{ minHeight: '480px', height: '100%', width: '100%', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} 
       />
 
-      {/* Botón Flotante 2D / 3D */}
-      <button
-        onClick={toggle3DMode}
-        className={`absolute bottom-4 left-3 z-20 px-3.5 py-2 rounded-xl font-black text-[11px] shadow-2xl flex items-center gap-2 border-2 active:scale-95 transition-all cursor-pointer pointer-events-auto ${
-          is3D
-            ? 'bg-[#0056D2] text-white border-white'
-            : 'bg-white text-[#0056D2] border-[#0056D2] dark:bg-slate-900 dark:text-[#c3f400] dark:border-[#c3f400]'
-        }`}
-      >
-        {is3D ? (
-          <>
-            <Box className="w-4 h-4 text-[#c3f400] animate-pulse shrink-0" />
-            <span className="font-black text-white tracking-wider">MODO 3D</span>
-          </>
-        ) : (
-          <>
-            <MapIcon className="w-4 h-4 text-[#0056D2] dark:text-[#c3f400] shrink-0" />
-            <span className="font-black tracking-wider">MODO 2D</span>
-          </>
-        )}
-      </button>
+      {/* Botones Flotantes 3D y Tema (Inferior Izquierda) */}
+      <div className="absolute bottom-4 left-3 z-20 flex items-center gap-2 pointer-events-auto">
+        
+        {/* Botón 3D / 2D */}
+        <button
+          type="button"
+          onClick={toggle3DMode}
+          className={`px-3.5 py-2 rounded-xl font-black text-[11px] shadow-2xl flex items-center gap-1.5 border-2 active:scale-95 transition-all cursor-pointer ${
+            is3D
+              ? 'bg-[#0056D2] text-white border-white'
+              : 'bg-white text-[#0056D2] border-[#0056D2]'
+          }`}
+        >
+          {is3D ? (
+            <>
+              <Box className="w-3.5 h-3.5 text-[#c3f400] animate-pulse shrink-0" />
+              <span className="tracking-wider">MODO 3D</span>
+            </>
+          ) : (
+            <>
+              <MapIcon className="w-3.5 h-3.5 text-[#0056D2] shrink-0" />
+              <span className="tracking-wider">MODO 2D</span>
+            </>
+          )}
+        </button>
 
-      {/* Recentrar */}
+        {/* Botón Tema Gris Oscuro / Claro */}
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="bg-white hover:bg-slate-50 text-slate-800 p-2 rounded-xl shadow-2xl border border-slate-200 active:scale-95 transition-all flex items-center gap-1.5 text-[11px] font-bold cursor-pointer"
+        >
+          {currentTheme === 'dark' ? (
+            <>
+              <Sun className="w-3.5 h-3.5 text-amber-500" />
+              <span>Modo Claro</span>
+            </>
+          ) : (
+            <>
+              <Moon className="w-3.5 h-3.5 text-[#0056D2]" />
+              <span>Gris Dark</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Botón Recentrar flotante */}
       {isUserInteracting && (
         <button
+          type="button"
           onClick={recenterOnDriver}
-          className="absolute bottom-6 right-4 z-20 bg-[#0056D2] hover:bg-[#0040a1] text-[#c3f400] px-4 py-2.5 rounded-full font-extrabold text-xs shadow-2xl flex items-center gap-2 border-2 border-white animate-bounce pointer-events-auto"
+          className="absolute bottom-6 right-4 z-20 bg-[#0056D2] hover:bg-[#0040a1] text-[#c3f400] px-4 py-2.5 rounded-full font-extrabold text-xs shadow-2xl flex items-center gap-2 border-2 border-white animate-bounce pointer-events-auto cursor-pointer"
         >
           <Navigation className="w-4 h-4 text-[#c3f400] rotate-45" />
           <span className="text-white">Recentrar 🎯</span>

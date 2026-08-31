@@ -327,75 +327,126 @@ export default function CustomerHomePage() {
           />
         )}
 
-        {/* SECCIÓN DE AFILIACIÓN Y DESCARGA DE APKS PARA CLIENTES (COMERCIOS Y CONDUCTORES) */}
-        <section className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-          
-          {/* Tarjeta 1: ¿Quieres ser Conductor / Repartidor? */}
-          <div className="bg-[#161e00] text-white p-6 rounded-[28px] border border-[#c3f400]/40 flex flex-col justify-between shadow-md space-y-4">
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="bg-[#c3f400] text-[#161e00] text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                  GENERA INGRESOS
-                </span>
-                <span className="text-xl">🛵</span>
-              </div>
-              <h3 className="text-base sm:text-lg font-extrabold text-white">¿Quieres ser Conductor VAMO?</h3>
-              <p className="text-xs font-semibold text-slate-300">
-                Únete a la flotilla con tu moto o bicicleta. Pagos al día, propinas 100% tuyas y soporte de base.
-              </p>
+        {/* SECCIÓN BENTO GRID: 'HAZ NEGOCIO CON VAMO' (3 MODALIDADES) */}
+        <section className="mt-4 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+            <div>
+              <span className="text-xs font-black uppercase tracking-wider text-[#0056d2] bg-blue-50 px-2.5 py-0.5 rounded-full">
+                Oportunidades de Crecimiento
+              </span>
+              <h3 className="text-xl sm:text-2xl font-black text-[#1c1b1b] mt-1">Haz Negocio con VAMO</h3>
             </div>
-
-            <div className="flex flex-col sm:flex-row gap-2 pt-1">
-              <Link 
-                href="/auth/register-driver"
-                className="flex-1 bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3 rounded-full text-xs font-black text-center shadow-xs active:scale-95 transition-all cursor-pointer"
-              >
-                Registrarme como Chofer 🏍️
-              </Link>
-              <a 
-                href="/downloads/VAMO_Conductor.apk"
-                download
-                className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-3 rounded-full text-xs font-bold text-center flex items-center justify-center gap-1.5 transition-all"
-              >
-                <span>Descargar APK</span>
-                <span className="text-[10px] opacity-70">⬇</span>
-              </a>
-            </div>
+            <p className="text-xs text-[#737785] font-semibold max-w-xs">
+              Únete al ecosistema local como chofer, comercio afiliado o dueño de tu propia flotilla.
+            </p>
           </div>
 
-          {/* Tarjeta 2: ¿Tienes un restaurante o negocio local? */}
-          <div className="bg-[#0040a1] text-white p-6 rounded-[28px] border border-blue-700 flex flex-col justify-between shadow-md space-y-4">
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="bg-[#c3f400] text-[#161e00] text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                  0% COMISIONES
-                </span>
-                <span className="text-xl">🏬</span>
+          {/* Bento Grid Layout */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+            
+            {/* Tarjeta 1: 🛵 Conductor / Repartidor (Col 6) */}
+            <div className="md:col-span-6 bg-[#161e00] text-white p-6 rounded-[28px] border border-[#c3f400]/40 flex flex-col justify-between shadow-md space-y-4 hover:border-[#c3f400] transition-all">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="bg-[#c3f400] text-[#161e00] text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                    GENERA INGRESOS AL DÍA
+                  </span>
+                  <span className="text-2xl">🛵</span>
+                </div>
+                <h4 className="text-lg font-black text-white">¿Quieres ser Conductor VAMO?</h4>
+                <p className="text-xs font-semibold text-slate-300">
+                  Maneja tu moto o bicicleta en tus tiempos libres. Pagos diarios en tu cuenta CLABE y 100% de tus propinas.
+                </p>
               </div>
-              <h3 className="text-base sm:text-lg font-extrabold text-white">¿Tienes un local comercial?</h3>
-              <p className="text-xs font-semibold text-blue-200">
-                Vende en tu colonia sin perder el 30% en comisiones. Conecta tu cocina KDS y manda en moto express.
-              </p>
+
+              <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                <Link 
+                  href="/auth/register-driver"
+                  className="flex-1 bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3 rounded-full text-xs font-black text-center shadow-xs active:scale-95 transition-all cursor-pointer"
+                >
+                  Registrarme como Chofer 🏍️
+                </Link>
+                <a 
+                  href="/downloads/VAMO_Conductor.apk"
+                  download
+                  className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-3 rounded-full text-xs font-bold text-center flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <span>APK</span>
+                  <span className="text-[10px] opacity-70">⬇</span>
+                </a>
+              </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2 pt-1">
-              <Link 
-                href="/auth/register-biz"
-                className="flex-1 bg-white hover:bg-slate-100 text-[#0040a1] py-3 rounded-full text-xs font-black text-center shadow-xs active:scale-95 transition-all cursor-pointer"
-              >
-                Afiliar mi Negocio 🏪
-              </Link>
-              <a 
-                href="/downloads/VAMO_Comercios.apk"
-                download
-                className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-3 rounded-full text-xs font-bold text-center flex items-center justify-center gap-1.5 transition-all"
-              >
-                <span>Descargar APK</span>
-                <span className="text-[10px] opacity-70">⬇</span>
-              </a>
+            {/* Tarjeta 2: 🏬 Local Comercial / Negocio (Col 6) */}
+            <div className="md:col-span-6 bg-[#0040a1] text-white p-6 rounded-[28px] border border-blue-700 flex flex-col justify-between shadow-md space-y-4 hover:border-blue-500 transition-all">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="bg-[#c3f400] text-[#161e00] text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                    0% COMISIONES ABUSIVAS
+                  </span>
+                  <span className="text-2xl">🏬</span>
+                </div>
+                <h4 className="text-lg font-black text-white">¿Tienes un negocio o local?</h4>
+                <p className="text-xs font-semibold text-blue-200">
+                  Vende en tu zona sin perder el 30% en comisiones. Conecta tu pantalla KDS y envía tus pedidos en moto express.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                <Link 
+                  href="/auth/register-biz"
+                  className="flex-1 bg-white hover:bg-slate-100 text-[#0040a1] py-3 rounded-full text-xs font-black text-center shadow-xs active:scale-95 transition-all cursor-pointer"
+                >
+                  Afiliar mi Negocio 🏪
+                </Link>
+                <a 
+                  href="/downloads/VAMO_Comercios.apk"
+                  download
+                  className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-3 rounded-full text-xs font-bold text-center flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <span>APK</span>
+                  <span className="text-[10px] opacity-70">⬇</span>
+                </a>
+              </div>
             </div>
+
+            {/* Tarjeta 3 Bento Principal: 💼 Socio Comercial / Dueño de Flota (Col 12 - Hero Card) */}
+            <div className="md:col-span-12 bg-linear-to-r from-[#1c1b1b] via-[#242938] to-[#002f7a] text-white p-6 sm:p-7 rounded-[32px] border-2 border-[#fddf33]/60 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl relative overflow-hidden group">
+              <div className="space-y-2 max-w-xl z-10">
+                <div className="flex items-center gap-2">
+                  <span className="bg-[#fddf33] text-[#726200] text-[10px] font-black px-3 py-0.5 rounded-full uppercase tracking-wider">
+                    👑 RENTA DE SOFTWARE SAAS
+                  </span>
+                  <span className="text-xs font-bold text-[#c3f400]">Micro-cuota semanal + 50% de comisiones</span>
+                </div>
+                <h4 className="text-xl sm:text-2xl font-black text-white leading-tight">
+                  ¿Quieres operar una Flotilla de Motos o tu propia Plaza?
+                </h4>
+                <p className="text-xs sm:text-sm font-medium text-slate-300">
+                  Conviértete en <strong>Socio Comercial VAMO</strong>. Renta el software con consola de despacho, asigna llaves a tus propios motociclistas y genera ganancias recurrentes en tu territorio.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto shrink-0 z-10">
+                <Link 
+                  href="/auth/register-owner"
+                  className="bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] px-6 py-3.5 rounded-full text-xs sm:text-sm font-black text-center shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>Postular mi Flota 💼</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+                <a 
+                  href="/downloads/VAMO_Socio_Comercial.apk"
+                  download
+                  className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-3.5 rounded-full text-xs font-bold text-center flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <span>APK Socio</span>
+                  <span className="text-[10px] opacity-70">⬇</span>
+                </a>
+              </div>
+            </div>
+
           </div>
-
         </section>
 
       </div>
