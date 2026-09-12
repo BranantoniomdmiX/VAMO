@@ -1,8 +1,10 @@
 'use client'
 
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState, useCallback } from 'react'
 import type L from 'leaflet'
 import { LatLng, LngLat } from '@/lib/services/gpsSocketService'
+import { UserPositionData, MapLoadState } from './mapCommonTypes'
+import { AlertTriangle, RefreshCw, Navigation, Compass } from 'lucide-react'
 
 export interface DriverMarkerData {
   id: string
@@ -27,13 +29,13 @@ export interface HeatZoneItem {
   lat: number
   lng: number
   radiusMeters: number
-  intensity: number // 0.0 a 1.0
+  intensity: number
   name?: string
   bonusText?: string
   surgePercent?: string
 }
 
-interface VamoLeafletMapProps {
+export interface VamoLeafletMapProps {
   center?: LatLng
   zoom?: number
   theme?: 'light' | 'dark'
@@ -41,16 +43,16 @@ interface VamoLeafletMapProps {
   waypoints?: MapWaypoint[]
   routeCoordinates?: LngLat[]
   heatZones?: HeatZoneItem[]
+  userPosition?: UserPositionData | null
   className?: string
   enableGeolocate?: boolean
   enableClustering?: boolean
   onMapClick?: (coords: { lat: number; lng: number }) => void
+  onStateChange?: (state: MapLoadState) => void
 }
 
-// Función matemática para generar polígonos hexagonales tipo H3 / Meituan
 function createHexagonCoordinates(centerLat: number, centerLng: number, radiusMeters: number): [number, number][] {
   const points: [number, number][] = []
-  // Conversión aproximada de metros a grados de lat/lng
   const latOffset = (radiusMeters / 111320)
   const lngOffset = (radiusMeters / (111320 * Math.cos((centerLat * Math.PI) / 180)))
 
@@ -71,64 +73,113 @@ export default function VamoLeafletMap({
   waypoints = [],
   routeCoordinates = [],
   heatZones = [],
-  className = 'w-full h-full min-h-[450px]',
+  userPosition,
+  className = 'w-full h-full min-h-[420px]',
   enableGeolocate = true,
-  enableClustering,
-  onMapClick
+  onMapClick,
+  onStateChange
 }: VamoLeafletMapProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<L.Map | null>(null)
   const driversLayerRef = useRef<L.LayerGroup | null>(null)
   const waypointsLayerRef = useRef<L.LayerGroup | null>(null)
   const heatLayerRef = useRef<L.LayerGroup | null>(null)
+  const userPositionLayerRef = useRef<L.LayerGroup | null>(null)
   const routeLayerRef = useRef<L.Polyline | null>(null)
   const routeCasingRef = useRef<L.Polyline | null>(null)
 
-  // 1. Inicialización de Leaflet
+  const [mapState, setMapState] = useState<MapLoadState>('MAP_INITIALIZING')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [failedTilesCount, setFailedTilesCount] = useState(0)
+
+  const updateState = useCallback((s: MapLoadState, err?: string) => {
+    setMapState(s)
+    if (err) setErrorMessage(err)
+    if (onStateChange) onStateChange(s)
+  }, [onStateChange])
+
+  // 1. Inicialización de Leaflet con Manejo de Errores y Diagnóstico de Tiles
   useEffect(() => {
     let isMounted = true
-
     async function initLeaflet() {
       if (!containerRef.current || mapRef.current) return
 
-      const L = await import('leaflet')
-      if (!isMounted || !containerRef.current) return
+      setFailedTilesCount(0)
+      setErrorMessage(null)
+      updateState('MAP_INITIALIZING')
 
-      const map = L.map(containerRef.current, {
-        center: [center[0], center[1]],
-        zoom: zoom,
-        zoomControl: false,
-        attributionControl: false,
-        fadeAnimation: true,
-        markerZoomAnimation: true
-      })
+      try {
+        const L = await import('leaflet')
+        if (!isMounted || !containerRef.current) return
 
-      L.control.zoom({ position: 'topright' }).addTo(map)
+        const map = L.map(containerRef.current, {
+          center: [center[0], center[1]],
+          zoom: zoom,
+          zoomControl: false,
+          attributionControl: false,
+          fadeAnimation: true,
+          markerZoomAnimation: true
+        })
 
-      const tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-      L.tileLayer(tileUrl, {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap Contributors'
-      }).addTo(map)
+        L.control.zoom({ position: 'topright' }).addTo(map)
 
-      const heatGroup = L.layerGroup().addTo(map)
-      const waypointsGroup = L.layerGroup().addTo(map)
-      const driversGroup = L.layerGroup().addTo(map)
+        // Tile layer con diagnóstico y eventos
+        const tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+        const tileLayer = L.tileLayer(tileUrl, {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap Contributors'
+        })
 
-      heatLayerRef.current = heatGroup
-      waypointsLayerRef.current = waypointsGroup
-      driversLayerRef.current = driversGroup
+        tileLayer.on('loading', () => {
+          if (isMounted) updateState('TILE_LOADING')
+        })
 
-      map.on('click', (e: L.LeafletMouseEvent) => {
-        if (onMapClick) {
-          onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng })
+        tileLayer.on('load', () => {
+          if (isMounted) updateState('MAP_READY')
+        })
+
+        tileLayer.on('tileerror', () => {
+          if (isMounted) {
+            setFailedTilesCount(prev => {
+              const next = prev + 1
+              if (next >= 4) {
+                updateState('TILE_ERROR', 'Dificultad de conexión con el proveedor de mapas.')
+              }
+              return next
+            })
+          }
+        })
+
+        tileLayer.addTo(map)
+
+        const heatGroup = L.layerGroup().addTo(map)
+        const waypointsGroup = L.layerGroup().addTo(map)
+        const driversGroup = L.layerGroup().addTo(map)
+        const userPositionGroup = L.layerGroup().addTo(map)
+
+        heatLayerRef.current = heatGroup
+        waypointsLayerRef.current = waypointsGroup
+        driversLayerRef.current = driversGroup
+        userPositionLayerRef.current = userPositionGroup
+
+        map.on('click', (e: L.LeafletMouseEvent) => {
+          if (onMapClick) {
+            onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng })
+          }
+        })
+
+        mapRef.current = map
+        updateState('MAP_READY')
+
+        // Invalidate size en montura inicial
+        setTimeout(() => { if (mapRef.current) mapRef.current.invalidateSize() }, 100)
+        setTimeout(() => { if (mapRef.current) mapRef.current.invalidateSize() }, 400)
+      } catch (err: unknown) {
+        if (isMounted) {
+          const msg = err instanceof Error ? err.message : 'Error al inicializar Leaflet'
+          updateState('RENDERER_ERROR', msg)
         }
-      })
-
-      mapRef.current = map
-
-      setTimeout(() => { map.invalidateSize() }, 100)
-      setTimeout(() => { map.invalidateSize() }, 500)
+      }
     }
 
     initLeaflet()
@@ -142,19 +193,123 @@ export default function VamoLeafletMap({
     }
   }, [theme])
 
-  const lastCenteredCoords = useRef<string>('')
+  // 2. ResizeObserver y Detección de Viewport Dinámico (Móvil / PWA)
+  useEffect(() => {
+    if (!containerRef.current || !mapRef.current) return
 
-  // 2. Actualizar Centro y Zoom sin rebote de cámara
+    let timeoutId: NodeJS.Timeout | null = null
+
+    const triggerInvalidate = () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => {
+        if (mapRef.current) {
+          mapRef.current.invalidateSize()
+        }
+      }, 120)
+    }
+
+    // A. ResizeObserver sobre el contenedor físico
+    const ro = new ResizeObserver(() => {
+      triggerInvalidate()
+    })
+    ro.observe(containerRef.current)
+
+    // B. Eventos de ventana móvil y orientación
+    window.addEventListener('resize', triggerInvalidate)
+    window.addEventListener('orientationchange', triggerInvalidate)
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', triggerInvalidate)
+    }
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      ro.disconnect()
+      window.removeEventListener('resize', triggerInvalidate)
+      window.removeEventListener('orientationchange', triggerInvalidate)
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', triggerInvalidate)
+      }
+    }
+  }, [mapState])
+
+  // 3. Actualizar Centro y Zoom sin rebote de cámara
   useEffect(() => {
     if (!mapRef.current) return
-    const key = `${center[0].toFixed(4)}_${center[1].toFixed(4)}_${zoom}`
-    if (lastCenteredCoords.current !== key) {
-      lastCenteredCoords.current = key
-      mapRef.current.setView([center[0], center[1]], zoom, { animate: true })
+    const map = mapRef.current
+    const currentCenter = map.getCenter()
+    const dist = Math.hypot(currentCenter.lat - center[0], currentCenter.lng - center[1])
+    if (dist > 0.0001) {
+      map.setView([center[0], center[1]], zoom, { animate: true })
     }
-  }, [center[0], center[1], zoom])
+  }, [center, zoom])
 
-  // 3. Renderizar Celdas Hexagonales Panal H3 (Estilo Meituan / Didi / Uber Surge)
+  // 4. Renderizar Ubicación Actual del Usuario ("Mi ubicación" + Círculo de Precisión)
+  useEffect(() => {
+    if (!mapRef.current || !userPositionLayerRef.current) return
+    const group = userPositionLayerRef.current
+    group.clearLayers()
+
+    if (!userPosition) return
+
+    import('leaflet').then((L) => {
+      if (!mapRef.current) return
+
+      const { lat, lng, accuracyMeters, isLowAccuracy } = userPosition
+
+      // Círculo de precisión semitransparente (si existe margen medible)
+      if (accuracyMeters && accuracyMeters > 0 && accuracyMeters <= 1000) {
+        const accuracyCircle = L.circle([lat, lng], {
+          radius: accuracyMeters,
+          color: isLowAccuracy ? '#d97706' : '#0056D2',
+          fillColor: isLowAccuracy ? '#fef3c7' : '#ccd8ff',
+          fillOpacity: 0.25,
+          weight: 1.5,
+          interactive: false
+        })
+        group.addLayer(accuracyCircle)
+      }
+
+      // Marcador de Ubicación del Usuario con Pulso VAMO
+      const userDotHtml = `
+        <div style="position: relative; width: 0; height: 0; pointer-events: none;">
+          <div style="
+            position: absolute; top: -14px; left: -14px;
+            width: 28px; height: 28px; border-radius: 50%;
+            background: #0056D2; opacity: 0.35;
+            animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+          "></div>
+          <div style="
+            position: absolute; top: -9px; left: -9px;
+            width: 18px; height: 18px; border-radius: 50%;
+            background: #0056D2; border: 3px solid #ffffff;
+            box-shadow: 0 3px 8px rgba(0, 86, 210, 0.4);
+          "></div>
+          <div style="
+            position: absolute; top: 12px; left: 0;
+            transform: translateX(-50%); white-space: nowrap;
+            background: #0040A1; color: #C3F400;
+            font-size: 10px; font-weight: 900; font-family: system-ui, sans-serif;
+            padding: 2px 8px; border-radius: 9999px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+          ">
+            Mi ubicación 🎯
+          </div>
+        </div>
+      `
+
+      const userIcon = L.divIcon({
+        html: userDotHtml,
+        className: 'user-position-marker',
+        iconSize: [0, 0],
+        iconAnchor: [0, 0]
+      })
+
+      const userMarker = L.marker([lat, lng], { icon: userIcon, zIndexOffset: 1000 })
+      group.addLayer(userMarker)
+    })
+  }, [userPosition])
+
+  // 5. Renderizar Zonas Calientes
   useEffect(() => {
     if (!mapRef.current || !heatLayerRef.current) return
     const group = heatLayerRef.current
@@ -163,263 +318,94 @@ export default function VamoLeafletMap({
     if (!heatZones || heatZones.length === 0) return
 
     import('leaflet').then((L) => {
-      heatZones.forEach((zone) => {
-        const radius = zone.radiusMeters || 380
-        const intensity = zone.intensity || 0.8
+      if (!mapRef.current) return
 
-        // Paleta Oficial VAMO (Naranja Dinámico #FF5722 / Lima VAMO #C3F400 / Azul Primario #0040A1)
-        // Núcleo Crítico: Naranja Alerta VAMO (#FF5722)
-        // Demanda Media: Ámbar / Dorado Cálido (#FF9800)
-        // Demanda Activa: Verde Lima VAMO (#C3F400)
-        const fillColor = intensity > 0.75 ? '#FF5722' : intensity > 0.5 ? '#FF9800' : '#C3F400'
-        const strokeColor = intensity > 0.75 ? '#E64A19' : intensity > 0.5 ? '#F57C00' : '#8CAE00'
-        const fillOpacity = intensity > 0.75 ? 0.32 : intensity > 0.5 ? 0.26 : 0.22
+      heatZones.forEach(zone => {
+        const hexCoords = createHexagonCoordinates(zone.lat, zone.lng, zone.radiusMeters)
+        const fillColor = zone.intensity >= 0.85 ? '#FF5722' : zone.intensity >= 0.55 ? '#ff9800' : '#c3f400'
 
-        // Crear polígono hexagonal regular
-        const hexCoords = createHexagonCoordinates(zone.lat, zone.lng, radius)
-
-        const hexPolygon = L.polygon(hexCoords, {
-          color: strokeColor,
-          weight: 2.5,
-          opacity: 0.90,
+        const polygon = L.polygon(hexCoords, {
+          color: fillColor,
+          weight: 2,
+          opacity: 0.85,
           fillColor: fillColor,
-          fillOpacity: fillOpacity,
-          dashArray: intensity > 0.75 ? undefined : '5, 5'
+          fillOpacity: 0.25
         })
 
-        hexPolygon.on('click', () => {
-          if (onMapClick) {
-            onMapClick({ lat: zone.lat, lng: zone.lng })
-          }
+        polygon.on('click', () => {
+          if (onMapClick) onMapClick({ lat: zone.lat, lng: zone.lng })
         })
 
-        group.addLayer(hexPolygon)
-
-        // Insignia Flotante Oficial VAMO en el centro del hexágono
-        const badgeHtml = `
-          <div style="
-            position: absolute;
-            transform: translate(-50%, -50%);
-            cursor: pointer;
-            text-align: center;
-            pointer-events: auto;
-          ">
-            <div style="
-              background: #0040A1;
-              color: #ffffff;
-              padding: 3.5px 10px;
-              border-radius: 9999px;
-              font-size: 11px;
-              font-weight: 900;
-              font-family: system-ui, -apple-system, sans-serif;
-              border: 2px solid ${fillColor};
-              box-shadow: 0 4px 12px rgba(0, 64, 161, 0.4);
-              display: inline-flex;
-              align-items: center;
-              gap: 4px;
-              white-space: nowrap;
-            ">
-              <span style="color:${fillColor}; font-size:12px;">⚡</span>
-              <span style="color:#ffffff">${zone.bonusText || '+ Tarifa'}</span>
-            </div>
-          </div>
-        `
-
-        const customBadge = L.divIcon({
-          html: badgeHtml,
-          className: 'vamo-surge-badge',
-          iconSize: [0, 0],
-          iconAnchor: [0, 0]
-        })
-
-        const badgeMarker = L.marker([zone.lat, zone.lng], { icon: customBadge })
-        badgeMarker.on('click', () => {
-          if (onMapClick) {
-            onMapClick({ lat: zone.lat, lng: zone.lng })
-          }
-        })
-        group.addLayer(badgeMarker)
+        group.addLayer(polygon)
       })
     })
   }, [heatZones])
 
-  // 4. Renderizar Choferes con Soporte de Agrupación Espacial Ligera (Operational Parity)
+  // 6. Renderizar Choferes
   useEffect(() => {
     if (!mapRef.current || !driversLayerRef.current) return
     const group = driversLayerRef.current
     group.clearLayers()
 
-    import('leaflet').then((L) => {
-      import('./clusterUtils').then(({ computeSpatialClusters, shouldActivateClustering }) => {
-        const currentZoom = mapRef.current?.getZoom() || zoom
-        const isClusteringActive = typeof enableClustering === 'boolean'
-          ? enableClustering
-          : shouldActivateClustering(drivers.length)
+    if (!drivers || drivers.length === 0) return
 
-        if (isClusteringActive) {
-          const clusters = computeSpatialClusters(drivers, currentZoom)
-          clusters.forEach(c => {
-            if (c.isCluster) {
-              const clusterHtml = `
-                <div style="width:0; height:0; position:relative; cursor:pointer;">
-                  <div style="
-                    position: absolute; top: -16px; left: -16px;
-                    width: 32px; height: 32px; border-radius: 50%;
-                    background: #0040A1; border: 3px solid #C3F400;
-                    box-shadow: 0 4px 10px rgba(0,64,161,0.5);
-                    display: flex; align-items: center; justify-content: center;
-                    color: #C3F400; font-size: 12px; font-weight: 900;
-                  ">
-                    ${c.count}
-                  </div>
-                </div>
-              `
-              const clusterIcon = L.divIcon({
-                html: clusterHtml,
-                className: 'leaflet-driver-cluster',
-                iconSize: [0, 0],
-                iconAnchor: [0, 0]
-              })
-              const marker = L.marker([c.lat, c.lng], { icon: clusterIcon })
-              marker.on('click', () => {
-                mapRef.current?.setView([c.lat, c.lng], Math.min(currentZoom + 2, 16))
-              })
-              group.addLayer(marker)
-            } else {
-              const d = drivers.find(drv => drv.id === c.id)
-              if (!d) return
-              const glowColor = d.status === 'DISPONIBLE' ? '#c3f400' : d.status === 'EN_SERVICIO' ? '#0056D2' : '#888888'
-              const iconHtml = `
-                <div style="width:0; height:0; position:relative; cursor:pointer;">
-                  <div style="
-                    position: absolute; top: -7px; left: -7px;
-                    width: 14px; height: 14px; border-radius: 50%;
-                    background: ${glowColor}; border: 2.5px solid #ffffff;
-                    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
-                  "></div>
-                  <div style="
-                    position: absolute; bottom: 12px; left: 0;
-                    transform: translateX(-50%); white-space: nowrap; pointer-events: none;
-                    color: #0040a1; background: rgba(255,255,255,0.95);
-                    border: 1.5px solid rgba(0,86,210,0.25); padding: 2px 8px;
-                    border-radius: 9999px; font-size: 11px; font-weight: 800;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
-                    display: flex; align-items: center; gap: 4px;
-                  ">
-                    <span>🏍️</span>
-                    <span>${d.name}</span>
-                  </div>
-                </div>
-              `
-              const customIcon = L.divIcon({
-                html: iconHtml,
-                className: 'driver-leaflet-marker',
-                iconSize: [0, 0],
-                iconAnchor: [0, 0]
-              })
-              const marker = L.marker([d.lat, d.lng], { icon: customIcon })
-              group.addLayer(marker)
-            }
-          })
-        } else {
-          drivers.forEach(d => {
-            const glowColor = d.status === 'DISPONIBLE' ? '#c3f400' : d.status === 'EN_SERVICIO' ? '#0056D2' : '#888888'
-            const iconHtml = `
-              <div style="width:0; height:0; position:relative; cursor:pointer;">
-                <div style="
-                  position: absolute; top: -7px; left: -7px;
-                  width: 14px; height: 14px; border-radius: 50%;
-                  background: ${glowColor}; border: 2.5px solid #ffffff;
-                  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
-                "></div>
-                <div style="
-                  position: absolute; bottom: 12px; left: 0;
-                  transform: translateX(-50%); white-space: nowrap; pointer-events: none;
-                  color: #0040a1; background: rgba(255,255,255,0.95);
-                  border: 1.5px solid rgba(0,86,210,0.25); padding: 2px 8px;
-                  border-radius: 9999px; font-size: 11px; font-weight: 800;
-                  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
-                  display: flex; align-items: center; gap: 4px;
-                ">
-                  <span>🏍️</span>
-                  <span>${d.name}</span>
-                </div>
-              </div>
-            `
-            const customIcon = L.divIcon({
-              html: iconHtml,
-              className: 'driver-leaflet-marker',
-              iconSize: [0, 0],
-              iconAnchor: [0, 0]
-            })
-            const marker = L.marker([d.lat, d.lng], { icon: customIcon })
-            group.addLayer(marker)
-          })
-        }
+    import('leaflet').then((L) => {
+      if (!mapRef.current) return
+
+      drivers.forEach(driver => {
+        const glowColor = driver.status === 'DISPONIBLE' ? '#c3f400' : '#0056D2'
+        const dotHtml = `
+          <div style="position: relative; width: 0; height: 0; cursor: pointer;">
+            <div style="
+              position: absolute; top: -7px; left: -7px;
+              width: 14px; height: 14px; border-radius: 50%;
+              background: ${glowColor}; border: 2px solid #ffffff;
+              box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            "></div>
+          </div>
+        `
+        const icon = L.divIcon({ html: dotHtml, className: 'driver-dot', iconSize: [0, 0] })
+        const marker = L.marker([driver.lat, driver.lng], { icon })
+        group.addLayer(marker)
       })
     })
-  }, [drivers, enableClustering, zoom])
+  }, [drivers])
 
-  // 5. Renderizar Waypoints
+  // 7. Renderizar Waypoints
   useEffect(() => {
     if (!mapRef.current || !waypointsLayerRef.current) return
     const group = waypointsLayerRef.current
     group.clearLayers()
 
+    if (!waypoints || waypoints.length === 0) return
+
     import('leaflet').then((L) => {
+      if (!mapRef.current) return
+
       waypoints.forEach(wp => {
         const isOrigin = wp.type === 'ORIGIN'
-        const dotColor = isOrigin ? '#0056D2' : '#ba1a1a'
-
         const wpIconHtml = `
-          <div style="width:0; height:0; position:relative; cursor:pointer;">
+          <div style="position: relative; width: 0; height: 0; cursor: pointer;">
             <div style="
-              position: absolute;
-              top: -7px; left: -7px;
-              width: 14px; height: 14px;
-              border-radius: 50%;
-              background: ${dotColor};
-              border: 2.5px solid #ffffff;
-              box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-            "></div>
-
-            <div style="
-              position: absolute;
-              bottom: 12px; left: 0;
-              transform: translateX(-50%);
-              white-space: nowrap;
-              pointer-events: none;
-              color: ${isOrigin ? '#0056D2' : '#ba1a1a'};
-              background: #ffffff;
-              border: 1.5px solid ${isOrigin ? 'rgba(0,86,210,0.3)' : 'rgba(186,26,26,0.3)'};
-              padding: 3px 10px;
-              border-radius: 9999px;
-              font-size: 11px;
-              font-weight: 800;
-              font-family: system-ui, -apple-system, sans-serif;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-              display: flex; align-items: center; gap: 4px;
+              position: absolute; bottom: 0; left: 0;
+              transform: translate(-50%, -100%);
+              background: ${isOrigin ? '#0040A1' : '#ba1a1a'};
+              color: white; padding: 4px 8px; border-radius: 8px;
+              font-size: 11px; font-weight: 800; white-space: nowrap;
+              border: 1.5px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
             ">
-              <span>${isOrigin ? '🏪' : '📍'}</span>
-              <span>${wp.title}</span>
+              ${isOrigin ? '🏪' : '📍'} ${wp.title}
             </div>
           </div>
         `
-
-        const wpIcon = L.divIcon({
-          html: wpIconHtml,
-          className: 'wp-leaflet-marker',
-          iconSize: [0, 0],
-          iconAnchor: [0, 0]
-        })
-
-        const marker = L.marker([wp.lat, wp.lng], { icon: wpIcon })
+        const icon = L.divIcon({ html: wpIconHtml, className: 'wp-marker', iconSize: [0, 0] })
+        const marker = L.marker([wp.lat, wp.lng], { icon })
         group.addLayer(marker)
       })
     })
   }, [waypoints])
 
-  // 6. Trazado de Ruta OSRM
+  // 8. Trazado de Rutas OSRM
   useEffect(() => {
     if (!mapRef.current) return
 
@@ -461,11 +447,49 @@ export default function VamoLeafletMap({
   }, [routeCoordinates])
 
   return (
-    <div className={`relative ${className}`}>
-      <div ref={containerRef} className="w-full h-full" style={{ minHeight: '100%', height: '100%' }} />
+    <div className={`relative ${className} bg-slate-100 dark:bg-slate-900 overflow-hidden`}>
+      {/* Contenedor DOM del Mapa */}
+      <div
+        ref={containerRef}
+        className="w-full h-full"
+        style={{ minHeight: '100%', height: '100%' }}
+      />
 
+      {/* Estado de Error o Teselas Fallidas */}
+      {(mapState === 'RENDERER_ERROR' || (mapState === 'TILE_ERROR' && failedTilesCount >= 4)) && (
+        <div className="absolute inset-0 z-30 bg-white/95 dark:bg-slate-950/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 flex items-center justify-center">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <div className="max-w-xs space-y-1">
+            <h3 className="text-sm font-black text-slate-900 dark:text-white">
+              No pudimos cargar la superficie del mapa
+            </h3>
+            <p className="text-xs text-slate-500 font-medium leading-relaxed">
+              {errorMessage || 'Verifica tu conexión a internet o reintenta cargar el mapa cartográfico.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (mapRef.current) {
+                mapRef.current.invalidateSize()
+                setFailedTilesCount(0)
+                updateState('MAP_READY')
+              }
+            }}
+            className="px-4 py-2 rounded-full bg-[#0040a1] hover:bg-[#0056d2] text-white text-xs font-black flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Reintentar carga</span>
+          </button>
+        </div>
+      )}
+
+      {/* Botón de Geolocalización Ergonómico Móvil (Ubicación Física del Dispositivo) */}
       {enableGeolocate && (
         <button
+          type="button"
           onClick={async () => {
             try {
               const { deviceCapabilityService } = await import('@/lib/services/deviceCapabilityService')
@@ -478,10 +502,11 @@ export default function VamoLeafletMap({
               alert(msg)
             }
           }}
-          className="absolute bottom-4 right-4 z-40 bg-white hover:bg-slate-50 text-[#0056d2] p-2.5 rounded-full shadow-lg border border-slate-200 active:scale-95 transition-all cursor-pointer"
-          title="Centrar en mi ubicación GPS"
+          className="absolute bottom-4 right-4 z-40 bg-white hover:bg-slate-50 text-[#0056d2] p-3 rounded-full shadow-lg border border-slate-200 active:scale-95 transition-all cursor-pointer pointer-events-auto"
+          title="Centrar en mi ubicación"
+          aria-label="Centrar en mi ubicación"
         >
-          🎯
+          <Navigation className="w-5 h-5 text-[#0056d2]" />
         </button>
       )}
     </div>

@@ -62,17 +62,17 @@ export default function CustomerRadarPage() {
           .eq('is_open', true)
 
         if (dbMerchants && dbMerchants.length > 0) {
-          dbMerchants.forEach((m: any, idx: number) => {
+          dbMerchants.forEach((m: Record<string, unknown>, idx: number) => {
             collectedStores.push({
-              id: m.id || `db-${idx}`,
-              name: m.name || 'Comercio Afiliado',
-              address: m.address || 'Ubicación registrada',
+              id: (m.id as string) || `db-${idx}`,
+              name: (m.name as string) || 'Comercio Afiliado',
+              address: (m.address as string) || 'Ubicación registrada',
               rating: '5.0 ★',
               time: '12-18 min',
-              category: m.category || 'Comercio General',
-              lat: m.latitude || (20.5218 + (Math.random() - 0.5) * 0.02),
-              lng: m.longitude || (-100.8142 + (Math.random() - 0.5) * 0.02),
-              image: m.logo_url || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&auto=format&fit=crop'
+              category: (m.category as string) || 'Comercio General',
+              lat: (m.latitude as number) || (20.5218 + (Math.random() - 0.5) * 0.02),
+              lng: (m.longitude as number) || (-100.8142 + (Math.random() - 0.5) * 0.02),
+              image: (m.logo_url as string) || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&auto=format&fit=crop'
             })
           })
         }
@@ -85,17 +85,18 @@ export default function CustomerRadarPage() {
         const localList = localStorage.getItem('vamo_registered_merchants')
         if (localList) {
           const parsed = JSON.parse(localList)
-          parsed.forEach((m: any) => {
-            if (!collectedStores.some(st => st.name.toLowerCase() === (m.storeName || m.name || '').toLowerCase())) {
+          parsed.forEach((m: Record<string, unknown>) => {
+            const sName = (m.storeName || m.name || '') as string
+            if (!collectedStores.some(st => st.name.toLowerCase() === sName.toLowerCase())) {
               collectedStores.push({
-                id: m.id || Date.now(),
-                name: m.storeName || m.name || 'Mi Negocio VAMO',
-                address: m.address || 'Centro',
-                rating: m.rating || '5.0 ★ (NUEVO)',
-                time: m.prepTime || '10-15 min',
-                category: m.category || 'Restaurante / Comida',
-                lat: m.lat || 20.5230,
-                lng: m.lng || -100.8120,
+                id: (m.id as string | number) || Date.now(),
+                name: sName || 'Mi Negocio VAMO',
+                address: (m.address as string) || 'Centro',
+                rating: (m.rating as string) || '5.0 ★ (NUEVO)',
+                time: (m.prepTime as string) || '10-15 min',
+                category: (m.category as string) || 'Restaurante / Comida',
+                lat: (m.lat as number) || 20.5230,
+                lng: (m.lng as number) || -100.8120,
                 image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&auto=format&fit=crop'
               })
             }
@@ -317,8 +318,8 @@ export default function CustomerRadarPage() {
 
         </aside>
 
-        {/* COLUMNA DERECHA: MAPA VECTORIAL PANORÁMICO */}
-        <div className="relative flex-1 min-h-[580px] h-[calc(100vh-210px)] lg:h-[700px] w-full rounded-[32px] overflow-hidden border border-[#e5e2e1] shadow-xl bg-slate-100">
+        {/* COLUMNA DERECHA: MAPA VECTORIAL PANORÁMICO (Responsive dvh/svh y Safe Viewport) */}
+        <div className="relative flex-1 min-h-[480px] h-[calc(100dvh-240px)] sm:h-[calc(100vh-220px)] lg:h-[700px] w-full rounded-[32px] overflow-hidden border border-[#e5e2e1] shadow-xl bg-slate-100 flex flex-col">
           
           {/* BARRA SUPERIOR MÓVIL (Solo Celular) */}
           <div className="lg:hidden absolute top-3 inset-x-3 z-30 flex gap-2 justify-center pointer-events-auto">
@@ -342,12 +343,18 @@ export default function CustomerRadarPage() {
           </div>
 
           {/* Mapa Universal VamoUniversalMap (WebGL + Leaflet Fail-Safe iOS & Android) */}
-          <div className="w-full h-full min-h-[580px] relative flex-1">
+          <div className="w-full h-full relative flex-1">
             <VamoUniversalMap
               center={userLocation}
               zoom={14.5}
               theme="light"
               mode3D={false}
+              userPosition={hasGps ? {
+                lat: userLocation[0],
+                lng: userLocation[1],
+                accuracyMeters: 25,
+                isLowAccuracy: false
+              } : null}
               waypoints={[
                 ...activeWaypoints,
                 ...(pinnedCoords ? [{
@@ -360,7 +367,7 @@ export default function CustomerRadarPage() {
               ]}
               enableGeolocate={true}
               onMapClick={handleMapClick}
-              className="w-full h-full min-h-[580px]"
+              className="w-full h-full"
             />
           </div>
 

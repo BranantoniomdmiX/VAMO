@@ -118,8 +118,14 @@ class GpsSocketService {
 
       // Guardar función desuscriptora
       this.capabilityUnsubscribe = stopWatchFn
-    }).catch(() => {
-      this.startSimulatedGps(driverId, lat, lng, heading, onUpdate)
+    }).catch((err) => {
+      console.warn('⚠️ [GPS] Error al iniciar DeviceCapabilityService:', err)
+      // En producción: NUNCA simular telemetría automáticamente tras fallo de GPS real
+      if (process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
+        this.startSimulatedGps(driverId, lat, lng, heading, onUpdate)
+      } else {
+        console.warn('🛑 [GPS PRODUCCIÓN] Geolocation no disponible. Transmisión simulada bloqueada por seguridad.')
+      }
     })
   }
 
@@ -132,6 +138,12 @@ class GpsSocketService {
     initialHeading: number,
     onUpdate?: (payload: GpsLocationPayload) => void
   ) {
+    // Protección absoluta: No simular en producción a menos que se fuerce explícitamente modo demo
+    if (process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_DEMO_MODE !== 'true') {
+      console.warn('🛑 [GPS PRODUCCIÓN] startSimulatedGps omitido en ambiente productivo.')
+      return
+    }
+
     let lat = initialLat
     let lng = initialLng
     let heading = initialHeading
@@ -266,7 +278,7 @@ class GpsSocketService {
         const distanceKm = (route.distance / 1000).toFixed(1)
         const durationMin = Math.ceil(route.duration / 60)
 
-        const steps = route.legs?.[0]?.steps?.map((s: any) => {
+        const steps = route.legs?.[0]?.steps?.map((s: { maneuver: { type?: string; modifier?: string }; name?: string; distance: number }) => {
           const type = s.maneuver.type || 'straight'
           const modifier = s.maneuver.modifier || ''
           const street = s.name ? `en ${s.name}` : ''

@@ -6,6 +6,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { Navigation, Box, Map as MapIcon, Moon, Sun, AlertTriangle, RefreshCw, Zap, ShieldCheck, ExternalLink, Copy, Check } from 'lucide-react'
 import { LatLng, LngLat } from '@/lib/services/gpsSocketService'
 import { VamoButton } from '@/components/ui/VamoButton'
+import { UserPositionData } from './mapCommonTypes'
 
 export { MARKER_DENSITY_THRESHOLD, checkWebGLSupport, buildSafeNavigationUrl } from './mapUtils'
 import { MARKER_DENSITY_THRESHOLD, checkWebGLSupport, buildSafeNavigationUrl, WebGLState } from './mapUtils'
@@ -57,6 +58,7 @@ interface VamoMapLibreProps {
   routeCoordinates?: LngLat[]
   routeStatus?: RouteStatus
   gpsStatus?: GpsStatus
+  userPosition?: UserPositionData | null
   className?: string
   enableGeolocate?: boolean
   enableClustering?: boolean
@@ -93,6 +95,7 @@ export default function VamoMapLibre({
   routeCoordinates = [],
   routeStatus = 'idle',
   gpsStatus,
+  userPosition,
   className = 'w-full h-full min-h-[450px]',
   enableGeolocate = true,
   enableClustering,
@@ -108,6 +111,7 @@ export default function VamoMapLibre({
   const mapRef = useRef<maplibregl.Map | null>(null)
   const markersRef = useRef<{ [key: string]: maplibregl.Marker }>({})
   const waypointsRef = useRef<{ [key: string]: maplibregl.Marker }>({})
+  const userMarkerRef = useRef<maplibregl.Marker | null>(null)
   const clusterSourceCreatedRef = useRef(false)
 
   const [isUserInteracting, setIsUserInteracting] = useState(false)
@@ -733,6 +737,59 @@ export default function VamoMapLibre({
       }
     })
   }, [waypoints, isMapLoaded])
+
+  // 7.1 Renderizar Marcador de Ubicación del Usuario ("Mi ubicación") en MapLibre
+  useEffect(() => {
+    if (!mapRef.current || !isMapLoaded) return
+    const map = mapRef.current
+
+    if (!userPosition) {
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove()
+        userMarkerRef.current = null
+      }
+      return
+    }
+
+    const { lat, lng } = userPosition
+    const posLngLat: [number, number] = [lng, lat]
+
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setLngLat(posLngLat)
+    } else {
+      const userEl = document.createElement('div')
+      userEl.style.cssText = 'width: 0px; height: 0px; position: relative; pointer-events: none;'
+      userEl.innerHTML = `
+        <div style="
+          position: absolute; top: -14px; left: -14px;
+          width: 28px; height: 28px; border-radius: 50%;
+          background: #0056D2; opacity: 0.35;
+          animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+        "></div>
+        <div style="
+          position: absolute; top: -9px; left: -9px;
+          width: 18px; height: 18px; border-radius: 50%;
+          background: #0056D2; border: 3px solid #ffffff;
+          box-shadow: 0 3px 8px rgba(0, 86, 210, 0.4);
+        "></div>
+        <div style="
+          position: absolute; top: 12px; left: 0;
+          transform: translateX(-50%); white-space: nowrap;
+          background: #0040A1; color: #C3F400;
+          font-size: 10px; font-weight: 900; font-family: system-ui, sans-serif;
+          padding: 2px 8px; border-radius: 9999px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+        ">
+          Mi ubicación 🎯
+        </div>
+      `
+      const marker = new maplibregl.Marker({ element: userEl, anchor: 'center' })
+        .setLngLat(posLngLat)
+        .addTo(map)
+
+      userMarkerRef.current = marker
+    }
+  }, [userPosition, isMapLoaded])
 
   const recenterOnDriver = () => {
     setIsUserInteracting(false)

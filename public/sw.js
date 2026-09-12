@@ -1,7 +1,9 @@
-// VAMO Progressive Web App (PWA) Service Worker v2.0
-// Resilient Offline Cache Engine & Stale-While-Revalidate Strategy
+// VAMO Progressive Web App (PWA) Service Worker v3.0
+// Resilient Offline Cache Engine & Strict Resource-Segregated Strategies
 
-const CACHE_NAME = 'vamo-offline-cache-v2';
+const CACHE_NAME = 'vamo-offline-cache-v3'
+const TILES_CACHE_NAME = 'vamo-map-tiles-v1'
+
 const STATIC_ASSETS = [
   '/',
   '/offline',
@@ -11,7 +13,7 @@ const STATIC_ASSETS = [
   '/customer/home',
   '/driver/home',
   '/biz'
-];
+]
 
 // Instalación: Precargar recursos estáticos esenciales
 self.addEventListener('install', (event) => {
@@ -22,130 +24,194 @@ self.addEventListener('install', (event) => {
           fetch(url, { cache: 'reload' })
             .then((response) => {
               if (response.ok) {
-                return cache.put(url, response);
+                return cache.put(url, response)
               }
             })
             .catch(() => {
-              // Silencioso si alguna ruta secundaria falla durante el install
+              // Silencioso si alguna ruta falla durante el install
             })
         )
-      );
+      )
     })
-  );
-  self.skipWaiting();
-});
+  )
+  self.skipWaiting()
+})
 
-// Activación: Limpieza de caches obsoletos
+// Activación: Limpieza rigurosa de caches obsoletos
 self.addEventListener('activate', (event) => {
+  const allowedCaches = [CACHE_NAME, TILES_CACHE_NAME]
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
+          if (!allowedCaches.includes(key)) {
+            console.log('🧹 [VAMO PWA SW] Limpiando cache obsoleto:', key)
+            return caches.delete(key)
           }
         })
-      );
+      )
     })
-  );
-  self.clients.claim();
-});
+  )
+  self.clients.claim()
+})
 
-// Estrategia de Fetch Dinámica & Anti-Cuelgues Offline
+// Manejo de mensajes (para recarga segura o skipWaiting)
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting()
+  }
+})
+
+// Estrategia de Fetch Dinámica por Tipo de Recurso
 self.addEventListener('fetch', (event) => {
-  const { request } = event;
-  const url = new URL(request.url);
+  const { request } = event
+  const url = new URL(request.url)
 
-  // Ignorar peticiones no-GET, WebSockets, Supabase Realtime o endpoints de streaming
-  if (request.method !== 'GET') return;
-  if (url.protocol.startsWith('ws')) return;
+  // Ignorar peticiones no-GET, WebSockets o endpoints de streaming/socket
+  if (request.method !== 'GET') return
+  if (url.protocol.startsWith('ws')) return
   if (url.pathname.startsWith('/api/')) {
-    // Para APIs, intentar red directa; si falla, responder JSON amigable offline
-    return;
+    // Para APIs, pasar directo a la red
+    return
   }
 
-  // 1. Recursos estáticos (_next/static, css, fuentes, cdns, imágenes) -> Cache First con actualización en segundo plano
-  const isStaticAsset =
-    url.pathname.startsWith('/_next/static/') ||
-    url.pathname.startsWith('/icons/') ||
-    url.pathname.startsWith('/logos/') ||
-    url.hostname.includes('cdn.tailwindcss.com') ||
-    url.hostname.includes('unpkg.com') ||
-    url.hostname.includes('fonts.googleapis.com') ||
-    url.hostname.includes('fonts.gstatic.com') ||
+  // ==========================================
+  // 1. Map Tiles & Vector Tile Protocols
+  // ==========================================
+  const isMapTile =
     url.hostname.includes('tile.openstreetmap.org') ||
     url.hostname.includes('basemaps.cartocdn.com') ||
     url.hostname.includes('openfreemap.org') ||
+    url.hostname.includes('tiles.openfreemap.org') ||
+    url.pathname.includes('/tiles/') ||
+    url.pathname.endsWith('.pbf')
+
+  if (isMapTile) {
+    // Network First con fallback a caché de teselas. JAMÁS retornar logo-vamo.svg
+    event.respondWith(
+      fetch(request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone()
+            caches.open(TILES_CACHE_NAME).then((cache) => cache.put(request, copy))
+          }
+          return networkResponse
+        })
+        .catch(async () => {
+          const cachedTile = await caches.match(request)
+          if (cachedTile) {
+            return cachedTile
+          }
+          // Error controlado sin romper la tubería gráfica del canvas
+          return new Response(null, { status: 504, statusText: 'Tile Gateway Timeout' })
+        })
+    )
+    return
+  }
+
+  // ==========================================
+  // 2. Recursos Estáticos de Aplicación (JS, CSS, Fuentes)
+  // ==========================================
+  const isAppStatic =
+    url.pathname.startsWith('/_next/static/') ||
+    url.hostname.includes('fonts.googleapis.com') ||
+    url.hostname.includes('fonts.gstatic.com') ||
     request.destination === 'style' ||
     request.destination === 'script' ||
-    request.destination === 'image' ||
-    request.destination === 'font';
+    request.destination === 'font'
 
-  if (isStaticAsset) {
+  if (isAppStatic) {
     event.respondWith(
       caches.match(request).then((cachedResponse) => {
         if (cachedResponse) {
-          // Revalidar en segundo plano
+          // Revalidación en segundo plano
           fetch(request)
             .then((networkResponse) => {
               if (networkResponse && networkResponse.status === 200) {
-                caches.open(CACHE_NAME).then((cache) => cache.put(request, networkResponse));
+                caches.open(CACHE_NAME).then((cache) => cache.put(request, networkResponse))
               }
             })
-            .catch(() => {});
-          return cachedResponse;
+            .catch(() => {})
+          return cachedResponse
         }
+
+        return fetch(request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone()
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy))
+          }
+          return networkResponse
+        })
+      })
+    )
+    return
+  }
+
+  // ==========================================
+  // 3. Imágenes de Interfaz (No Tiles)
+  // ==========================================
+  const isImage =
+    request.destination === 'image' ||
+    url.pathname.startsWith('/icons/') ||
+    url.pathname.startsWith('/logos/')
+
+  if (isImage) {
+    event.respondWith(
+      caches.match(request).then((cachedResponse) => {
+        if (cachedResponse) return cachedResponse
 
         return fetch(request)
           .then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200) {
-              const responseToCache = networkResponse.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(request, responseToCache));
+              const copy = networkResponse.clone()
+              caches.open(CACHE_NAME).then((cache) => cache.put(request, copy))
             }
-            return networkResponse;
+            return networkResponse
           })
-          .catch(() => {
-            // Si es imagen y falló, retornar fallback o null
-            return caches.match('/logo-vamo.svg');
-          });
+          .catch(async () => {
+            // Solo para imágenes de UI generales retornar logo si existe
+            const fallbackLogo = await caches.match('/logo-vamo.svg')
+            return fallbackLogo || new Response(null, { status: 404 })
+          })
       })
-    );
-    return;
+    )
+    return
   }
 
-  // 2. Navegación de páginas HTML (Documentos) -> Network First con timeout (2.5s) y Fallback a Caché / Offline
+  // ==========================================
+  // 4. Navegación de páginas HTML (Documentos)
+  // ==========================================
   if (request.mode === 'navigate') {
     event.respondWith(
       (async () => {
         try {
-          // Intentar red con timeout de 2.5s para no congelar la pantalla en conexiones lentas
           const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Network timeout')), 2500)
-          );
-          const networkResponse = await Promise.race([fetch(request), timeoutPromise]);
+          )
+          const networkResponse = (await Promise.race([fetch(request), timeoutPromise])) as Response
 
           if (networkResponse && networkResponse.status === 200) {
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, responseToCache));
-            return networkResponse;
+            const responseToCache = networkResponse.clone()
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, responseToCache))
+            return networkResponse
           }
-        } catch (err) {
+        } catch {
           // Conexión caída o timeout
         }
 
-        // Si falló la red, buscar en caché la ruta exacta
-        const cachedMatch = await caches.match(request);
+        const cachedMatch = await caches.match(request)
         if (cachedMatch) {
-          return cachedMatch;
+          return cachedMatch
         }
 
-        // Buscar páginas alternativas cacheadas
-        const fallbackPage = await caches.match('/offline') || await caches.match('/customer/home') || await caches.match('/');
+        const fallbackPage =
+          (await caches.match('/offline')) ||
+          (await caches.match('/customer/home')) ||
+          (await caches.match('/'))
         if (fallbackPage) {
-          return fallbackPage;
+          return fallbackPage
         }
 
-        // Último recurso: Retornar respuesta HTML inline de contingencia
         return new Response(
           `<!DOCTYPE html>
           <html lang="es">
@@ -172,8 +238,8 @@ self.addEventListener('fetch', (event) => {
           </body>
           </html>`,
           { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-        );
+        )
       })()
-    );
+    )
   }
-});
+})
