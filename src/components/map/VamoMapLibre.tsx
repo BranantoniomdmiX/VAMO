@@ -6,7 +6,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { Navigation, Box, Map as MapIcon, Moon, Sun, AlertTriangle, RefreshCw, Zap, ShieldCheck, ExternalLink, Copy, Check } from 'lucide-react'
 import { LatLng, LngLat } from '@/lib/services/gpsSocketService'
 import { VamoButton } from '@/components/ui/VamoButton'
-import { UserPositionData } from './mapCommonTypes'
+import { UserPositionData, MapHealthReport } from './mapCommonTypes'
 
 export { MARKER_DENSITY_THRESHOLD, checkWebGLSupport, buildSafeNavigationUrl } from './mapUtils'
 import { MARKER_DENSITY_THRESHOLD, checkWebGLSupport, buildSafeNavigationUrl, WebGLState } from './mapUtils'
@@ -46,7 +46,7 @@ export type GpsStatus =
   | 'active'
   | 'stale'
 
-interface VamoMapLibreProps {
+export interface VamoMapLibreProps {
   center?: LatLng
   zoom?: number
   theme?: 'light' | 'dark'
@@ -68,6 +68,7 @@ interface VamoMapLibreProps {
   onToggle3D?: (is3D: boolean) => void
   onToggleLightweight?: (isLightweight: boolean) => void
   onMapClick?: (coords: { lat: number; lng: number }) => void
+  onHealthChange?: (report: MapHealthReport) => void
   fallbackDetails?: {
     originTitle?: string
     destinationTitle?: string
@@ -105,6 +106,7 @@ export default function VamoMapLibre({
   onToggle3D,
   onToggleLightweight,
   onMapClick,
+  onHealthChange,
   fallbackDetails
 }: VamoMapLibreProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
@@ -113,6 +115,7 @@ export default function VamoMapLibre({
   const waypointsRef = useRef<{ [key: string]: maplibregl.Marker }>({})
   const userMarkerRef = useRef<maplibregl.Marker | null>(null)
   const clusterSourceCreatedRef = useRef(false)
+  const isFatalFailureRef = useRef(false)
 
   const [isUserInteracting, setIsUserInteracting] = useState(false)
   const [isMapLoaded, setIsMapLoaded] = useState(false)
@@ -131,6 +134,13 @@ export default function VamoMapLibre({
   })
   const [retryCount, setRetryCount] = useState(0)
   const [copiedAddress, setCopiedAddress] = useState(false)
+
+  // Helper de notificación de salud a VamoUniversalMap
+  const reportHealth = useCallback((report: MapHealthReport) => {
+    if (onHealthChange) {
+      onHealthChange(report)
+    }
+  }, [onHealthChange])
 
   // Modo Ligero configurable y persistido
   const [isLightweight, setIsLightweight] = useState<boolean>(() => {
@@ -200,11 +210,19 @@ export default function VamoMapLibre({
 
   // 1. Inicialización y Resiliencia de MapLibre GL
   useEffect(() => {
+    isFatalFailureRef.current = false
+
     // Si se fuerza modo fallback explícitamente
     if (forceFallback) {
       setExperienceMode('FALLBACK')
       setWebglState('WEBGL_UNAVAILABLE')
       setWebglError('Modo de visualización operacional sin aceleración gráfica.')
+      reportHealth({
+        state: 'MAPLIBRE_FAILED',
+        failureCategory: 'WEBGL_CONTEXT_UNRECOVERED',
+        message: 'Modo fallback forzado.',
+        fatal: true
+      })
       return
     }
 
@@ -213,10 +231,18 @@ export default function VamoMapLibre({
       setExperienceMode('FALLBACK')
       setWebglState('WEBGL_UNAVAILABLE')
       setWebglError('Tu dispositivo o navegador no tiene aceleración WebGL activa.')
+      reportHealth({
+        state: 'MAPLIBRE_FAILED',
+        failureCategory: 'WEBGL_CONTEXT_UNRECOVERED',
+        message: 'Tu dispositivo o navegador no tiene aceleración WebGL activa.',
+        fatal: true
+      })
       return
     }
 
     if (!mapContainer.current) return
+
+    reportHealth({ state: 'MAPLIBRE_INITIALIZING' })
 
     // Limpieza de marcadores existentes
     Object.values(markersRef.current).forEach(m => {
@@ -241,6 +267,20 @@ export default function VamoMapLibre({
 
     const styleUrl = currentTheme === 'dark' ? STYLE_3D_DARK : STYLE_3D_LIGHT
 
+    // Timeout de inicialización (VAMO_PROJECT_OVERRIDE: 8500ms para conexiones móviles de alta latencia)
+    let initTimeout: NodeJS.Timeout | null = setTimeout(() => {
+      if (!isMapLoaded && !isFatalFailureRef.current) {
+        console.warn('⚠️ [VAMO MapLibre] Timeout de inicialización alcanzado (8.5s). Activando failover.')
+        isFatalFailureRef.current = true
+        reportHealth({
+          state: 'MAPLIBRE_FAILED',
+          failureCategory: 'RENDER_TIMEOUT',
+          message: 'Tiempo de espera de carga de mapa agotado en dispositivo móvil.',
+          fatal: true
+        })
+      }
+    }, 8500)
+
     try {
       const map = new maplibregl.Map({
         container: mapContainer.current,
@@ -262,6 +302,12 @@ export default function VamoMapLibre({
         setWebglState('WEBGL_CONTEXT_LOST')
         setExperienceMode('FALLBACK')
         setWebglError('El acelerador gráfico del dispositivo se reinició temporalmente.')
+        reportHealth({
+          state: 'MAPLIBRE_DEGRADED',
+          failureCategory: 'WEBGL_CONTEXT_UNRECOVERED',
+          message: 'Contexto WebGL perdido.',
+          fatal: false
+        })
       }
 
       const handleContextRestored = () => {
@@ -271,6 +317,7 @@ export default function VamoMapLibre({
         setWebglState('WEBGL_RESTORED')
         setExperienceMode(isLightweight ? 'LIGHTWEIGHT' : 'ENHANCED')
         setWebglError(null)
+        reportHealth({ state: 'MAPLIBRE_READY' })
       }
 
       containerEl.addEventListener('webglcontextlost', handleContextLost, false)
@@ -296,11 +343,38 @@ export default function VamoMapLibre({
       map.on('dragstart', () => setIsUserInteracting(true))
       map.on('zoomstart', () => setIsUserInteracting(true))
 
+      // Manejo inteligente de errores en runtime
       map.on('error', (err) => {
-        console.warn('⚠️ Error interno MapLibre:', err.error?.message || err)
+        const errorMsg = (err.error?.message || '').toLowerCase()
+        console.warn('⚠️ Error runtime MapLibre:', err.error?.message || err)
+
+        // Clasificar severidad: ¿Es fatal para la superficie cartográfica?
+        const isFatalStyle = errorMsg.includes('style') || errorMsg.includes('failed to fetch') || errorMsg.includes('404')
+        const isFatalWebgl = errorMsg.includes('webgl') || errorMsg.includes('context')
+
+        if (isFatalStyle && !isMapLoaded) {
+          isFatalFailureRef.current = true
+          reportHealth({
+            state: 'MAPLIBRE_FAILED',
+            failureCategory: 'STYLE_LOAD_FAILED',
+            message: 'Fallo crítico al descargar el estilo cartográfico de MapLibre.',
+            fatal: true
+          })
+        } else if (isFatalWebgl) {
+          reportHealth({
+            state: 'MAPLIBRE_DEGRADED',
+            failureCategory: 'WEBGL_CONTEXT_UNRECOVERED',
+            message: 'Error de contexto gráfico en tiempo de ejecución.',
+            fatal: false
+          })
+        }
       })
 
       const handleLoadedMap = () => {
+        if (initTimeout) {
+          clearTimeout(initTimeout)
+          initTimeout = null
+        }
         try { map.resize() } catch (e) {}
         setTimeout(() => { try { map.resize() } catch (e) {} }, 150)
         setTimeout(() => { try { map.resize() } catch (e) {} }, 500)
@@ -312,6 +386,7 @@ export default function VamoMapLibre({
         setIsMapLoaded(true)
         setWebglState('WEBGL_AVAILABLE')
         setExperienceMode(isLightweight ? 'LIGHTWEIGHT' : 'ENHANCED')
+        reportHealth({ state: 'MAPLIBRE_READY' })
       }
 
       map.on('load', handleLoadedMap)
@@ -325,6 +400,7 @@ export default function VamoMapLibre({
         pushRouteData(map)
         setIsMapLoaded(true)
         setWebglState('WEBGL_AVAILABLE')
+        reportHealth({ state: 'MAPLIBRE_READY' })
       })
 
       // ResizeObserver con protección contra storms de renderizado
@@ -343,6 +419,7 @@ export default function VamoMapLibre({
       mapRef.current = map
 
       return () => {
+        if (initTimeout) clearTimeout(initTimeout)
         if (resizeTimeout) clearTimeout(resizeTimeout)
         if (resizeObserver) resizeObserver.disconnect()
         containerEl.removeEventListener('webglcontextlost', handleContextLost)
@@ -353,12 +430,19 @@ export default function VamoMapLibre({
         }
       }
     } catch (err: unknown) {
+      if (initTimeout) clearTimeout(initTimeout)
       console.error('Error al inicializar MapLibre:', err)
       setWebglState('WEBGL_DEGRADED')
       setExperienceMode('FALLBACK')
       setWebglError('No se pudo inicializar la superficie cartográfica.')
+      reportHealth({
+        state: 'MAPLIBRE_FAILED',
+        failureCategory: 'UNKNOWN_RENDERER_FAILURE',
+        message: err instanceof Error ? err.message : 'Error desconocido al inicializar MapLibre.',
+        fatal: true
+      })
     }
-  }, [currentTheme, retryCount, isLightweight, forceFallback])
+  }, [currentTheme, retryCount, isLightweight, forceFallback, reportHealth])
 
   // 2. Conmutador 3D / 2D
   const toggle3DMode = () => {

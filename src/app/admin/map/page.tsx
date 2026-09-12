@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { SidebarAdmin } from '@/components/layout/SidebarAdmin'
-import VamoMapLibre, { MapWaypoint } from '@/components/map/VamoMapLibre'
+import VamoUniversalMap, { MapWaypoint } from '@/components/map/VamoUniversalMap'
 import { 
   Building2, 
   MapPin, 
@@ -339,8 +339,8 @@ export default function AdminMapPage() {
           {/* Panel Derecho: Mapa Interactivo MapLibre GL JS (8 Cols) */}
           <div className="lg:col-span-8 relative h-full bg-slate-100">
             
-            {/* Mapa MapLibre */}
-            <VamoMapLibre
+            {/* Mapa Universal con Failover */}
+            <VamoUniversalMap
               center={mapCenter}
               zoom={mapZoom}
               theme={theme}

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { SidebarBase } from '@/components/layout/SidebarBase'
 import { VamoPageHeader } from '@/components/ui/VamoPageHeader'
 import { UserCheck, Clock, Share2, Zap } from 'lucide-react'
-import VamoMapLibre, { DriverMarkerData } from '@/components/map/VamoMapLibre'
+import VamoUniversalMap, { DriverMarkerData } from '@/components/map/VamoUniversalMap'
 import { gpsSocketService } from '@/lib/services/gpsSocketService'
 import { orderRealtimeService, ServiceOrderPayload } from '@/lib/services/orderRealtimeService'
 import { audioService } from '@/lib/services/audioService'
@@ -171,9 +171,9 @@ export default function BaseDispatchPage() {
             </span>
           </div>
 
-          {/* Mapa Macro Operativo de Despacho (MapLibre GL JS Vectorial) */}
+          {/* Mapa Macro Operativo de Despacho (Universal Map: MapLibre con Failover transparente a Leaflet) */}
           <div className="h-80 rounded-[28px] overflow-hidden shadow-sm relative">
-            <VamoMapLibre
+            <VamoUniversalMap
               center={[20.5218, -100.8142]}
               zoom={13}
               theme={theme}

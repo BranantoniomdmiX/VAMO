@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { CustomerLayout } from '@/components/layout/CustomerLayout'
 import { Bike, Phone, Clock } from 'lucide-react'
-import VamoMapLibre, { DriverMarkerData } from '@/components/map/VamoMapLibre'
+import VamoUniversalMap, { DriverMarkerData } from '@/components/map/VamoUniversalMap'
 import { gpsSocketService } from '@/lib/services/gpsSocketService'
 
 import { orderRealtimeService, ServiceOrderPayload } from '@/lib/services/orderRealtimeService'
@@ -200,9 +200,9 @@ export default function CustomerTrackingPage() {
           </div>
         )}
 
-        {/* Mapa Vectorial MapLibre GL JS Persistente y Panorámico con Alta Disponibilidad */}
+        {/* Mapa Universal con Failover de Alta Disponibilidad */}
         <div className="h-96 sm:h-[420px] rounded-[32px] overflow-hidden relative shadow-md border border-[#e5e2e1] dark:border-slate-800 bg-slate-100 dark:bg-slate-900">
-          <VamoMapLibre
+          <VamoUniversalMap
             center={[driverPos?.lat || 20.5218, driverPos?.lng || -100.8142]}
             zoom={15.5}
             theme={theme}

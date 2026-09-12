@@ -5,7 +5,7 @@ import { MobileDriverLayout } from '@/components/layout/MobileDriverLayout'
 import { Navigation, Phone, CheckCircle2, ArrowLeft, ArrowRight, ArrowUpRight, ChevronUp, ChevronDown, Compass, LocateFixed } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import VamoMap from '@/components/map/VamoMap'
-import { DriverMarkerData, MapWaypoint } from '@/components/map/VamoMapLibre'
+import { DriverMarkerData, MapWaypoint } from '@/components/map/VamoUniversalMap'
 import { gpsSocketService, RouteNavigationDetails, LatLng } from '@/lib/services/gpsSocketService'
 
 import { orderRealtimeService, ServiceOrderPayload } from '@/lib/services/orderRealtimeService'

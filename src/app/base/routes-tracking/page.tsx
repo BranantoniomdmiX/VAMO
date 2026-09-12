@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { SidebarBase } from '@/components/layout/SidebarBase'
 import { VamoPageHeader } from '@/components/ui/VamoPageHeader'
 import { Navigation, Bike, Route, MapPin, Clock, Eye, Radio, AlertTriangle, Loader2 } from 'lucide-react'
-import VamoMapLibre, { DriverMarkerData, MapWaypoint } from '@/components/map/VamoMapLibre'
+import VamoUniversalMap, { DriverMarkerData, MapWaypoint } from '@/components/map/VamoUniversalMap'
 import { gpsSocketService } from '@/lib/services/gpsSocketService'
 
 export default function BaseRoutesTrackingPage() {
@@ -204,9 +204,9 @@ export default function BaseRoutesTrackingPage() {
             </div>
           </div>
 
-          {/* MAPA VECTORIAL CON POLILÍNEA DE LA RUTA SEGUIDA */}
+          {/* MAPA VECTORIAL CON POLILÍNEA Y FAILOVER A LEAFLET */}
           <div className="h-[480px] rounded-panel overflow-hidden relative shadow-md border-2 border-[#e5e2e1] dark:border-slate-800">
-            <VamoMapLibre
+            <VamoUniversalMap
               center={[activeDriver.lat, activeDriver.lng]}
               zoom={13.5}
               theme={theme}
@@ -214,16 +214,6 @@ export default function BaseRoutesTrackingPage() {
               drivers={driverMarkers}
               waypoints={waypoints}
               routeCoordinates={liveRoute}
-              routeStatus={routeStatus}
-              fallbackDetails={{
-                originTitle: activeDriver.origin,
-                destinationTitle: activeDriver.destination,
-                destinationLat: activeDriver.endLatLng[0],
-                destinationLng: activeDriver.endLatLng[1],
-                privacyMode: 'exact',
-                orderStatus: activeDriver.status,
-                distanceKm: '3.2'
-              }}
               className="w-full h-full"
             />
           </div>
