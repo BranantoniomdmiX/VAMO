@@ -87,6 +87,9 @@ export default function VamoLeafletMap({
   const userPositionLayerRef = useRef<L.LayerGroup | null>(null)
   const routeLayerRef = useRef<L.Polyline | null>(null)
   const routeCasingRef = useRef<L.Polyline | null>(null)
+  const lastAppliedCenterRef = useRef<[number, number]>([center[0], center[1]])
+  const lastAppliedZoomRef = useRef<number>(zoom)
+  const hasSuccessfulTileRef = useRef<boolean>(false)
 
   const [mapState, setMapState] = useState<MapLoadState>('MAP_INITIALIZING')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -101,6 +104,15 @@ export default function VamoLeafletMap({
   // 1. Inicialización de Leaflet con Manejo de Errores y Diagnóstico de Tiles
   useEffect(() => {
     let isMounted = true
+    hasSuccessfulTileRef.current = false
+
+    let initTimeout: NodeJS.Timeout | null = setTimeout(() => {
+      if (isMounted && !hasSuccessfulTileRef.current) {
+        console.warn('⚠️ [VAMO Leaflet] Timeout de inicialización de teselas agotado (8.5s).')
+        updateState('TILE_ERROR', 'No se pudieron descargar las teselas de cartografía en tiempo y forma.')
+      }
+    }, 8500)
+
     async function initLeaflet() {
       if (!containerRef.current || mapRef.current) return
 
@@ -121,6 +133,9 @@ export default function VamoLeafletMap({
           markerZoomAnimation: true
         })
 
+        lastAppliedCenterRef.current = [center[0], center[1]]
+        lastAppliedZoomRef.current = zoom
+
         L.control.zoom({ position: 'topright' }).addTo(map)
 
         // Tile layer con diagnóstico y eventos
@@ -128,21 +143,39 @@ export default function VamoLeafletMap({
         const tileLayer = L.tileLayer(tileUrl, {
           maxZoom: 19,
           attribution: '&copy; OpenStreetMap Contributors'
-        })
+        }).addTo(map)
 
         tileLayer.on('loading', () => {
-          if (isMounted) updateState('TILE_LOADING')
+          if (isMounted && !hasSuccessfulTileRef.current) updateState('TILE_LOADING')
+        })
+
+        tileLayer.on('tileload', () => {
+          if (isMounted && !hasSuccessfulTileRef.current) {
+            hasSuccessfulTileRef.current = true
+            if (initTimeout) {
+              clearTimeout(initTimeout)
+              initTimeout = null
+            }
+            updateState('MAP_READY')
+          }
         })
 
         tileLayer.on('load', () => {
-          if (isMounted) updateState('MAP_READY')
+          if (isMounted) {
+            hasSuccessfulTileRef.current = true
+            if (initTimeout) {
+              clearTimeout(initTimeout)
+              initTimeout = null
+            }
+            updateState('MAP_READY')
+          }
         })
 
         tileLayer.on('tileerror', () => {
           if (isMounted) {
             setFailedTilesCount(prev => {
               const next = prev + 1
-              if (next >= 4) {
+              if (next >= 4 && !hasSuccessfulTileRef.current) {
                 updateState('TILE_ERROR', 'Dificultad de conexión con el proveedor de mapas.')
               }
               return next
@@ -169,12 +202,12 @@ export default function VamoLeafletMap({
         })
 
         mapRef.current = map
-        updateState('MAP_READY')
 
         // Invalidate size en montura inicial
         setTimeout(() => { if (mapRef.current) mapRef.current.invalidateSize() }, 100)
         setTimeout(() => { if (mapRef.current) mapRef.current.invalidateSize() }, 400)
       } catch (err: unknown) {
+        if (initTimeout) clearTimeout(initTimeout)
         if (isMounted) {
           const msg = err instanceof Error ? err.message : 'Error al inicializar Leaflet'
           updateState('RENDERER_ERROR', msg)
@@ -186,6 +219,7 @@ export default function VamoLeafletMap({
 
     return () => {
       isMounted = false
+      if (initTimeout) clearTimeout(initTimeout)
       if (mapRef.current) {
         mapRef.current.remove()
         mapRef.current = null
@@ -232,16 +266,23 @@ export default function VamoLeafletMap({
     }
   }, [mapState])
 
-  // 3. Actualizar Centro y Zoom sin rebote de cámara
+  // 3. Actualizar Centro y Zoom basado en CAMBIOS SEMÁNTICOS NUMÉRICOS (No referencias de arrays)
   useEffect(() => {
     if (!mapRef.current) return
-    const map = mapRef.current
-    const currentCenter = map.getCenter()
-    const dist = Math.hypot(currentCenter.lat - center[0], currentCenter.lng - center[1])
-    if (dist > 0.0001) {
-      map.setView([center[0], center[1]], zoom, { animate: true })
+
+    const [prevLat, prevLng] = lastAppliedCenterRef.current
+    const prevZoom = lastAppliedZoomRef.current
+
+    // Verificar si los valores numéricos del prop cambiaron realmente
+    const centerChanged = Math.abs(prevLat - center[0]) > 0.00001 || Math.abs(prevLng - center[1]) > 0.00001
+    const zoomChanged = prevZoom !== zoom
+
+    if (centerChanged || zoomChanged) {
+      lastAppliedCenterRef.current = [center[0], center[1]]
+      lastAppliedZoomRef.current = zoom
+      mapRef.current.setView([center[0], center[1]], zoom, { animate: true })
     }
-  }, [center, zoom])
+  }, [center[0], center[1], zoom])
 
   // 4. Renderizar Ubicación Actual del Usuario ("Mi ubicación" + Círculo de Precisión)
   useEffect(() => {
@@ -353,20 +394,38 @@ export default function VamoLeafletMap({
       if (!mapRef.current) return
 
       drivers.forEach(driver => {
-        const glowColor = driver.status === 'DISPONIBLE' ? '#c3f400' : '#0056D2'
-        const dotHtml = `
-          <div style="position: relative; width: 0; height: 0; cursor: pointer;">
-            <div style="
-              position: absolute; top: -7px; left: -7px;
-              width: 14px; height: 14px; border-radius: 50%;
-              background: ${glowColor}; border: 2px solid #ffffff;
-              box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-            "></div>
-          </div>
-        `
-        const icon = L.divIcon({ html: dotHtml, className: 'driver-dot', iconSize: [0, 0] })
-        const marker = L.marker([driver.lat, driver.lng], { icon })
-        group.addLayer(marker)
+        try {
+          if (
+            typeof driver.lat !== 'number' ||
+            typeof driver.lng !== 'number' ||
+            !Number.isFinite(driver.lat) ||
+            !Number.isFinite(driver.lng) ||
+            driver.lat < -90 ||
+            driver.lat > 90 ||
+            driver.lng < -180 ||
+            driver.lng > 180
+          ) {
+            console.warn(`[VAMO Leaflet] Conductor ignorado por coordenadas inválidas:`, driver)
+            return
+          }
+
+          const glowColor = driver.status === 'DISPONIBLE' ? '#c3f400' : '#0056D2'
+          const dotHtml = `
+            <div style="position: relative; width: 0; height: 0; cursor: pointer;">
+              <div style="
+                position: absolute; top: -7px; left: -7px;
+                width: 14px; height: 14px; border-radius: 50%;
+                background: ${glowColor}; border: 2px solid #ffffff;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+              "></div>
+            </div>
+          `
+          const icon = L.divIcon({ html: dotHtml, className: 'driver-dot', iconSize: [0, 0] })
+          const marker = L.marker([driver.lat, driver.lng], { icon })
+          group.addLayer(marker)
+        } catch (driverErr) {
+          console.warn('[VAMO Leaflet] Error aislado al agregar conductor:', driverErr)
+        }
       })
     })
   }, [drivers])
@@ -383,24 +442,42 @@ export default function VamoLeafletMap({
       if (!mapRef.current) return
 
       waypoints.forEach(wp => {
-        const isOrigin = wp.type === 'ORIGIN'
-        const wpIconHtml = `
-          <div style="position: relative; width: 0; height: 0; cursor: pointer;">
-            <div style="
-              position: absolute; bottom: 0; left: 0;
-              transform: translate(-50%, -100%);
-              background: ${isOrigin ? '#0040A1' : '#ba1a1a'};
-              color: white; padding: 4px 8px; border-radius: 8px;
-              font-size: 11px; font-weight: 800; white-space: nowrap;
-              border: 1.5px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-            ">
-              ${isOrigin ? '🏪' : '📍'} ${wp.title}
+        try {
+          if (
+            typeof wp.lat !== 'number' ||
+            typeof wp.lng !== 'number' ||
+            !Number.isFinite(wp.lat) ||
+            !Number.isFinite(wp.lng) ||
+            wp.lat < -90 ||
+            wp.lat > 90 ||
+            wp.lng < -180 ||
+            wp.lng > 180
+          ) {
+            console.warn(`[VAMO Leaflet] Waypoint ignorado por coordenadas inválidas:`, wp)
+            return
+          }
+
+          const isOrigin = wp.type === 'ORIGIN'
+          const wpIconHtml = `
+            <div style="position: relative; width: 0; height: 0; cursor: pointer;">
+              <div style="
+                position: absolute; bottom: 0; left: 0;
+                transform: translate(-50%, -100%);
+                background: ${isOrigin ? '#0040A1' : '#ba1a1a'};
+                color: white; padding: 4px 8px; border-radius: 8px;
+                font-size: 11px; font-weight: 800; white-space: nowrap;
+                border: 1.5px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+              ">
+                ${isOrigin ? '🏪' : '📍'} ${wp.title}
+              </div>
             </div>
-          </div>
-        `
-        const icon = L.divIcon({ html: wpIconHtml, className: 'wp-marker', iconSize: [0, 0] })
-        const marker = L.marker([wp.lat, wp.lng], { icon })
-        group.addLayer(marker)
+          `
+          const icon = L.divIcon({ html: wpIconHtml, className: 'wp-marker', iconSize: [0, 0] })
+          const marker = L.marker([wp.lat, wp.lng], { icon })
+          group.addLayer(marker)
+        } catch (wpErr) {
+          console.warn('[VAMO Leaflet] Error aislado al agregar waypoint:', wpErr)
+        }
       })
     })
   }, [waypoints])

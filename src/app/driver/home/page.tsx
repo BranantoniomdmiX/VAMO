@@ -6,6 +6,7 @@ import { Bike, Power, Wallet, Trophy, ArrowRight, ShieldCheck, MapPin, Flame, Aw
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import VamoUniversalMap from '@/components/map/VamoUniversalMap'
+import { UserPositionData } from '@/components/map/mapCommonTypes'
 import { gpsSocketService } from '@/lib/services/gpsSocketService'
 import { PushNotificationBanner } from '@/components/ui/PushNotificationBanner'
 import { formatCurrencyMXN } from '@/lib/utils/formatters'
@@ -82,12 +83,24 @@ export default function DriverHomePage() {
     loadDriverData()
   }, [])
 
+  const [driverPosition, setDriverPosition] = useState<UserPositionData | null>(null)
+
   // Desconexión inteligente de GPS y Estado en la Base Operativa
   useEffect(() => {
     if (isAvailable) {
       // Iniciar transmisión de GPS en vivo a la Base Operativa y VPS
-      gpsSocketService.startGpsTransmitter('MOTO-01', (_pos) => {
-        // Transmite en background sin forzar la cámara del mapa
+      gpsSocketService.startGpsTransmitter('MOTO-01', (pos) => {
+        // Mueve el marcador en tiempo real preservando la cámara del chofer
+        if (pos && typeof pos.lat === 'number' && typeof pos.lng === 'number' && isFinite(pos.lat) && isFinite(pos.lng)) {
+          setDriverPosition({
+            lat: pos.lat,
+            lng: pos.lng,
+            heading: typeof pos.heading === 'number' ? pos.heading : null,
+            speed: typeof pos.speed === 'number' ? pos.speed : null,
+            accuracyMeters: pos.accuracyMeters,
+            runtimeState: 'ACTIVE'
+          })
+        }
       })
     } else {
       // Apagar GPS de inmediato para que la Base Operativa no lo vea en ruta
@@ -97,6 +110,7 @@ export default function DriverHomePage() {
     // Al cerrar la pestaña, cambiar de rol o salir de la app, desconectar automáticamente
     return () => {
       gpsSocketService.setDriverOffline('MOTO-01')
+      setDriverPosition(null)
     }
   }, [isAvailable])
 
@@ -465,8 +479,17 @@ export default function DriverHomePage() {
             {/* Contenedor Mapa Libre Vectorial con Selector Día (Sol) / Noche */}
             <div className="h-96 rounded-[28px] overflow-hidden shadow-md relative border border-slate-300">
               
-              {/* Botón Flotante Superior: Modo Sol (Día) vs Noche para Pantallas Bajo el Sol */}
+              {/* Botón Flotante Superior: Modo Sol (Día) vs Noche para Pantallas Bajo el Sol + Mi Ubicación */}
               <div className="absolute top-3 right-3 z-30 flex items-center gap-1.5 bg-white/95 backdrop-blur-md p-1 rounded-full shadow-lg border border-slate-200">
+                {driverPosition && (
+                  <button
+                    onClick={() => setMapCenter([driverPosition.lat, driverPosition.lng])}
+                    className="px-3 py-1 rounded-full text-[11px] font-black flex items-center gap-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-all border border-emerald-200"
+                    title="Centrar en mi ubicación"
+                  >
+                    <span>Mi ubicación 🎯</span>
+                  </button>
+                )}
                 <button
                   onClick={() => setMapTheme('light')}
                   className={`px-3 py-1 rounded-full text-[11px] font-black flex items-center gap-1 transition-all ${
@@ -496,6 +519,8 @@ export default function DriverHomePage() {
                 mode3D={false}
                 drivers={[]}
                 waypoints={[]}
+                userPosition={driverPosition}
+                enableGeolocate={true}
                 heatZones={hotZones.map(zone => ({
                   id: zone.id,
                   lat: zone.lat,

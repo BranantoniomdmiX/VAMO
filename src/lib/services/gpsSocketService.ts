@@ -10,6 +10,7 @@ export interface GpsLocationPayload {
   speed: number
   timestamp: string
   isRealGps?: boolean
+  accuracyMeters?: number
 }
 
 export type LatLng = [number, number]
@@ -100,7 +101,8 @@ class GpsSocketService {
             heading: realHeading,
             speed: realSpeed,
             timestamp: new Date(normalized.timestamp).toISOString(),
-            isRealGps: true
+            isRealGps: true,
+            accuracyMeters: normalized.coords.accuracy || undefined
           }
 
           if (this.socket && this.socket.connected) {

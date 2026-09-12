@@ -137,7 +137,9 @@ export default function VamoUniversalMap(props: VamoUniversalMapProps) {
       onStateChange(state)
     }
     if (state === 'TILE_ERROR' || state === 'RENDERER_ERROR') {
-      console.warn('⚠️ [VamoUniversalMap] Leaflet reportó fallo de cartografía.')
+      console.warn('⚠️ [VamoUniversalMap] Leaflet reportó fallo crítico de cartografía. Promoviendo a OPERATIONAL_FALLBACK.')
+      setOperationalError('No se pudieron descargar las teselas de cartografía en este dispositivo. Puedes reintentar o consultar la información operativa en texto.')
+      setActiveEngine('OPERATIONAL_FALLBACK')
     }
   }, [onStateChange])
 

@@ -39,6 +39,7 @@ export default function CustomerRadarPage() {
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [userLocation, setUserLocation] = useState<[number, number]>([20.5218, -100.8142])
   const [hasGps, setHasGps] = useState<boolean>(false)
+  const [userAccuracy, setUserAccuracy] = useState<number | undefined>(undefined)
   const [selectedPinAddress, setSelectedPinAddress] = useState<string | null>(null)
   const [pinnedCoords, setPinnedCoords] = useState<{ lat: number; lng: number } | null>(null)
 
@@ -47,6 +48,20 @@ export default function CustomerRadarPage() {
   const [selectedStore, setSelectedStore] = useState<StoreItem | null>(null)
   const [selectedPromo, setSelectedPromo] = useState<PromoItem | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+
+  // Helper de validación de coordenadas geográficas
+  const isValidCoordinate = (lat: unknown, lng: unknown): boolean => {
+    return (
+      typeof lat === 'number' &&
+      typeof lng === 'number' &&
+      Number.isFinite(lat) &&
+      Number.isFinite(lng) &&
+      lat >= -90 &&
+      lat <= 90 &&
+      lng >= -180 &&
+      lng <= 180
+    )
+  }
 
   // 1. Cargar Comercios Reales de Supabase + Local Storage
   useEffect(() => {
@@ -63,17 +78,26 @@ export default function CustomerRadarPage() {
 
         if (dbMerchants && dbMerchants.length > 0) {
           dbMerchants.forEach((m: Record<string, unknown>, idx: number) => {
-            collectedStores.push({
-              id: (m.id as string) || `db-${idx}`,
-              name: (m.name as string) || 'Comercio Afiliado',
-              address: (m.address as string) || 'Ubicación registrada',
-              rating: '5.0 ★',
-              time: '12-18 min',
-              category: (m.category as string) || 'Comercio General',
-              lat: (m.latitude as number) || (20.5218 + (Math.random() - 0.5) * 0.02),
-              lng: (m.longitude as number) || (-100.8142 + (Math.random() - 0.5) * 0.02),
-              image: (m.logo_url as string) || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&auto=format&fit=crop'
-            })
+            try {
+              const rawLat = Number(m.latitude)
+              const rawLng = Number(m.longitude)
+              const lat = isValidCoordinate(rawLat, rawLng) ? rawLat : (20.5218 + (Math.random() - 0.5) * 0.02)
+              const lng = isValidCoordinate(rawLat, rawLng) ? rawLng : (-100.8142 + (Math.random() - 0.5) * 0.02)
+
+              collectedStores.push({
+                id: (m.id as string) || `db-${idx}`,
+                name: (m.name as string) || 'Comercio Afiliado',
+                address: (m.address as string) || 'Ubicación registrada',
+                rating: '5.0 ★',
+                time: '12-18 min',
+                category: (m.category as string) || 'Comercio General',
+                lat,
+                lng,
+                image: (m.logo_url as string) || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&auto=format&fit=crop'
+              })
+            } catch (err) {
+              console.warn('Comercio ignorado por datos defectuosos:', err)
+            }
           })
         }
       } catch (e) {
@@ -86,19 +110,28 @@ export default function CustomerRadarPage() {
         if (localList) {
           const parsed = JSON.parse(localList)
           parsed.forEach((m: Record<string, unknown>) => {
-            const sName = (m.storeName || m.name || '') as string
-            if (!collectedStores.some(st => st.name.toLowerCase() === sName.toLowerCase())) {
-              collectedStores.push({
-                id: (m.id as string | number) || Date.now(),
-                name: sName || 'Mi Negocio VAMO',
-                address: (m.address as string) || 'Centro',
-                rating: (m.rating as string) || '5.0 ★ (NUEVO)',
-                time: (m.prepTime as string) || '10-15 min',
-                category: (m.category as string) || 'Restaurante / Comida',
-                lat: (m.lat as number) || 20.5230,
-                lng: (m.lng as number) || -100.8120,
-                image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&auto=format&fit=crop'
-              })
+            try {
+              const sName = (m.storeName || m.name || '') as string
+              if (!collectedStores.some(st => st.name.toLowerCase() === sName.toLowerCase())) {
+                const rawLat = Number(m.lat)
+                const rawLng = Number(m.lng)
+                const lat = isValidCoordinate(rawLat, rawLng) ? rawLat : 20.5230
+                const lng = isValidCoordinate(rawLat, rawLng) ? rawLng : -100.8120
+
+                collectedStores.push({
+                  id: (m.id as string | number) || Date.now(),
+                  name: sName || 'Mi Negocio VAMO',
+                  address: (m.address as string) || 'Centro',
+                  rating: (m.rating as string) || '5.0 ★ (NUEVO)',
+                  time: (m.prepTime as string) || '10-15 min',
+                  category: (m.category as string) || 'Restaurante / Comida',
+                  lat,
+                  lng,
+                  image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&auto=format&fit=crop'
+                })
+              }
+            } catch (err) {
+              console.warn('Comercio local ignorado por datos defectuosos:', err)
             }
           })
         }
@@ -127,24 +160,33 @@ export default function CustomerRadarPage() {
     loadRealData()
   }, [])
 
-  // 2. Autodetección de GPS
+  // 2. Autodetección de GPS con validación estricta de coordenadas
   useEffect(() => {
     import('@/lib/services/deviceCapabilityService').then(({ deviceCapabilityService }) => {
       deviceCapabilityService.getCurrentPosition({
         enableHighAccuracy: true,
         timeout: 8000
       }).then(normalized => {
-        const coords: [number, number] = [normalized.coords.latitude, normalized.coords.longitude]
-        setUserLocation(coords)
-        setHasGps(true)
-        localStorage.setItem('vamo_user_gps', JSON.stringify({ lat: coords[0], lng: coords[1] }))
+        const lat = normalized.coords.latitude
+        const lng = normalized.coords.longitude
+        if (isValidCoordinate(lat, lng)) {
+          setUserLocation([lat, lng])
+          setHasGps(true)
+          setUserAccuracy(normalized.coords.accuracy)
+          localStorage.setItem('vamo_user_gps', JSON.stringify({ lat, lng, accuracy: normalized.coords.accuracy }))
+        }
       }).catch(err => {
         console.warn('GPS no disponible, usando ubicación guardada:', err.message)
         const cached = localStorage.getItem('vamo_user_gps')
         if (cached) {
           try {
             const parsed = JSON.parse(cached)
-            setUserLocation([parsed.lat, parsed.lng])
+            if (isValidCoordinate(parsed.lat, parsed.lng)) {
+              setUserLocation([parsed.lat, parsed.lng])
+              if (typeof parsed.accuracy === 'number') {
+                setUserAccuracy(parsed.accuracy)
+              }
+            }
           } catch (e) {}
         }
       })
@@ -352,7 +394,7 @@ export default function CustomerRadarPage() {
               userPosition={hasGps ? {
                 lat: userLocation[0],
                 lng: userLocation[1],
-                accuracyMeters: 25,
+                accuracyMeters: userAccuracy ?? 25,
                 isLowAccuracy: false
               } : null}
               waypoints={[

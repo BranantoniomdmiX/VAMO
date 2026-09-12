@@ -11,8 +11,23 @@ import { audioService } from '@/lib/services/audioService'
 import { createClient } from '@/lib/supabase/client'
 import { OVERFLOW_TIMEOUT_SECONDS } from '@/lib/services/antiFraudService'
 
+// Coordenadas fijas de la base operativa (Centro Celaya) estables en memoria
+const BASE_DEFAULT_CENTER: [number, number] = [20.5218, -100.8142]
+
+export interface DispatchOrderItem {
+  id: string
+  origin: string
+  destination: string
+  customer: string
+  status: 'assigned' | 'unassigned'
+  driver?: string
+  elapsedSeconds: number
+  primaryFleet: string
+  overflowFleet: string
+}
+
 export default function BaseDispatchPage() {
-  const [orders, setOrders] = useState<any[]>([])
+  const [orders, setOrders] = useState<DispatchOrderItem[]>([])
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const [fleet, setFleet] = useState<DriverMarkerData[]>([])
 
@@ -59,20 +74,40 @@ export default function BaseDispatchPage() {
     return () => clearInterval(timer)
   }, [])
 
-  // Suscribirse a actualizaciones GPS en vivo de la flota y a Realtime de órdenes
+  // Suscribirse a actualizaciones GPS en vivo de la flota con lógica UPSERT (no duplicados)
   useEffect(() => {
     const unsubscribeGps = gpsSocketService.subscribeLivePositions((payload) => {
-      setFleet(prev => prev.map(driver => {
-        if (driver.id === payload.id_moto) {
-          return {
-            ...driver,
+      const driverId = payload.id_moto || payload.driverId
+      if (!driverId) return
+
+      setFleet(prev => {
+        const exists = prev.some(d => d.id === driverId)
+        if (exists) {
+          return prev.map(d => {
+            if (d.id === driverId) {
+              return {
+                ...d,
+                lat: payload.lat,
+                lng: payload.lng,
+                heading: payload.heading ?? d.heading,
+                speed: payload.speed ?? d.speed
+              }
+            }
+            return d
+          })
+        } else {
+          const newDriver: DriverMarkerData = {
+            id: driverId,
+            name: `Móvil ${driverId}`,
             lat: payload.lat,
             lng: payload.lng,
-            heading: payload.heading
+            heading: payload.heading,
+            speed: payload.speed,
+            status: 'EN_SERVICIO'
           }
+          return [...prev, newDriver]
         }
-        return driver
-      }))
+      })
     })
 
     const unsubscribeRealtime = orderRealtimeService.subscribeToOrders(
@@ -174,7 +209,7 @@ export default function BaseDispatchPage() {
           {/* Mapa Macro Operativo de Despacho (Universal Map: MapLibre con Failover transparente a Leaflet) */}
           <div className="h-80 rounded-[28px] overflow-hidden shadow-sm relative">
             <VamoUniversalMap
-              center={[20.5218, -100.8142]}
+              center={BASE_DEFAULT_CENTER}
               zoom={13}
               theme={theme}
               drivers={fleet}
