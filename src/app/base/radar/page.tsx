@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { SidebarBase } from '@/components/layout/SidebarBase'
+import { VamoPageHeader } from '@/components/ui/VamoPageHeader'
 import { Bike, Battery, Navigation } from 'lucide-react'
 import VamoUniversalMap, { DriverMarkerData } from '@/components/map/VamoUniversalMap'
 import { gpsSocketService } from '@/lib/services/gpsSocketService'
@@ -47,38 +48,40 @@ export default function BaseRadarPage() {
       <SidebarBase activeTab="radar" />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-[#e5e2e1] px-4 md:px-8 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-          <div>
-            <h1 className="text-xl md:text-2xl font-extrabold text-[#0040a1]">Radar Operativo Macro en Tiempo Real</h1>
-            <p className="text-xs text-slate-500 font-semibold">Monitor GPS vectorial con telemetría de batería y velocidad de choferes</p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-full border border-slate-200">
-              <button
-                onClick={() => setMapTheme('light')}
-                className={`px-3 py-1 rounded-full text-xs font-black transition-all cursor-pointer ${
-                  mapTheme === 'light' ? 'bg-[#0040a1] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                ☀️ Día (Claro)
-              </button>
-              <button
-                onClick={() => setMapTheme('dark')}
-                className={`px-3 py-1 rounded-full text-xs font-black transition-all cursor-pointer ${
-                  mapTheme === 'dark' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                🌙 Noche (Oscuro)
-              </button>
-            </div>
-
-            <span className="bg-[#c3f400] text-[#161e00] px-4 py-1.5 rounded-full text-xs font-black flex items-center gap-1.5 shadow-xs">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#161e00] animate-pulse" />
-              12 Motos Conectadas
-            </span>
-          </div>
-        </header>
+        <div className="px-4 md:px-8 pt-6 pb-2">
+          <VamoPageHeader
+            title="Radar Operativo en Tiempo Real"
+            description="Monitor GPS vectorial con telemetría de batería y velocidad de choferes"
+            badge={
+              <span className="bg-[#c3f400] text-[#161e00] px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#161e00] animate-pulse" />
+                12 Motos Conectadas
+              </span>
+            }
+            secondaryActions={
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-full border border-slate-200">
+                <button
+                  onClick={() => setMapTheme('light')}
+                  aria-pressed={mapTheme === 'light'}
+                  className={`px-3 py-1.5 rounded-full text-xs font-black transition-all cursor-pointer ${
+                    mapTheme === 'light' ? 'bg-[#0040a1] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  ☀️ Día
+                </button>
+                <button
+                  onClick={() => setMapTheme('dark')}
+                  aria-pressed={mapTheme === 'dark'}
+                  className={`px-3 py-1.5 rounded-full text-xs font-black transition-all cursor-pointer ${
+                    mapTheme === 'dark' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  🌙 Noche
+                </button>
+              </div>
+            }
+          />
+        </div>
 
         <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
           {/* Mapa GPS Interactivo Universal (MapLibre + Leaflet Fail-Safe) */}

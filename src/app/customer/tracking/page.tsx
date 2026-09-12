@@ -5,6 +5,9 @@ import { CustomerLayout } from '@/components/layout/CustomerLayout'
 import Link from 'next/link'
 import { Package, Clock, CheckCircle2, ChevronRight, MapPin, Store, ArrowRight, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { VamoStatusBadge } from '@/components/ui/VamoStatusBadge'
+import { VamoEmptyState } from '@/components/ui/VamoEmptyState'
+import { formatCurrencyMXN } from '@/lib/utils/formatters'
 
 interface OrderSummary {
   id: string
@@ -101,65 +104,58 @@ export default function CustomerOrdersListPage() {
             <span className="text-xs font-bold">Consultando pedidos en Supabase...</span>
           </div>
         ) : orders.length === 0 ? (
-          <div className="bg-white p-8 rounded-[28px] border border-[#e5e2e1] text-center space-y-3 shadow-xs">
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-[#0056d2] flex items-center justify-center mx-auto text-xl">
-              📦
-            </div>
-            <div>
-              <h3 className="text-base font-black text-slate-900">Aún no tienes pedidos registrados</h3>
-              <p className="text-xs text-slate-500 font-semibold mt-1">
-                Tus compras en comercios locales y envíos punto a punto aparecerán aquí en vivo.
-              </p>
-            </div>
-            <Link
-              href="/customer/quote"
-              className="inline-block bg-[#0056d2] text-white px-5 py-2.5 rounded-full text-xs font-black active:scale-95 transition-all shadow-xs"
-            >
-              Cotizar mi Primer Envío
-            </Link>
+          <div className="bg-white p-6 rounded-[28px] border border-[#e5e2e1] shadow-xs">
+            <VamoEmptyState
+              icon={<Package className="w-8 h-8 text-[#0056d2]" />}
+              title="Aún no tienes pedidos registrados"
+              description="Tus compras en comercios locales y envíos punto a punto aparecerán aquí en vivo."
+              actionLabel="Cotizar mi Primer Envío"
+              onAction={() => window.location.href = '/customer/quote'}
+            />
           </div>
         ) : (
           <div className="space-y-3">
-            {orders.map(order => (
-              <Link
-                key={order.id}
-                href={order.trackingUrl}
-                className="block bg-white p-5 rounded-[24px] border border-[#e5e2e1] shadow-sm hover:border-[#0056d2] transition-all group"
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Store className="w-4 h-4 text-[#0056d2]" />
-                      <strong className="text-sm sm:text-base font-black text-[#1c1b1b]">{order.merchantName}</strong>
+            {orders.map(order => {
+              const statusMap: Record<string, string> = {
+                'EN_CAMINO': 'EN_RUTA',
+                'ENTREGADO': 'ENTREGADO',
+                'CANCELADO': 'CANCELADO',
+                'PREPARANDO': 'PREPARANDO',
+                'PENDIENTE': 'PENDIENTE'
+              }
+              const badgeStatus = statusMap[order.status] || 'PENDIENTE'
+
+              return (
+                <Link
+                  key={order.id}
+                  href={order.trackingUrl}
+                  className="block bg-white p-5 rounded-[24px] border border-[#e5e2e1] shadow-sm hover:border-[#0056d2] transition-all group"
+                >
+                  <div className="flex justify-between items-start mb-2 gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Store className="w-4 h-4 text-[#0056d2]" />
+                        <strong className="text-sm sm:text-base font-black text-[#1c1b1b]">{order.merchantName}</strong>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-400 block">{order.code} &bull; {order.date}</span>
                     </div>
-                    <span className="text-[10px] font-bold text-slate-400 block">{order.code} &bull; {order.date}</span>
+
+                    <VamoStatusBadge status={badgeStatus} size="sm" />
                   </div>
 
-                  <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase ${
-                    order.status === 'EN_CAMINO'
-                      ? 'bg-[#c3f400] text-[#161e00] animate-pulse'
-                      : order.status === 'ENTREGADO'
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : order.status === 'CANCELADO'
-                      ? 'bg-rose-100 text-rose-800'
-                      : 'bg-amber-100 text-amber-800'
-                  }`}>
-                    {order.status === 'EN_CAMINO' ? '🛵 En Camino' : order.status === 'ENTREGADO' ? '✓ Entregado' : order.status}
-                  </span>
-                </div>
+                  <p className="text-xs text-slate-600 font-semibold mb-3">
+                    {order.itemsSummary}
+                  </p>
 
-                <p className="text-xs text-slate-600 font-semibold mb-3">
-                  {order.itemsSummary}
-                </p>
-
-                <div className="flex justify-between items-center pt-2 border-t border-slate-100 text-xs font-black">
-                  <span className="text-slate-900">${order.total.toFixed(2)} MXN</span>
-                  <span className="text-[#0056d2] flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                    Ver Tracking en Vivo <ChevronRight className="w-4 h-4" />
-                  </span>
-                </div>
-              </Link>
-            ))}
+                  <div className="flex justify-between items-center pt-2 border-t border-slate-100 text-xs font-black">
+                    <span className="text-slate-900">{formatCurrencyMXN(order.total)}</span>
+                    <span className="text-[#0056d2] flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                      Ver Tracking en Vivo <ChevronRight className="w-4 h-4" />
+                    </span>
+                  </div>
+                </Link>
+              )
+            })}
           </div>
         )}
 

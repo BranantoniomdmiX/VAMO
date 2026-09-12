@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { SidebarBase } from '@/components/layout/SidebarBase'
+import { VamoPageHeader } from '@/components/ui/VamoPageHeader'
 import { DollarSign, CheckCircle2, Wallet, ArrowDownRight, Printer, Receipt, ShieldCheck, Lock, Unlock, AlertCircle } from 'lucide-react'
 import { WalletService, UserWallet } from '@/lib/services/walletService'
 
@@ -81,12 +82,17 @@ export default function BaseCashierPage() {
       <SidebarBase activeTab="cashier" />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-[#e5e2e1] px-4 md:px-8 py-4 flex justify-between items-center shadow-xs">
-          <div>
-            <h1 className="text-xl md:text-2xl font-extrabold text-[#0040a1]">Caja Física y Arqueo COD</h1>
-            <p className="text-xs text-slate-500 font-semibold">Recepción de efectivo recolectado y liberación de límites ($1,500 MXN)</p>
-          </div>
-        </header>
+        <div className="px-4 md:px-8 pt-6 pb-2">
+          <VamoPageHeader
+            title="Caja Física & Arqueo COD"
+            description="Recepción de efectivo recolectado y liberación de límites ($1,500 MXN por conductor)"
+            badge={
+              <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-3 py-1 rounded-full">
+                💵 CAJA ACTIVA
+              </span>
+            }
+          />
+        </div>
 
         <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
           

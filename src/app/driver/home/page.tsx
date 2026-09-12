@@ -8,6 +8,8 @@ import { useRouter } from 'next/navigation'
 import VamoUniversalMap from '@/components/map/VamoUniversalMap'
 import { gpsSocketService } from '@/lib/services/gpsSocketService'
 import { PushNotificationBanner } from '@/components/ui/PushNotificationBanner'
+import { formatCurrencyMXN } from '@/lib/utils/formatters'
+import { VamoEmptyState } from '@/components/ui/VamoEmptyState'
 
 export default function DriverHomePage() {
   const router = useRouter()
@@ -205,11 +207,14 @@ export default function DriverHomePage() {
         <PushNotificationBanner role="driver" />
 
         {/* Switch Gigante DISPONIBLE / NO DISPONIBLE (Verde VAMO Oficial + Cero Desbordes) */}
-
-        <div 
+        <button 
+          type="button"
+          role="switch"
+          aria-checked={isAvailable}
+          aria-label={isAvailable ? 'Cambiar a no disponible' : 'Iniciar turno y conectar'}
           onClick={handleToggleAvailable}
           className={`
-            p-5 rounded-[28px] cursor-pointer transition-all duration-300 shadow-md flex items-center justify-between border-2 active:scale-98
+            w-full p-5 rounded-[28px] cursor-pointer transition-all duration-300 shadow-md flex items-center justify-between border-2 active:scale-98 text-left
             ${isAvailable 
               ? 'bg-[#c3f400] border-[#abd600] text-[#161e00]' 
               : 'bg-[#f0eded] border-[#e5e2e1] text-[#737785]'}
@@ -235,18 +240,23 @@ export default function DriverHomePage() {
           <div className={`relative w-14 h-8 rounded-full transition-colors duration-200 shrink-0 ${isAvailable ? 'bg-[#161e00]' : 'bg-[#c3c6d6]'}`}>
             <div className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-md transition-all duration-200 ${isAvailable ? 'right-1' : 'left-1'}`} />
           </div>
-        </div>
+        </button>
 
         {/* Modal de Inicio de Turno SOP-RID-002 */}
         {showShiftChecklist && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white rounded-[32px] max-w-sm w-full p-6 space-y-4 shadow-2xl border border-[#e5e2e1]">
+            <div 
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="shift-checklist-title"
+              className="bg-white rounded-[32px] max-w-sm w-full p-6 space-y-4 shadow-2xl border border-[#e5e2e1]"
+            >
               <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
                 <div className="w-10 h-10 rounded-2xl bg-[#0040a1] text-[#c3f400] flex items-center justify-center font-black">
                   📋
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900">Checklist Inicio de Turno</h3>
+                  <h3 id="shift-checklist-title" className="text-base font-black text-slate-900">Checklist Inicio de Turno</h3>
                   <span className="text-[10px] font-bold text-slate-500">SOP-RID-002 &bull; Protocolo Oficial VAMO</span>
                 </div>
               </div>
@@ -588,7 +598,7 @@ export default function DriverHomePage() {
                   <Wallet className="w-4 h-4" />
                   <span>Ganancias Hoy</span>
                 </div>
-                <p className="text-xl font-extrabold text-[#1c1b1b]">${earningsToday.toFixed(2)}</p>
+                <p className="text-xl font-extrabold text-[#1c1b1b]">{formatCurrencyMXN(earningsToday)}</p>
                 <span className="text-[10px] font-semibold text-[#737785]">{tripsCompletedToday} viajes realizados</span>
               </div>
 
@@ -597,7 +607,7 @@ export default function DriverHomePage() {
                   <Trophy className="w-4 h-4 text-[#fddf33]" />
                   <span>Bono Meta</span>
                 </div>
-                <p className="text-xl font-extrabold text-[#1c1b1b]">${tripsCompletedToday >= 8 ? '150.00' : '0.00'}</p>
+                <p className="text-xl font-extrabold text-[#1c1b1b]">{formatCurrencyMXN(tripsCompletedToday >= 8 ? 150 : 0)}</p>
                 <span className="text-[10px] font-bold text-[#c3f400] bg-[#161e00] px-1.5 py-0.5 rounded">
                   {tripsCompletedToday >= 8 ? '¡Meta Lograda!' : `Faltan ${Math.max(0, 8 - tripsCompletedToday)} viajes`}
                 </span>
@@ -611,7 +621,7 @@ export default function DriverHomePage() {
                   <span className="bg-[#c3f400] text-[#161e00] text-[10px] font-black px-2.5 py-1 rounded-full uppercase">
                     OFERTA DISPONIBLE #{activePendingOffer.code}
                   </span>
-                  <span className="text-xs font-extrabold text-[#ccd8ff]">Ganancia: ${Number(activePendingOffer.earnings).toFixed(2)}</span>
+                  <span className="text-xs font-extrabold text-[#ccd8ff]">Ganancia: {formatCurrencyMXN(activePendingOffer.earnings)}</span>
                 </div>
 
                 <div>
@@ -621,21 +631,20 @@ export default function DriverHomePage() {
 
                 <Link
                   href={`/driver/offer?orderId=${activePendingOffer.id}`}
-                  className="w-full bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3 rounded-full font-black text-xs shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  className="w-full min-h-[48px] bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3 rounded-full font-black text-xs shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all"
                 >
                   <span>VER OFERTA COMPLETA</span>
                   <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
             ) : (
-              <div className="bg-white p-5 rounded-[28px] border border-slate-200 shadow-sm text-center space-y-2">
-                <div className="w-10 h-10 rounded-2xl bg-blue-50 text-[#0056d2] flex items-center justify-center mx-auto">
-                  <Bike className="w-5 h-5" />
-                </div>
-                <strong className="text-xs font-black text-slate-800 block">Sin Pedidos Pendientes de Asignación</strong>
-                <p className="text-[11px] font-semibold text-slate-500 max-w-xs mx-auto">
-                  Estás conectado al despacho central. En cuanto un comercio o cliente pida un mandado, sonará tu alerta en vivo.
-                </p>
+              <div className="bg-white p-5 rounded-[28px] border border-slate-200 shadow-sm">
+                <VamoEmptyState
+                  icon={<Bike className="w-6 h-6 text-[#0056d2]" />}
+                  title="Sin pedidos pendientes de asignación"
+                  description="Estás conectado al despacho central. En cuanto un comercio o cliente pida un mandado, sonará tu alerta en vivo."
+                  className="p-2"
+                />
               </div>
             )}
           </>

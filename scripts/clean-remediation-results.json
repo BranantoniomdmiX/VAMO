@@ -1,0 +1,181 @@
+{
+  "totalTests": 30,
+  "pass": 30,
+  "fail": 0,
+  "sections": {
+    "REAL_AUTH": [
+      {
+        "name": "Supabase Auth Real Session Acquisition (Driver & Customer)",
+        "status": "PASS",
+        "detail": "Tokens JWT emitidos y validados"
+      }
+    ],
+    "DISPATCH_AUTH": [
+      {
+        "name": "Cross-Franchise Order Assignment Rejection",
+        "status": "PASS",
+        "detail": "FORBIDDEN_FRANCHISE"
+      },
+      {
+        "name": "Forged Driver Impersonation Rejection",
+        "status": "PASS",
+        "detail": "FRANCHISE_MISMATCH"
+      }
+    ],
+    "DRIVER_CONCURRENCY": [
+      {
+        "name": "2 Drivers -> 1 Order: Exactly One Winner",
+        "status": "PASS",
+        "detail": "Driver 1: ORDER_ASSIGNED_SUCCESSFULLY | Driver 2: ORDER_ALREADY_TAKEN"
+      },
+      {
+        "name": "Active Assignment Locked for Driver",
+        "status": "PASS",
+        "detail": "Driver aaaa0004-0001-4000-8000-000000000001 en ruta"
+      }
+    ],
+    "KDS_AUTH": [
+      {
+        "name": "Merchant A -> Order Merchant A (Allowed)",
+        "status": "PASS",
+        "detail": "Actualización concedida"
+      },
+      {
+        "name": "Merchant A -> Order Merchant B (Cross-Merchant Denied)",
+        "status": "PASS",
+        "detail": "FORBIDDEN_MERCHANT_MISMATCH"
+      },
+      {
+        "name": "Customer -> Order KDS (Role Denied)",
+        "status": "PASS",
+        "detail": "FORBIDDEN_ROLE"
+      }
+    ],
+    "STATE_MACHINE": [
+      {
+        "name": "Illegal Transition: PENDING -> DELIVERED",
+        "status": "PASS",
+        "detail": "INVALID_STATE_TRANSITION"
+      },
+      {
+        "name": "Illegal Regression: DELIVERED -> PREPARING",
+        "status": "PASS",
+        "detail": "INVALID_STATE_TRANSITION"
+      }
+    ],
+    "POD": [
+      {
+        "name": "POD Rejection on Wrong PIN (0000 != 4729)",
+        "status": "PASS",
+        "detail": "INVALID_PIN"
+      },
+      {
+        "name": "POD Rejection on Unauthorized Driver",
+        "status": "PASS",
+        "detail": "FORBIDDEN_WRONG_DRIVER"
+      },
+      {
+        "name": "POD Delivery Confirmed with Order-Specific PIN",
+        "status": "PASS",
+        "detail": "ORDER_DELIVERED"
+      },
+      {
+        "name": "POD Reused PIN Idempotency Check",
+        "status": "PASS",
+        "detail": "ALREADY_DELIVERED"
+      }
+    ],
+    "PRICING_AUTHORITY": [
+      {
+        "name": "Authoritative Backend Order Pricing Integrity",
+        "status": "PASS",
+        "detail": "Subtotal: $100.00 + Envío: $30.00 = Total: $130"
+      }
+    ],
+    "CRUD_MATRIX": [
+      {
+        "name": "Plaza A -> SELECT Plaza A Orders (Allowed)",
+        "status": "PASS",
+        "detail": "Visualización de plaza propia"
+      },
+      {
+        "name": "Plaza A -> SELECT Plaza B Orders (Denied)",
+        "status": "PASS",
+        "detail": "0 filas visibles"
+      },
+      {
+        "name": "Plaza A -> UPDATE Plaza B Orders (Denied)",
+        "status": "PASS",
+        "detail": "0 filas modificadas"
+      },
+      {
+        "name": "Merchant A -> INSERT Product into Merchant B (Denied)",
+        "status": "PASS",
+        "detail": "Bloqueado por RLS"
+      }
+    ],
+    "PROFILE_AUTHORITY": [
+      {
+        "name": "Customer Self-Role Mutation Blocked (customer -> driver)",
+        "status": "PASS",
+        "detail": "FORBIDDEN_ROLE_MUTATION Trigger"
+      },
+      {
+        "name": "Customer Self-Tenant Mutation Blocked (A -> B)",
+        "status": "PASS",
+        "detail": "FORBIDDEN_FRANCHISE_MUTATION Trigger"
+      },
+      {
+        "name": "Driver Self-Tenant Mutation Blocked",
+        "status": "PASS",
+        "detail": "Trigger Protegido"
+      },
+      {
+        "name": "Superadmin Legitimate User Authority Management",
+        "status": "PASS",
+        "detail": "admin_update_user_authority RPC"
+      }
+    ],
+    "SETTLEMENT_BOUNDARY": [
+      {
+        "name": "Direct Customer Runtime Settlement Denied (REVOKE EXECUTE)",
+        "status": "PASS",
+        "detail": "permission denied"
+      },
+      {
+        "name": "Direct Driver Runtime Settlement Denied (REVOKE EXECUTE)",
+        "status": "PASS",
+        "detail": "permission denied"
+      },
+      {
+        "name": "Spoofed System Context Settlement Denied (Role Irrelevant)",
+        "status": "PASS",
+        "detail": "REVOKE vamo_app Inquebrantable"
+      },
+      {
+        "name": "POD Internal Flow Triggers Settlement & Remains Idempotent",
+        "status": "PASS",
+        "detail": "Idempotente y protegido"
+      }
+    ],
+    "CONEKTA_DIGEST": [
+      {
+        "name": "Conekta Webhook: Missing DIGEST Header Rejected (401)",
+        "status": "PASS",
+        "detail": "Fail-Closed"
+      },
+      {
+        "name": "Conekta Webhook: Manipulated DIGEST Signature Rejected (401)",
+        "status": "PASS",
+        "detail": "RSA-SHA256 Validated"
+      }
+    ],
+    "DATA_AUTHORITY": [
+      {
+        "name": "Dokploy PostgreSQL Transactional Authority",
+        "status": "PASS",
+        "detail": "7 órdenes y 4 choferes gestionados"
+      }
+    ]
+  }
+}

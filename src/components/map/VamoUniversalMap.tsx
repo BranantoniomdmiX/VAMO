@@ -45,6 +45,7 @@ export interface VamoUniversalMapProps {
   heatZones?: HeatZoneItem[]
   className?: string
   enableGeolocate?: boolean
+  enableClustering?: boolean
   onToggle3D?: (is3D: boolean) => void
   onMapClick?: (coords: { lat: number; lng: number }) => void
 }

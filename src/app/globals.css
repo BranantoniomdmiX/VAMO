@@ -32,6 +32,25 @@
     --on-surface-variant: #424654;
     --outline: #737785;
     --outline-variant: #c3c6d6;
+
+    /* Escala Estándar de Radios VAMO */
+    --radius-control: 0.75rem;   /* 12px - Inputs, botones, badges */
+    --radius-card: 1.5rem;       /* 24px - Tarjetas estándar */
+    --radius-panel: 2rem;        /* 32px - Paneles de módulo y KPI */
+    --radius-modal: 2.5rem;      /* 40px - Modales y bottom sheets */
+    --radius-pill: 9999px;       /* Píldora completa */
+
+    /* Accesibilidad Táctil (Mínimo Ergonómico para México) */
+    --touch-target-min: 48px;
+    --touch-target-compact: 40px;
+    --touch-target-hero: 56px;
+
+    /* Semántica de Estados Operativos */
+    --status-success: #15803d;
+    --status-warning: #d97706;
+    --status-danger: #ba1a1a;
+    --status-info: #0056d2;
+    --status-neutral: #737785;
   }
 
   .dark {
@@ -61,6 +80,22 @@
     --on-surface-variant: #cbd5e1;
     --outline: #94a3b8;
     --outline-variant: #475569;
+
+    --radius-control: 0.75rem;
+    --radius-card: 1.5rem;
+    --radius-panel: 2rem;
+    --radius-modal: 2.5rem;
+    --radius-pill: 9999px;
+
+    --touch-target-min: 48px;
+    --touch-target-compact: 40px;
+    --touch-target-hero: 56px;
+
+    --status-success: #22c55e;
+    --status-warning: #f59e0b;
+    --status-danger: #ef4444;
+    --status-info: #38bdf8;
+    --status-neutral: #94a3b8;
   }
 }
 
@@ -131,5 +166,17 @@ body {
   font-family: var(--font-quicksand), sans-serif;
   padding-top: env(safe-area-inset-top, 0px);
 }
+
+/* VAMO Design System Semantic Radius Utilities */
+.rounded-control { border-radius: var(--radius-control) !important; }
+.rounded-card { border-radius: var(--radius-card) !important; }
+.rounded-panel { border-radius: var(--radius-panel) !important; }
+.rounded-modal { border-radius: var(--radius-modal) !important; }
+
+/* VAMO Touch Target Utilities (Ergonomía México) */
+.touch-target { min-height: var(--touch-target-min); min-width: var(--touch-target-min); }
+.touch-target-hero { min-height: var(--touch-target-hero); }
+.touch-target-compact { min-height: var(--touch-target-compact); }
+
 
 

@@ -8,6 +8,7 @@ import { RatingService } from '@/lib/services/ratingService'
 import { getCustomerServices, getPendingRatingService } from '@/lib/services/serviceActions'
 import { createClient } from '@/lib/supabase/client'
 import { Service } from '@/types/database.types'
+import { formatCurrencyMXN } from '@/lib/utils/formatters'
 
 function RatingModalSection({ 
   pendingService, 
@@ -287,7 +288,7 @@ export default function CustomerHomePage() {
                         {order.service_code || `Servicio ${order.service_type}`}
                       </h4>
                       <p className="text-xs font-medium text-[#424654] truncate">
-                        {order.origin_address ? `${order.origin_address.slice(0, 20)}...` : 'Origen'} ➔ {order.destination_address ? `${order.destination_address.slice(0, 20)}...` : 'Destino'} • ${order.total_price || 0} MXN
+                        {order.origin_address ? `${order.origin_address.slice(0, 20)}...` : 'Origen'} ➔ {order.destination_address ? `${order.destination_address.slice(0, 20)}...` : 'Destino'} • {formatCurrencyMXN(order.total_price)}
                       </p>
                     </div>
                   </div>

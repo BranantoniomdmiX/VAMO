@@ -540,13 +540,18 @@ export default function DriverProfilePage() {
         {/* Modal de Cancelación Definitiva Conductor */}
         {showCancelModal && (
           <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-[32px] max-w-sm w-full p-6 space-y-4 shadow-2xl border border-[#e5e2e1] animate-fade-in text-left">
+            <div 
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="driver-cancel-title"
+              className="bg-white rounded-[32px] max-w-sm w-full p-6 space-y-4 shadow-2xl border border-[#e5e2e1] animate-fade-in text-left"
+            >
               <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center font-black mx-auto text-xl">
                 🛵
               </div>
 
               <div className="text-center space-y-1">
-                <h3 className="text-base font-black text-slate-900">¿Deseas darte de baja como repartidor?</h3>
+                <h3 id="driver-cancel-title" className="text-base font-black text-slate-900">¿Deseas darte de baja como repartidor?</h3>
                 <p className="text-xs text-slate-500 font-semibold">
                   Se cancelará tu membresía de conductor, se apagará tu señal satelital y se liberará tu plaza en la Base Operativa.
                 </p>

@@ -5,6 +5,14 @@ import { SidebarAdmin } from '@/components/layout/SidebarAdmin'
 import { PlusCircle, Building2, MapPin, CheckCircle2, ArrowRight, Sparkles, DollarSign, Users, Store, Bike, ShieldCheck } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
+import { 
+  VamoPageHeader, 
+  VamoButton, 
+  VamoInput, 
+  VamoStatusBadge,
+  VamoCard
+} from '@/components/ui'
+
 export default function AdminNewFleetPage() {
   const router = useRouter()
   const [fleetName, setFleetName] = useState('')
@@ -102,21 +110,23 @@ export default function AdminNewFleetPage() {
       <SidebarAdmin activeTab="new-fleet" />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-[#e5e2e1] px-4 md:px-8 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 shadow-xs">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl md:text-2xl font-black text-[#1c1b1b]">Alta de Nuevo Socio Comercial / Plaza</h1>
-              <span className="bg-[#c3f400] text-[#161e00] text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase">
-                $0 SETUP • VIRAL
-              </span>
-            </div>
-            <p className="text-xs text-[#737785] font-semibold">
-              Habilita un nuevo territorio o flota de motos bajo el modelo de Renta SaaS y Split 50/50
-            </p>
-          </div>
-        </header>
-
         <main className="flex-1 p-4 md:p-8 max-w-4xl mx-auto w-full space-y-6">
+          <VamoPageHeader
+            title="Alta de Nuevo Socio Comercial / Plaza"
+            description="Habilita un nuevo territorio o flota de motos bajo el modelo de Renta SaaS y Split 50/50"
+            badge={
+              <VamoStatusBadge 
+                status="DISPONIBLE" 
+                label="$0 SETUP • EXPANSIÓN VIRAL" 
+                size="sm" 
+              />
+            }
+            breadcrumbs={[
+              { label: 'Superadmin', href: '/admin/dashboard' },
+              { label: 'Socios Comerciales', href: '/admin/fleets' },
+              { label: 'Nueva Plaza' }
+            ]}
+          />
           
           {/* Banner de Filosofía: Los Millones están en los Centavos */}
           <div className="bg-[#161e00] text-white p-5 sm:p-6 rounded-3xl border border-[#c3f400]/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
@@ -140,73 +150,51 @@ export default function AdminNewFleetPage() {
             
             {/* Datos de la Plaza y Titular */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-extrabold text-[#1c1b1b] uppercase">Nombre de la Plaza / Flotilla *</label>
-                <div className="relative">
-                  <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
-                  <input 
-                    type="text"
-                    required
-                    value={fleetName}
-                    onChange={(e) => setFleetName(e.target.value)}
-                    placeholder="Ej. VAMO Celayork / Flota Bajío"
-                    className="w-full pl-9 pr-3 py-2.5 bg-[#fcf9f8] border border-[#e5e2e1] rounded-xl text-xs font-medium focus:border-[#0056d2] focus:outline-hidden"
-                  />
-                </div>
-              </div>
+              <VamoInput
+                label="Nombre de la Plaza / Flotilla *"
+                leftIcon={<Building2 className="w-4 h-4" />}
+                required
+                value={fleetName}
+                onChange={(e) => setFleetName(e.target.value)}
+                placeholder="Ej. VAMO Celaya / Flota Bajío"
+              />
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-extrabold text-[#1c1b1b] uppercase">Nombre del Socio Comercial *</label>
-                <input 
-                  type="text"
-                  required
-                  value={ownerName}
-                  onChange={(e) => setOwnerName(e.target.value)}
-                  placeholder="Ej. Juan Pérez"
-                  className="w-full px-3 py-2.5 bg-[#fcf9f8] border border-[#e5e2e1] rounded-xl text-xs font-medium focus:border-[#0056d2] focus:outline-hidden"
-                />
-              </div>
+              <VamoInput
+                label="Nombre del Socio Comercial *"
+                required
+                value={ownerName}
+                onChange={(e) => setOwnerName(e.target.value)}
+                placeholder="Ej. Juan Pérez"
+              />
             </div>
 
             {/* Ciudad y Contacto */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-extrabold text-[#1c1b1b] uppercase">Ciudad / Municipio *</label>
-                <div className="relative">
-                  <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
-                  <input 
-                    type="text"
-                    required
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    placeholder="Ej. Celaya, GTO"
-                    className="w-full pl-9 pr-3 py-2.5 bg-[#fcf9f8] border border-[#e5e2e1] rounded-xl text-xs font-medium focus:border-[#0056d2] focus:outline-hidden"
-                  />
-                </div>
-              </div>
+              <VamoInput
+                label="Ciudad / Municipio *"
+                leftIcon={<MapPin className="w-4 h-4" />}
+                required
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="Ej. Celaya, GTO"
+              />
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-extrabold text-[#1c1b1b] uppercase">Correo Electrónico *</label>
-                <input 
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="socio@ejemplo.com"
-                  className="w-full px-3 py-2.5 bg-[#fcf9f8] border border-[#e5e2e1] rounded-xl text-xs font-medium focus:border-[#0056d2] focus:outline-hidden"
-                />
-              </div>
+              <VamoInput
+                label="Correo Electrónico *"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="socio@ejemplo.com"
+              />
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-extrabold text-[#1c1b1b] uppercase">Teléfono WhatsApp</label>
-                <input 
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="10 dígitos"
-                  className="w-full px-3 py-2.5 bg-[#fcf9f8] border border-[#e5e2e1] rounded-xl text-xs font-medium focus:border-[#0056d2] focus:outline-hidden"
-                />
-              </div>
+              <VamoInput
+                label="Teléfono WhatsApp"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="10 dígitos"
+              />
             </div>
 
             {/* Selector de Modalidad Operativa */}
@@ -412,14 +400,16 @@ export default function AdminNewFleetPage() {
             )}
 
               {/* Botón de Guardado */}
-            <button
+            <VamoButton
               type="submit"
+              variant="primary"
+              size="lg"
               disabled={created}
-              className="w-full bg-[#0056d2] hover:bg-[#0040a1] text-white py-3.5 rounded-2xl text-xs sm:text-sm font-black shadow-md active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full"
+              rightIcon={<ArrowRight className="w-4 h-4" />}
             >
-              <span>Habilitar Plaza y Generar Código de Territorio</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+              Habilitar Plaza y Generar Código de Territorio
+            </VamoButton>
 
           </form>
 

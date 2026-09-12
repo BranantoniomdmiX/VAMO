@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, Suspense } from 'react'
 import { CustomerLayout } from '@/components/layout/CustomerLayout'
-import { MapPin, Navigation, DollarSign, Bike, ArrowRight, ShieldCheck, Check, Loader2, Plus, Trash2, Bookmark, Star, Home, Briefcase, Building, Route, Package } from 'lucide-react'
+import { formatCurrencyMXN } from '@/lib/utils/formatters'
+import { MapPin, Navigation, DollarSign, Bike, ArrowRight, ShieldCheck, Check, Loader2, Plus, Trash2, Bookmark, Star, Home, Briefcase, Building, Route, Package, X } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import { createServiceFromBase } from '@/lib/services/serviceActions'
@@ -332,7 +333,7 @@ function QuoteContent() {
         <button
           type="submit"
           disabled={isCalculating}
-          className="w-full bg-[#0056d2] hover:bg-[#0040a1] disabled:bg-[#0056d2]/70 text-white py-4 rounded-full font-black text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+          className="w-full min-h-[48px] bg-[#0056d2] hover:bg-[#0040a1] disabled:bg-[#0056d2]/70 text-white py-4 px-4 rounded-full font-black text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
         >
           {isCalculating ? (
             <>
@@ -350,16 +351,17 @@ function QuoteContent() {
         <div className="bg-[#161e00] text-white p-6 sm:p-8 rounded-[32px] border border-[#c3f400]/40 shadow-xl space-y-4 text-center animate-fade-in">
           <div>
             <span className="text-xs font-extrabold text-[#c3f400] uppercase tracking-wider block">TARIFA FIJA TRANSPARENTE</span>
-            <p className="text-5xl font-black text-[#c3f400] mt-1">${estimatedPrice.toFixed(2)} MXN</p>
+            <p className="text-5xl font-black text-[#c3f400] mt-1">{formatCurrencyMXN(estimatedPrice)}</p>
             <p className="text-xs font-bold text-slate-300 mt-2">
               Distancia estimada: {distanceKm} km &bull; {serviceMode === 'multistop' ? `${intermediateStops.length} Paradas intermedias` : 'Envío directo sin escalas'}
             </p>
           </div>
 
           <button
+            type="button"
             onClick={handleCreateOrder}
             disabled={isSubmitting}
-            className="w-full bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-4 rounded-full font-black text-sm shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+            className="w-full min-h-[48px] bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-4 px-4 rounded-full font-black text-sm shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
           >
             <Bike className="w-5 h-5" />
             <span>{isSubmitting ? 'SOLICITANDO REPARTIDOR...' : 'CONFIRMAR Y SOLICITAR MOTO VAMO'}</span>
@@ -369,32 +371,48 @@ function QuoteContent() {
 
       {/* Modal Guardar Dirección */}
       {showSaveModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div 
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="save-address-title"
+        >
           <div className="bg-white rounded-[32px] max-w-sm w-full p-6 space-y-4 shadow-2xl animate-fade-in border border-[#e5e2e1]">
-            <h3 className="text-base font-extrabold text-[#1c1b1b]">Guardar en Direcciones Frecuentes</h3>
+            <div className="flex justify-between items-center">
+              <h3 id="save-address-title" className="text-base font-extrabold text-[#1c1b1b]">Guardar en Direcciones Frecuentes</h3>
+              <button
+                type="button"
+                aria-label="Cerrar modal"
+                onClick={() => setShowSaveModal(false)}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-700 min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
             <p className="text-xs text-[#737785] truncate">{targetToSave}</p>
-            <div>
-              <label className="text-[11px] font-bold text-[#737785] block mb-1">Nombre / Etiqueta (Ej. Casa, Trabajo, Taller)</label>
+            <div className="space-y-1">
+              <label htmlFor="fav-address-label" className="text-[11px] font-bold text-[#737785] block">Nombre / Etiqueta (Ej. Casa, Trabajo, Taller)</label>
               <input
+                id="fav-address-label"
                 type="text"
                 value={newLabel}
                 onChange={e => setNewLabel(e.target.value)}
                 placeholder="Ej. Casa de Mamá"
-                className="w-full bg-[#f6f3f2] border border-[#e5e2e1] focus:border-[#0056d2] rounded-xl px-3 py-2 text-xs font-bold outline-none"
+                className="w-full bg-[#f6f3f2] border border-[#e5e2e1] focus:border-[#0056d2] rounded-xl px-3 py-2 text-xs font-bold outline-none min-h-[44px]"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => handleSaveAddress(targetToSave)}
-                className="flex-1 bg-[#0056d2] text-white py-2.5 rounded-full text-xs font-bold active:scale-95"
+                className="flex-1 min-h-[44px] bg-[#0056d2] text-white py-2.5 rounded-full text-xs font-bold active:scale-95 cursor-pointer"
               >
                 Guardar
               </button>
               <button
                 type="button"
                 onClick={() => setShowSaveModal(false)}
-                className="px-4 bg-[#f0eded] text-[#1c1b1b] py-2.5 rounded-full text-xs font-bold"
+                className="px-4 min-h-[44px] bg-[#f0eded] text-[#1c1b1b] py-2.5 rounded-full text-xs font-bold cursor-pointer"
               >
                 Cancelar
               </button>

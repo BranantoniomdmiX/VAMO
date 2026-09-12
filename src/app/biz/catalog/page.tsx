@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { SidebarBiz } from '@/components/layout/SidebarBiz'
+import { VamoPageHeader } from '@/components/ui/VamoPageHeader'
 import { Plus, Edit, Sparkles, PackageCheck, AlertTriangle, ShoppingBag, Truck, CheckCircle2, X, Tag, Image, Clock, Check } from 'lucide-react'
 import { publishMerchantPromotion } from '@/lib/services/promotionService'
 import { SupabaseImageUploader } from '@/components/ui/SupabaseImageUploader'
@@ -173,35 +174,33 @@ export default function BizCatalogPage() {
       <div className="flex-1 flex flex-col min-w-0">
         <main className="flex-1 px-4 sm:px-8 py-6 md:py-10 max-w-7xl mx-auto w-full space-y-8">
           
-          {/* Header Section */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0056d2] tracking-tight">
-                Editor de Catálogo
-              </h1>
-              <p className="text-xs sm:text-sm font-semibold text-[#737785] mt-1">
-                Administra tus productos y promociones locales.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <button 
-                onClick={() => setShowPromoModal(true)}
-                className="bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] px-5 py-3 rounded-full text-xs sm:text-sm font-black flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all cursor-pointer"
-              >
-                <Tag className="w-5 h-5 text-[#161e00]" />
-                <span>+ Crear Promoción Exclusiva</span>
-              </button>
-
-              <button 
-                onClick={() => setShowAddQuickModal(true)}
-                className="bg-[#0056d2] hover:bg-[#0040a1] text-white px-5 py-3 rounded-full text-xs sm:text-sm font-black flex items-center justify-center gap-2 shadow-md shadow-[#0056d2]/20 active:scale-95 transition-all cursor-pointer"
-              >
-                <Plus className="w-5 h-5" />
-                <span>+ Agregar Producto a Lista Rápida</span>
-              </button>
-            </div>
-          </div>
+          <VamoPageHeader
+            title="Editor de Catálogo"
+            description="Administra tus productos, promociones y pedidos B2B locales."
+            badge={
+              <span className="bg-[#c3f400] text-[#161e00] text-[10px] font-black px-3 py-1 rounded-full">
+                {quickProducts.length}/50 productos
+              </span>
+            }
+            primaryAction={
+              <div className="flex flex-wrap items-center gap-2">
+                <button 
+                  onClick={() => setShowPromoModal(true)}
+                  className="bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] px-4 py-2 rounded-full text-xs font-black flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                >
+                  <Tag className="w-4 h-4" />
+                  + Promoción
+                </button>
+                <button 
+                  onClick={() => setShowAddQuickModal(true)}
+                  className="bg-[#0056d2] hover:bg-[#0040a1] text-white px-4 py-2 rounded-full text-xs font-black flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  + Producto
+                </button>
+              </div>
+            }
+          />
 
           {/* Banner de Catálogo / Menú en PDF o Flyer */}
           {catalogPdfUrl && (
@@ -305,7 +304,28 @@ export default function BizCatalogPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {quickProducts.map((prod, idx) => (
+                      {quickProducts.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-12 text-center">
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center">
+                                <PackageCheck className="w-6 h-6 text-slate-300" />
+                              </div>
+                              <p className="text-sm font-bold text-slate-600">Aún no tienes productos en tu lista rápida</p>
+                              <p className="text-xs text-slate-400 max-w-xs">
+                                Agrega hasta 50 productos sin fotos. Aparecerán en el Radar VAMO para que tus clientes pidan en segundos.
+                              </p>
+                              <button
+                                onClick={() => setShowAddQuickModal(true)}
+                                className="mt-1 bg-[#0056d2] text-white px-4 py-2 rounded-full text-xs font-black active:scale-95 transition-all"
+                              >
+                                + Agregar mi primer producto
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        quickProducts.map((prod, idx) => (
                         <tr key={prod.id} className="hover:bg-slate-50/80 transition-colors">
                           <td className="py-3.5 px-2 font-black text-slate-400">{idx + 1}</td>
                           <td className="py-3.5 px-2 font-black text-[#1c1b1b] text-sm">{prod.name}</td>
@@ -320,6 +340,8 @@ export default function BizCatalogPage() {
                           <td className="py-3.5 px-2">
                             <button
                               onClick={() => handleToggleStock(prod.id)}
+                              aria-pressed={prod.inStock}
+                              aria-label={prod.inStock ? `Marcar ${prod.name} como agotado` : `Marcar ${prod.name} como disponible`}
                               className={`px-3 py-1 rounded-full text-[10px] font-black transition-all cursor-pointer ${
                                 prod.inStock 
                                   ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' 
@@ -339,7 +361,8 @@ export default function BizCatalogPage() {
                             </button>
                           </td>
                         </tr>
-                      ))}
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>

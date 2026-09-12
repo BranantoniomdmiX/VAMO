@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { CustomerLayout } from '@/components/layout/CustomerLayout'
+import { formatCurrencyMXN } from '@/lib/utils/formatters'
 import { 
   Wallet, CreditCard, PlusCircle, ArrowUpRight, ArrowDownLeft, 
   Gift, ShieldCheck, Zap, Trash2, CheckCircle2, X, Plus, AlertCircle
@@ -167,12 +168,12 @@ export default function CustomerWalletPage() {
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-blue-200 block">SALDO DISPONIBLE</span>
               <p className="text-3xl sm:text-4xl font-black text-[#c3f400] mt-1 tracking-tight">
-                ${balance.toFixed(2)} <span className="text-base text-white font-bold">MXN</span>
+                {formatCurrencyMXN(balance)}
               </p>
             </div>
             <Link 
               href="/customer/rewards"
-              className="bg-white/10 hover:bg-white/20 backdrop-blur-md px-3.5 py-1.5 rounded-full text-xs font-black flex items-center gap-1.5 border border-white/20 active:scale-95 transition-all cursor-pointer"
+              className="bg-white/10 hover:bg-white/20 backdrop-blur-md px-3.5 py-1.5 rounded-full text-xs font-black flex items-center gap-1.5 border border-white/20 active:scale-95 transition-all cursor-pointer min-h-[36px]"
             >
               <Gift className="w-4 h-4 text-[#c3f400]" />
               <span>{points} Puntos &bull; Canjear 🎁</span>
@@ -181,15 +182,17 @@ export default function CustomerWalletPage() {
 
           <div className="flex items-center gap-3 pt-2 relative z-10">
             <button 
+              type="button"
               onClick={() => setShowRechargeModal(true)}
-              className="flex-1 bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3.5 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all cursor-pointer"
+              className="flex-1 min-h-[48px] bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3.5 px-4 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all cursor-pointer"
             >
               <PlusCircle className="w-4 h-4" />
               Recargar Saldo
             </button>
             <button 
+              type="button"
               onClick={() => setShowAddCardModal(true)}
-              className="flex-1 bg-white/10 hover:bg-white/20 text-white py-3.5 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-white/20 active:scale-95 transition-all cursor-pointer"
+              className="flex-1 min-h-[48px] bg-white/10 hover:bg-white/20 text-white py-3.5 px-4 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-white/20 active:scale-95 transition-all cursor-pointer"
             >
               <CreditCard className="w-4 h-4" />
               Nueva Tarjeta
@@ -204,6 +207,7 @@ export default function CustomerWalletPage() {
           <div className="flex justify-between items-center">
             <h2 className="text-sm font-black text-slate-900 uppercase">MÉTODOS DE PAGO ACTIVOS</h2>
             <button
+              type="button"
               onClick={() => setIsManagingCards(!isManagingCards)}
               className="text-xs font-black text-[#0056d2] hover:underline cursor-pointer"
             >
@@ -238,8 +242,9 @@ export default function CustomerWalletPage() {
                     </span>
                   ) : isManagingCards ? (
                     <button
+                      type="button"
                       onClick={() => handleSetDefault(card.id)}
-                      className="text-[11px] font-bold text-[#0056d2] hover:underline"
+                      className="text-[11px] font-bold text-[#0056d2] hover:underline min-h-[36px] px-2"
                     >
                       Hacer Predeterminada
                     </button>
@@ -247,8 +252,10 @@ export default function CustomerWalletPage() {
 
                   {isManagingCards && (
                     <button
+                      type="button"
+                      aria-label={`Eliminar tarjeta terminada en ${card.last4}`}
                       onClick={() => handleDeleteCard(card.id)}
-                      className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                      className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -293,7 +300,7 @@ export default function CustomerWalletPage() {
                 </div>
 
                 <span className={`text-xs font-black ${tx.isPositive ? 'text-emerald-700' : 'text-slate-900'}`}>
-                  {tx.isPositive ? `+$${tx.amount.toFixed(2)}` : `-$${Math.abs(tx.amount).toFixed(2)}`}
+                  {tx.isPositive ? `+${formatCurrencyMXN(tx.amount)}` : `-${formatCurrencyMXN(Math.abs(tx.amount))}`}
                 </span>
               </div>
             ))}
@@ -302,13 +309,18 @@ export default function CustomerWalletPage() {
 
         {/* Modal Recarga de Saldo */}
         {showRechargeModal && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div 
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="customer-recharge-title"
+          >
             <div className="bg-white rounded-[32px] max-w-sm w-full p-6 text-center space-y-4 shadow-2xl border border-[#e5e2e1] animate-fade-in">
               <div className="w-14 h-14 bg-[#0056d2] text-white rounded-full flex items-center justify-center mx-auto shadow-md">
                 <PlusCircle className="w-8 h-8 text-[#c3f400]" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-lg font-black text-slate-900">Recargar VAMO Pay</h3>
+                <h3 id="customer-recharge-title" className="text-lg font-black text-slate-900">Recargar VAMO Pay</h3>
                 <p className="text-xs font-semibold text-slate-500">Paga pedidos y servicios con 1 solo toque y gana 10% en puntos</p>
               </div>
 
@@ -318,7 +330,7 @@ export default function CustomerWalletPage() {
                     key={amt}
                     type="button"
                     onClick={() => setRechargeAmount(amt)}
-                    className={`py-3 rounded-2xl text-xs font-black border transition-all cursor-pointer ${
+                    className={`py-3 min-h-[48px] rounded-2xl text-xs font-black border transition-all cursor-pointer ${
                       rechargeAmount === amt
                         ? 'bg-[#c3f400] text-[#161e00] border-[#161e00] scale-105 shadow-xs'
                         : 'bg-[#f6f3f2] text-slate-700 border-[#e5e2e1]'
@@ -332,19 +344,21 @@ export default function CustomerWalletPage() {
               {rechargeSuccess ? (
                 <div className="bg-emerald-100 text-emerald-800 p-3.5 rounded-2xl text-xs font-black flex items-center justify-center gap-2">
                   <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                  <span>¡Recarga de ${rechargeAmount}.00 MXN Exitosa!</span>
+                  <span>¡Recarga de {formatCurrencyMXN(rechargeAmount)} Exitosa!</span>
                 </div>
               ) : (
                 <div className="space-y-2">
                   <button
+                    type="button"
                     onClick={handleConfirmRecharge}
-                    className="w-full bg-[#0056d2] hover:bg-[#0040a1] text-white py-3.5 rounded-full text-xs font-black shadow-md cursor-pointer active:scale-95 transition-all"
+                    className="w-full min-h-[48px] bg-[#0056d2] hover:bg-[#0040a1] text-white py-3.5 rounded-full text-xs font-black shadow-md cursor-pointer active:scale-95 transition-all"
                   >
                     CONFIRMAR RECARGA CON TARJETA
                   </button>
                   <button
+                    type="button"
                     onClick={() => setShowRechargeModal(false)}
-                    className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-full text-xs font-bold"
+                    className="w-full min-h-[44px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-full text-xs font-bold cursor-pointer"
                   >
                     Cancelar
                   </button>
@@ -356,18 +370,25 @@ export default function CustomerWalletPage() {
 
         {/* Modal Nueva Tarjeta */}
         {showAddCardModal && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div 
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="customer-add-card-title"
+          >
             <div className="bg-white rounded-[32px] max-w-sm w-full p-6 space-y-4 shadow-2xl border border-[#e5e2e1] animate-fade-in">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-[#0056d2] text-white flex items-center justify-center">
                     <CreditCard className="w-4 h-4" />
                   </div>
-                  <h3 className="text-base font-black text-slate-900">Agregar Nueva Tarjeta</h3>
+                  <h3 id="customer-add-card-title" className="text-base font-black text-slate-900">Agregar Nueva Tarjeta</h3>
                 </div>
                 <button 
+                  type="button"
+                  aria-label="Cerrar modal de agregar tarjeta"
                   onClick={() => setShowAddCardModal(false)}
-                  className="p-1 rounded-full text-slate-400 hover:text-slate-700"
+                  className="p-1 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>

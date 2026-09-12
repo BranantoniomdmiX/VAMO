@@ -45,20 +45,19 @@ export default function CustomerTrackingPage() {
   useEffect(() => {
     setPinCode(AntiFraudService.getOrderPin('V-9042'))
 
-    if (typeof window !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setCustomerLocation({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude
-          })
-        },
-        (err) => {
-          console.log('GPS del cliente usando ubicación de entrega registrada:', err)
-        },
-        { enableHighAccuracy: true, timeout: 6000 }
-      )
-    }
+    import('@/lib/services/deviceCapabilityService').then(({ deviceCapabilityService }) => {
+      deviceCapabilityService.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 8000
+      }).then(normalized => {
+        setCustomerLocation({
+          lat: normalized.coords.latitude,
+          lng: normalized.coords.longitude
+        })
+      }).catch(err => {
+        console.warn('GPS del cliente usando ubicación de entrega registrada:', err.message)
+      })
+    })
   }, [])
 
   // 2. Suscribirse a la posición en vivo del repartidor y calcular distancia a 50m
@@ -147,13 +146,18 @@ export default function CustomerTrackingPage() {
           <div className="flex items-center gap-2">
             {/* Toggle Tema Claro/Oscuro */}
             <button
+              type="button"
               onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
-              className="px-3 py-1.5 rounded-full text-xs font-bold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 shadow-sm active:scale-95 transition-transform"
+              className="px-3.5 py-2.5 min-h-[48px] rounded-full text-xs font-bold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 shadow-sm active:scale-95 transition-transform flex items-center justify-center cursor-pointer"
             >
               {theme === 'light' ? '🌙 Modo Oscuro' : '☀️ Modo Claro'}
             </button>
 
-            <a href="tel:5551234567" className="w-11 h-11 rounded-full bg-[#0056d2] text-white flex items-center justify-center font-bold shadow-md active:scale-95 transition-transform">
+            <a 
+              href="tel:5551234567" 
+              aria-label="Llamar al repartidor"
+              className="w-12 h-12 min-w-[48px] min-h-[48px] rounded-full bg-[#0056d2] hover:bg-[#0040a1] text-white flex items-center justify-center font-bold shadow-md active:scale-95 transition-transform cursor-pointer"
+            >
               <Phone className="w-5 h-5" />
             </a>
           </div>
@@ -239,16 +243,18 @@ export default function CustomerTrackingPage() {
           <p className="text-xs text-slate-500 font-medium">
             Al recibir tu pedido, verifica que la bolsa esté sellada con el logotipo de VAMO antes de ingresar a tu casa.
           </p>
-          <div className="flex gap-2 pt-1">
+          <div className="flex flex-col sm:flex-row gap-2 pt-1">
             <button
+              type="button"
               onClick={() => alert('✅ ¡Gracias! Confirmaste que tu pedido llegó sellado y completo.')}
-              className="flex-1 bg-[#161e00] text-[#c3f400] hover:bg-black py-2.5 rounded-xl font-black text-xs transition-all shadow-xs"
+              className="flex-1 min-h-[48px] bg-[#161e00] text-[#c3f400] hover:bg-black py-3 px-4 rounded-2xl font-black text-xs transition-all shadow-xs flex items-center justify-center cursor-pointer"
             >
               👍 Bolsa Sellada y Completa
             </button>
             <button
+              type="button"
               onClick={() => alert('⚠️ Reporte recibido. Soporte VAMO se contactará contigo de inmediato.')}
-              className="px-3 bg-rose-50 text-rose-700 hover:bg-rose-100 py-2.5 rounded-xl font-bold text-xs transition-all"
+              className="px-4 min-h-[48px] bg-rose-50 text-rose-700 hover:bg-rose-100 py-3 rounded-2xl font-bold text-xs transition-all flex items-center justify-center cursor-pointer"
             >
               Reportar Detalle
             </button>

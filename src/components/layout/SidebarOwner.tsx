@@ -3,53 +3,42 @@
 import React from 'react'
 import Link from 'next/link'
 import { 
-  Building2, 
-  TrendingUp, 
-  Wallet, 
-  Sliders, 
-  CreditCard, 
-  Handshake, 
-  ShieldCheck, 
   LogOut, 
   ChevronRight, 
   Menu, 
-  X 
+  X,
+  User,
+  ExternalLink
 } from 'lucide-react'
-import { usePathname } from 'next/navigation'
+import { VAMO_ROLE_CONFIGS } from './roleNavConfig'
 
-interface SidebarOwnerProps {
+export interface SidebarOwnerProps {
   activeTab: 'dashboard' | 'analytics' | 'billing' | 'wallets' | 'rates' | 'payments' | 'agreements' | 'kyc'
 }
 
 export function SidebarOwner({ activeTab }: SidebarOwnerProps) {
   const [isOpen, setIsOpen] = React.useState(false)
-
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard Financiero 360°', route: '/owner/dashboard', icon: TrendingUp },
-    { id: 'analytics', label: 'Analytics & Rendimiento', route: '/owner/analytics', icon: Sliders },
-    { id: 'billing', label: 'Finanzas & Split 50/50', route: '/owner/billing', icon: CreditCard },
-    { id: 'wallets', label: 'Billeteras de Motociclistas', route: '/owner/wallets', icon: Wallet },
-    { id: 'rates', label: 'Motor de Tarifas', route: '/owner/rates', icon: Sliders },
-    { id: 'payments', label: 'Esquemas de Pago', route: '/owner/payments', icon: CreditCard },
-    { id: 'agreements', label: 'Convenios Comerciales', route: '/owner/agreements', icon: Handshake },
-    { id: 'kyc', label: 'Aprobación KYC', route: '/owner/kyc', icon: ShieldCheck }
-  ]
-
-
+  const config = VAMO_ROLE_CONFIGS.owner
+  const RoleIcon = config.icon
 
   return (
     <>
-      {/* Hamburguesa Móvil */}
-      <div className="md:hidden sticky top-0 z-40 bg-white border-b border-[#e5e2e1] px-4 py-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-full bg-[#0056d2] text-white flex items-center justify-center font-bold">
-            <Building2 className="w-5 h-5" />
-          </div>
-          <span className="font-extrabold text-base text-[#0056d2]">Socio Comercial VAMO</span>
+      {/* Topbar móvil / tablet / small laptop (< 1280px CSS) */}
+      <div className="xl:hidden sticky top-0 z-40 bg-white border-b border-[#e5e2e1] px-4 py-3 flex items-center justify-between shadow-xs">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Link href={config.homeRoute} className="flex items-center gap-2 shrink-0">
+            <img src="/logo-vamo.svg" alt="VAMO" className="h-7 w-auto object-contain" />
+          </Link>
+          <div className="h-5 w-px bg-slate-300 shrink-0" />
+          <span className="font-black text-xs sm:text-sm text-[#0056d2] truncate">
+            {config.roleTitle}
+          </span>
         </div>
         <button 
           onClick={() => setIsOpen(!isOpen)}
-          className="p-2 rounded-xl bg-[#f0eded] text-[#1c1b1b]"
+          className="min-h-[48px] min-w-[48px] p-2.5 rounded-2xl bg-[#f0eded] text-[#1c1b1b] flex items-center justify-center cursor-pointer active:scale-95"
+          aria-label={isOpen ? 'Cerrar navegación' : 'Abrir navegación'}
+          aria-expanded={isOpen}
         >
           {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
@@ -58,31 +47,42 @@ export function SidebarOwner({ activeTab }: SidebarOwnerProps) {
       {isOpen && (
         <div 
           onClick={() => setIsOpen(false)} 
-          className="fixed inset-0 z-40 bg-black/40 md:hidden backdrop-blur-sm"
+          className="fixed inset-0 z-40 bg-black/50 xl:hidden backdrop-blur-xs transition-opacity"
+          aria-hidden="true"
         />
       )}
 
-      {/* Sidebar Socio Comercial */}
+      {/* Aside adaptable (Drawer < 1280px, Sidebar >= 1280px) */}
       <aside className={`
-        fixed md:sticky top-0 left-0 z-50 h-screen w-72 bg-white border-r border-[#e5e2e1] 
-        p-6 flex flex-col justify-between shadow-sm transition-transform duration-300
-        ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        fixed xl:sticky top-0 left-0 z-50 h-[100dvh] max-h-[100dvh] w-72 sm:w-80 xl:w-72 bg-white border-r border-[#e5e2e1] 
+        p-4 sm:p-5 flex flex-col justify-between shadow-lg xl:shadow-xs transition-transform duration-300 ease-in-out
+        ${isOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0'}
       `}>
-        <div className="space-y-6">
-          <div className="flex items-center gap-3 pb-4 border-b border-[#f0eded]">
-            <div className="w-12 h-12 rounded-full bg-[#0056d2] text-white flex items-center justify-center shadow-md flex-shrink-0 font-black">
-              <Building2 className="w-6 h-6" />
+        <div className="space-y-4 shrink-0">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-[#0040a1] text-white flex items-center justify-center shadow-xs shrink-0 font-black">
+                <RoleIcon className="w-5 h-5 text-[#c3f400]" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-extrabold text-sm sm:text-base text-[#0040a1] leading-tight truncate">
+                  {config.roleTitle}
+                </h2>
+                <p className="text-[11px] font-semibold text-slate-500 truncate">{config.roleSubtitle}</p>
+              </div>
             </div>
-            <div>
-              <h2 className="font-extrabold text-base text-[#0056d2] leading-tight">
-                Socio Comercial
-              </h2>
-              <p className="text-xs font-semibold text-[#737785]">Panel de Flota & Negocio</p>
-            </div>
+
+            <button
+              onClick={() => setIsOpen(false)}
+              className="xl:hidden p-2 rounded-xl text-slate-400 hover:text-slate-700"
+              aria-label="Cerrar navegación"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
-          <nav className="space-y-2 pt-2">
-            {navItems.map((item) => {
+          <nav className="space-y-1 pt-1 overflow-y-auto max-h-[calc(100dvh-220px)] scrollbar-thin" aria-label="Menú Franquicia">
+            {config.items.map((item) => {
               const Icon = item.icon
               const isActive = activeTab === item.id
               return (
@@ -91,30 +91,45 @@ export function SidebarOwner({ activeTab }: SidebarOwnerProps) {
                   href={item.route}
                   onClick={() => setIsOpen(false)}
                   className={`
-                    flex items-center justify-between p-3.5 rounded-2xl font-bold text-xs sm:text-sm transition-all
+                    flex items-center justify-between min-h-[48px] px-3.5 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all
                     ${isActive 
-                      ? 'bg-[#0056d2] text-white shadow-sm font-extrabold' 
-                      : 'text-[#424654] hover:bg-[#f6f3f2] hover:text-[#0056d2]'}
+                      ? 'bg-[#0040a1] text-white shadow-xs font-black' 
+                      : 'text-slate-700 hover:bg-slate-100 hover:text-[#0056d2]'}
                   `}
                 >
-                  <div className="flex items-center gap-3">
-                    <Icon className={`w-5 h-5 ${isActive ? 'text-[#c3f400]' : 'text-[#0056d2]'}`} />
-                    <span>{item.label}</span>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Icon className={`w-4 h-4 sm:w-5 sm:h-5 shrink-0 ${isActive ? 'text-[#c3f400]' : 'text-slate-400'}`} />
+                    <span className="truncate">{item.label}</span>
                   </div>
-                  {isActive && <ChevronRight className="w-4 h-4 text-[#c3f400]" />}
+                  {isActive && <ChevronRight className="w-4 h-4 text-[#c3f400] shrink-0" />}
                 </Link>
               )
             })}
           </nav>
         </div>
 
-        <div className="pt-4 border-t border-[#e5e2e1]">
+        <div className="pt-3 border-t border-[#e5e2e1] space-y-2 shrink-0">
+          <Link
+            href="/customer/home"
+            onClick={() => {
+              setIsOpen(false)
+              try { localStorage.setItem('vamo_active_role', 'customer') } catch {}
+            }}
+            className="flex items-center justify-between min-h-[44px] px-3 rounded-xl font-bold text-xs text-[#0056d2] bg-blue-50/80 hover:bg-blue-100 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4" />
+              <span>Modo Cliente (Comprar)</span>
+            </div>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </Link>
+
           <Link
             href="/"
             onClick={() => setIsOpen(false)}
-            className="flex items-center gap-3 p-3.5 rounded-2xl font-bold text-xs sm:text-sm text-[#ba1a1a] hover:bg-[#ffdad6]/60 transition-all"
+            className="flex items-center justify-center gap-2 min-h-[44px] px-3 rounded-2xl font-black text-xs sm:text-sm text-rose-700 hover:bg-rose-50 transition-colors"
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut className="w-4 h-4" />
             <span>Cerrar Sesión</span>
           </Link>
         </div>

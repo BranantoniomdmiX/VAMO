@@ -1,18 +1,33 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { query } from '@/lib/db/postgres'
+import { getTrustedAuthContext } from '@/lib/auth/contextResolver'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const profileId = searchParams.get('profileId')
-
-    if (!profileId) {
+    const authContext = await getTrustedAuthContext()
+    if (!authContext) {
       return NextResponse.json(
-        { success: false, code: 'INVALID_INPUT', message: 'Se requiere el parámetro profileId.' },
-        { status: 400 }
+        { success: false, code: 'UNAUTHORIZED', message: 'Sesión no válida o ausente.' },
+        { status: 401 }
       )
+    }
+
+    const { searchParams } = new URL(request.url)
+    const requestedProfileId = searchParams.get('profileId')
+
+    let effectiveProfileId = authContext.userId
+    if (authContext.role !== 'superadmin' && authContext.role !== 'master') {
+      if (requestedProfileId && requestedProfileId !== authContext.userId) {
+        return NextResponse.json(
+          { success: false, code: 'FORBIDDEN_PROFILE_MISMATCH', message: 'No puede consultar la billetera de otro usuario.' },
+          { status: 403 }
+        )
+      }
+      effectiveProfileId = authContext.userId
+    } else if (requestedProfileId) {
+      effectiveProfileId = requestedProfileId
     }
 
     // 1. Obtener cuenta de billetera
@@ -24,7 +39,7 @@ export async function GET(request: NextRequest) {
       is_locked: boolean
     }>(
       'SELECT id, balance, held_balance, currency, is_locked FROM public.wallet_accounts WHERE profile_id = $1;',
-      [profileId]
+      [effectiveProfileId]
     )
 
     const wallet = walletRes.rows[0]

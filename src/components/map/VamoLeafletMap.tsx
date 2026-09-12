@@ -43,6 +43,7 @@ interface VamoLeafletMapProps {
   heatZones?: HeatZoneItem[]
   className?: string
   enableGeolocate?: boolean
+  enableClustering?: boolean
   onMapClick?: (coords: { lat: number; lng: number }) => void
 }
 
@@ -72,6 +73,7 @@ export default function VamoLeafletMap({
   heatZones = [],
   className = 'w-full h-full min-h-[450px]',
   enableGeolocate = true,
+  enableClustering,
   onMapClick
 }: VamoLeafletMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -241,74 +243,122 @@ export default function VamoLeafletMap({
     })
   }, [heatZones])
 
-  // 4. Renderizar Choferes
+  // 4. Renderizar Choferes con Soporte de Agrupación Espacial Ligera (Operational Parity)
   useEffect(() => {
     if (!mapRef.current || !driversLayerRef.current) return
     const group = driversLayerRef.current
     group.clearLayers()
 
     import('leaflet').then((L) => {
-      drivers.forEach(d => {
-        const isOnline = d.status === 'DISPONIBLE' || d.status === 'EN_SERVICIO'
-        const glowColor = d.status === 'DISPONIBLE' ? '#c3f400' : d.status === 'EN_SERVICIO' ? '#0056D2' : '#888888'
+      import('./clusterUtils').then(({ computeSpatialClusters, shouldActivateClustering }) => {
+        const currentZoom = mapRef.current?.getZoom() || zoom
+        const isClusteringActive = typeof enableClustering === 'boolean'
+          ? enableClustering
+          : shouldActivateClustering(drivers.length)
 
-        const iconHtml = `
-          <div style="width:0; height:0; position:relative; cursor:pointer;">
-            <div style="
-              position: absolute;
-              top: -11px; left: -11px;
-              width: 22px; height: 22px;
-              border-radius: 50%;
-              background: ${glowColor};
-              opacity: 0.45;
-              animation: ping 2s cubic-bezier(0,0,0.2,1) infinite;
-            "></div>
-
-            <div style="
-              position: absolute;
-              top: -7px; left: -7px;
-              width: 14px; height: 14px;
-              border-radius: 50%;
-              background: ${glowColor};
-              border: 2.5px solid #ffffff;
-              box-shadow: 0 2px 6px rgba(0,0,0,0.5);
-            "></div>
-
-            <div style="
-              position: absolute;
-              bottom: 12px; left: 0;
-              transform: translateX(-50%);
-              white-space: nowrap;
-              pointer-events: none;
-              color: #0040a1;
-              background: rgba(255,255,255,0.95);
-              border: 1.5px solid rgba(0,86,210,0.25);
-              padding: 2px 8px;
-              border-radius: 9999px;
-              font-size: 11px;
-              font-weight: 800;
-              font-family: system-ui, -apple-system, sans-serif;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.18);
-              display: flex; align-items: center; gap: 4px;
-            ">
-              <span>🏍️</span>
-              <span>${d.name}</span>
-            </div>
-          </div>
-        `
-
-        const customIcon = L.divIcon({
-          html: iconHtml,
-          className: 'driver-leaflet-marker',
-          iconSize: [0, 0],
-          iconAnchor: [0, 0]
-        })
-
-        const marker = L.marker([d.lat, d.lng], { icon: customIcon })
-        group.addLayer(marker)
+        if (isClusteringActive) {
+          const clusters = computeSpatialClusters(drivers, currentZoom)
+          clusters.forEach(c => {
+            if (c.isCluster) {
+              const clusterHtml = `
+                <div style="width:0; height:0; position:relative; cursor:pointer;">
+                  <div style="
+                    position: absolute; top: -16px; left: -16px;
+                    width: 32px; height: 32px; border-radius: 50%;
+                    background: #0040A1; border: 3px solid #C3F400;
+                    box-shadow: 0 4px 10px rgba(0,64,161,0.5);
+                    display: flex; align-items: center; justify-content: center;
+                    color: #C3F400; font-size: 12px; font-weight: 900;
+                  ">
+                    ${c.count}
+                  </div>
+                </div>
+              `
+              const clusterIcon = L.divIcon({
+                html: clusterHtml,
+                className: 'leaflet-driver-cluster',
+                iconSize: [0, 0],
+                iconAnchor: [0, 0]
+              })
+              const marker = L.marker([c.lat, c.lng], { icon: clusterIcon })
+              marker.on('click', () => {
+                mapRef.current?.setView([c.lat, c.lng], Math.min(currentZoom + 2, 16))
+              })
+              group.addLayer(marker)
+            } else {
+              const d = drivers.find(drv => drv.id === c.id)
+              if (!d) return
+              const glowColor = d.status === 'DISPONIBLE' ? '#c3f400' : d.status === 'EN_SERVICIO' ? '#0056D2' : '#888888'
+              const iconHtml = `
+                <div style="width:0; height:0; position:relative; cursor:pointer;">
+                  <div style="
+                    position: absolute; top: -7px; left: -7px;
+                    width: 14px; height: 14px; border-radius: 50%;
+                    background: ${glowColor}; border: 2.5px solid #ffffff;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+                  "></div>
+                  <div style="
+                    position: absolute; bottom: 12px; left: 0;
+                    transform: translateX(-50%); white-space: nowrap; pointer-events: none;
+                    color: #0040a1; background: rgba(255,255,255,0.95);
+                    border: 1.5px solid rgba(0,86,210,0.25); padding: 2px 8px;
+                    border-radius: 9999px; font-size: 11px; font-weight: 800;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+                    display: flex; align-items: center; gap: 4px;
+                  ">
+                    <span>🏍️</span>
+                    <span>${d.name}</span>
+                  </div>
+                </div>
+              `
+              const customIcon = L.divIcon({
+                html: iconHtml,
+                className: 'driver-leaflet-marker',
+                iconSize: [0, 0],
+                iconAnchor: [0, 0]
+              })
+              const marker = L.marker([d.lat, d.lng], { icon: customIcon })
+              group.addLayer(marker)
+            }
+          })
+        } else {
+          drivers.forEach(d => {
+            const glowColor = d.status === 'DISPONIBLE' ? '#c3f400' : d.status === 'EN_SERVICIO' ? '#0056D2' : '#888888'
+            const iconHtml = `
+              <div style="width:0; height:0; position:relative; cursor:pointer;">
+                <div style="
+                  position: absolute; top: -7px; left: -7px;
+                  width: 14px; height: 14px; border-radius: 50%;
+                  background: ${glowColor}; border: 2.5px solid #ffffff;
+                  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+                "></div>
+                <div style="
+                  position: absolute; bottom: 12px; left: 0;
+                  transform: translateX(-50%); white-space: nowrap; pointer-events: none;
+                  color: #0040a1; background: rgba(255,255,255,0.95);
+                  border: 1.5px solid rgba(0,86,210,0.25); padding: 2px 8px;
+                  border-radius: 9999px; font-size: 11px; font-weight: 800;
+                  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+                  display: flex; align-items: center; gap: 4px;
+                ">
+                  <span>🏍️</span>
+                  <span>${d.name}</span>
+                </div>
+              </div>
+            `
+            const customIcon = L.divIcon({
+              html: iconHtml,
+              className: 'driver-leaflet-marker',
+              iconSize: [0, 0],
+              iconAnchor: [0, 0]
+            })
+            const marker = L.marker([d.lat, d.lng], { icon: customIcon })
+            group.addLayer(marker)
+          })
+        }
       })
     })
-  }, [drivers])
+  }, [drivers, enableClustering, zoom])
 
   // 5. Renderizar Waypoints
   useEffect(() => {
@@ -416,18 +466,16 @@ export default function VamoLeafletMap({
 
       {enableGeolocate && (
         <button
-          onClick={() => {
-            if (typeof window !== 'undefined' && 'geolocation' in navigator) {
-              navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                  if (mapRef.current) {
-                    mapRef.current.setView([pos.coords.latitude, pos.coords.longitude], 16, { animate: true })
-                  }
-                },
-                () => {
-                  alert('GPS no disponible en este dispositivo.')
-                }
-              )
+          onClick={async () => {
+            try {
+              const { deviceCapabilityService } = await import('@/lib/services/deviceCapabilityService')
+              const pos = await deviceCapabilityService.getCurrentPosition({ enableHighAccuracy: true, timeout: 8000 })
+              if (mapRef.current) {
+                mapRef.current.setView([pos.coords.latitude, pos.coords.longitude], 16, { animate: true })
+              }
+            } catch (err: unknown) {
+              const msg = err instanceof Error ? err.message : 'Ubicación no disponible en este momento.'
+              alert(msg)
             }
           }}
           className="absolute bottom-4 right-4 z-40 bg-white hover:bg-slate-50 text-[#0056d2] p-2.5 rounded-full shadow-lg border border-slate-200 active:scale-95 transition-all cursor-pointer"

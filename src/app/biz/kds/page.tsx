@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { SidebarBiz } from '@/components/layout/SidebarBiz'
+import { VamoPageHeader } from '@/components/ui/VamoPageHeader'
 import { Clock, Bike, CheckCircle2, ArrowRight, Volume2, Flame, Maximize2, Minimize2, Sparkles, Play, Bell, Smartphone } from 'lucide-react'
 
 interface Ticket {
@@ -18,6 +19,7 @@ export default function BizKdsPage() {
   const [categoryName, setCategoryName] = useState('Comida')
   const [isSaturated, setIsSaturated] = useState(false)
   const [isTvMode, setIsTvMode] = useState(false)
+  const [activeStage, setActiveStage] = useState<'all' | 'new' | 'preparing' | 'waiting_driver' | 'on_way'>('all')
 
   useEffect(() => {
     try {
@@ -153,68 +155,118 @@ export default function BizKdsPage() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         
-        {/* Header KDS Cocina TV */}
-        <header className="bg-[#1a222d] border-b border-slate-800 px-4 md:px-8 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-md">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight flex items-center gap-2">
-                {isFoodCategory ? '👨‍🍳 PANTALLA KDS COCINA' : '📦 TABLERO ODS MOSTRADOR'} &bull; {storeName}
-              </h1>
-            </div>
-            <p className="text-xs md:text-sm text-slate-400 font-semibold mt-0.5">
-              {isFoodCategory 
-                ? 'Lectura de comandas por voz & control de cocción para cocineros.'
-                : 'Surtido de mostrador y empaque para repartidor VAMO.'}
-            </p>
-          </div>
+        {/* Header KDS Cocina TV — estandarizado */}
+        <div className="px-4 md:px-8 pt-5 pb-2 bg-[#11161d]">
+          <VamoPageHeader
+            title={`${isFoodCategory ? '👨‍🍳 KDS Cocina' : '📦 ODS Mostrador'} • ${storeName}`}
+            description={isFoodCategory
+              ? 'Lectura de comandas por voz & control de cocción para cocineros.'
+              : 'Surtido de mostrador y empaque para repartidor VAMO.'}
+            className="border-slate-800 [&_h1]:text-white [&_p]:text-slate-400"
+            badge={
+              isSaturated
+                ? <span className="bg-red-600 text-white text-[10px] font-black px-3 py-1 rounded-full animate-pulse">🔥 SATURADA</span>
+                : <span className="bg-[#c3f400] text-[#161e00] text-[10px] font-black px-3 py-1 rounded-full">FLUJO NORMAL</span>
+            }
+            primaryAction={
+              <div className="flex flex-wrap items-center gap-2">
+                <a
+                  href="/kds/display"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-[#0056d2] hover:bg-[#0040a1] text-white px-4 py-2 rounded-full text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-[#c3f400]" />
+                  Monitor ↗
+                </a>
+                <button
+                  onClick={() => setIsTvMode(!isTvMode)}
+                  className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-full text-xs font-black flex items-center gap-1.5 border border-slate-700 transition-all cursor-pointer"
+                >
+                  {isTvMode ? <Minimize2 className="w-3.5 h-3.5 text-[#c3f400]" /> : <Maximize2 className="w-3.5 h-3.5 text-[#c3f400]" />}
+                  {isTvMode ? 'Compacto' : 'Modo TV 📺'}
+                </button>
+                <button
+                  onClick={() => {
+                    const nextState = !isSaturated
+                    setIsSaturated(nextState)
+                    speakCommand(nextState
+                      ? 'Cocina declarada en saturación.'
+                      : 'Cocina en flujo normal.')
+                  }}
+                  className={`px-4 py-2 rounded-full text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer border active:scale-95 ${
+                    isSaturated
+                      ? 'bg-red-600 text-white border-red-400 animate-pulse'
+                      : 'bg-[#fddf33] text-[#726200] border-[#726200]/30 hover:bg-[#e2c60f]'
+                  }`}
+                >
+                  <Flame className="w-3.5 h-3.5" />
+                  {isSaturated ? 'SATURADA (+10 min)' : 'Marcar Saturada'}
+                </button>
+              </div>
+            }
+          />
+        </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Abrir en Ventana Independiente / Celular */}
-            <a
-              href="/kds/display"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-[#0056d2] hover:bg-[#0040a1] text-white px-4 py-2.5 rounded-full text-xs font-black flex items-center gap-2 border border-[#0056d2] transition-all cursor-pointer shadow-md"
-            >
-              <Smartphone className="w-4 h-4 text-[#c3f400]" />
-              <span>📱 Abrir Monitor Independiente Celular/TV ↗</span>
-            </a>
+        {/* SELECTOR DE ETAPAS PARA CELULARES, TABLETAS Y SMALL LAPTOPS (< 1280px CSS) */}
+        <div className="xl:hidden bg-[#161d27] border-b border-slate-800 p-2 sm:p-3 overflow-x-auto flex items-center gap-2 scrollbar-none">
+          <button
+            onClick={() => setActiveStage('all')}
+            className={`min-h-[44px] px-3.5 py-1.5 rounded-full text-xs font-black shrink-0 transition-all cursor-pointer ${
+              activeStage === 'all' 
+                ? 'bg-[#c3f400] text-[#161e00] shadow-xs' 
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            Todas ({tickets.length})
+          </button>
+          <button
+            onClick={() => setActiveStage('new')}
+            className={`min-h-[44px] px-3.5 py-1.5 rounded-full text-xs font-black shrink-0 transition-all cursor-pointer ${
+              activeStage === 'new' 
+                ? 'bg-[#c3f400] text-[#161e00] shadow-xs' 
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            1. Nuevas ({tickets.filter(t => t.status === 'new').length})
+          </button>
+          <button
+            onClick={() => setActiveStage('preparing')}
+            className={`min-h-[44px] px-3.5 py-1.5 rounded-full text-xs font-black shrink-0 transition-all cursor-pointer ${
+              activeStage === 'preparing' 
+                ? 'bg-[#fddf33] text-[#726200] shadow-xs' 
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            2. En Cocina ({tickets.filter(t => t.status === 'preparing').length})
+          </button>
+          <button
+            onClick={() => setActiveStage('waiting_driver')}
+            className={`min-h-[44px] px-3.5 py-1.5 rounded-full text-xs font-black shrink-0 transition-all cursor-pointer ${
+              activeStage === 'waiting_driver' 
+                ? 'bg-emerald-500 text-slate-950 shadow-xs' 
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            3. Listas ({tickets.filter(t => t.status === 'waiting_driver').length})
+          </button>
+          <button
+            onClick={() => setActiveStage('on_way')}
+            className={`min-h-[44px] px-3.5 py-1.5 rounded-full text-xs font-black shrink-0 transition-all cursor-pointer ${
+              activeStage === 'on_way' 
+                ? 'bg-blue-500 text-white shadow-xs' 
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            4. En Ruta ({tickets.filter(t => t.status === 'on_way').length})
+          </button>
+        </div>
 
-            {/* Botón de Pantalla Completa TV */}
-            <button
-              onClick={() => setIsTvMode(!isTvMode)}
-              className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-full text-xs font-black flex items-center gap-2 border border-slate-700 transition-all cursor-pointer"
-            >
-              {isTvMode ? <Minimize2 className="w-4 h-4 text-[#c3f400]" /> : <Maximize2 className="w-4 h-4 text-[#c3f400]" />}
-              <span>{isTvMode ? 'Ocultar Sidebar 📺' : 'Modo TV Completo 📺'}</span>
-            </button>
-
-            {/* Botón Gigante de Saturación */}
-            <button
-              onClick={() => {
-                const nextState = !isSaturated
-                setIsSaturated(nextState)
-                speakCommand(nextState 
-                  ? 'Cocina declarada en saturación. Se aumentan 10 minutos al tiempo estimado.'
-                  : 'Cocina en flujo normal.')
-              }}
-              className={`px-5 py-2.5 rounded-full text-xs font-black shadow-lg transition-all flex items-center gap-2 cursor-pointer border active:scale-95 ${
-                isSaturated 
-                  ? 'bg-red-600 text-white border-red-400 animate-pulse' 
-                  : 'bg-[#fddf33] text-[#726200] border-[#726200]/30 hover:bg-[#e2c60f]'
-              }`}
-            >
-              <Flame className="w-4 h-4" />
-              <span>{isSaturated ? '🔥 COCINA SATURADA (+10 MIN ACTIVO)' : '🔥 MARCAR COCINA SATURADA (+10 MIN)'}</span>
-            </button>
-          </div>
-        </header>
-
-        {/* Kanban Board Grid (4 Columnas Gigantes para Televisor de Cocina) */}
-        <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-[1920px] mx-auto w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        {/* Kanban Board Grid (Adaptable: 1 col en móvil según tab, 2 cols en tablet/small laptop, 4 cols en Desktop/TV >=1280px) */}
+        <main className="flex-1 p-3 sm:p-5 md:p-6 lg:p-8 max-w-[1920px] mx-auto w-full grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
           
           {/* Columna 1: NUEVO EN COCINA (YA APROBADO POR CAJA/DUEÑO) */}
-          <div className="bg-[#1a222d] p-4 rounded-[28px] space-y-4 border border-slate-800 flex flex-col">
+          <div className={`${activeStage === 'all' || activeStage === 'new' ? 'flex' : 'hidden xl:flex'} bg-[#1a222d] p-4 rounded-[28px] space-y-4 border border-slate-800 flex-col`}>
             <div className="flex justify-between items-center px-2">
               <h3 className="font-black text-sm md:text-base text-[#c3f400] uppercase tracking-wider flex items-center gap-2">
                 <Bell className="w-5 h-5 text-[#c3f400]" />
@@ -226,7 +278,18 @@ export default function BizKdsPage() {
             </div>
 
             <div className="space-y-4 flex-1 overflow-y-auto">
-              {tickets.filter(t => t.status === 'new').map(t => (
+              {tickets.filter(t => t.status === 'new').length === 0 ? (
+                <div role="status" className="flex flex-col items-center justify-center py-10 gap-2 text-slate-600">
+                  <CheckCircle2 className="w-10 h-10 text-slate-600 opacity-40" />
+                  <p className="text-xs font-bold text-slate-500 text-center">
+                    {isFoodCategory ? 'Sin comandas nuevas' : 'Sin pedidos nuevos'}
+                  </p>
+                  <p className="text-[10px] text-slate-600 text-center opacity-60">
+                    Los pedidos aparecerán aquí en tiempo real
+                  </p>
+                </div>
+              ) : (
+                tickets.filter(t => t.status === 'new').map(t => (
                 <div key={t.id} className="bg-[#232d3b] p-6 rounded-[24px] border-2 border-[#c3f400] space-y-4 shadow-xl">
                   <div className="flex justify-between items-start">
                     <div>
@@ -238,6 +301,7 @@ export default function BizKdsPage() {
                       onClick={() => speakCommand(`Ticket ${t.id}: ${t.items.join(' y ')}`)}
                       className="bg-slate-800 hover:bg-slate-700 text-[#c3f400] p-2.5 rounded-2xl border border-slate-700 transition-all cursor-pointer"
                       title="Cantar Comanda por Audio"
+                      aria-label={`Cantar comanda ${t.id} por audio`}
                     >
                       <Volume2 className="w-5 h-5" />
                     </button>
@@ -261,12 +325,13 @@ export default function BizKdsPage() {
                     <ArrowRight className="w-5 h-5" />
                   </button>
                 </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
 
           {/* Columna 2: EN PREPARACIÓN / COCCIÓN */}
-          <div className="bg-[#1a222d] p-4 rounded-[28px] space-y-4 border border-slate-800 flex flex-col">
+          <div className={`${activeStage === 'all' || activeStage === 'preparing' ? 'flex' : 'hidden xl:flex'} bg-[#1a222d] p-4 rounded-[28px] space-y-4 border border-slate-800 flex-col`}>
             <div className="flex justify-between items-center px-2">
               <h3 className="font-black text-sm md:text-base text-[#fddf33] uppercase tracking-wider flex items-center gap-2">
                 <Clock className="w-5 h-5 text-[#fddf33]" />
@@ -320,7 +385,7 @@ export default function BizKdsPage() {
           </div>
 
           {/* Columna 3: LISTO EN ESPERA DE REPARTIDOR */}
-          <div className="bg-[#1a222d] p-4 rounded-[28px] space-y-4 border border-slate-800 flex flex-col">
+          <div className={`${activeStage === 'all' || activeStage === 'waiting_driver' ? 'flex' : 'hidden xl:flex'} bg-[#1a222d] p-4 rounded-[28px] space-y-4 border border-slate-800 flex-col`}>
             <div className="flex justify-between items-center px-2">
               <h3 className="font-black text-sm md:text-base text-emerald-400 uppercase tracking-wider flex items-center gap-2">
                 <Bike className="w-5 h-5 text-emerald-400" />
@@ -356,7 +421,7 @@ export default function BizKdsPage() {
           </div>
 
           {/* Columna 4: EN ROUTE AL CLIENTE */}
-          <div className="bg-[#1a222d] p-4 rounded-[28px] space-y-4 border border-slate-800 flex flex-col">
+          <div className={`${activeStage === 'all' || activeStage === 'on_way' ? 'flex' : 'hidden xl:flex'} bg-[#1a222d] p-4 rounded-[28px] space-y-4 border border-slate-800 flex-col`}>
             <div className="flex justify-between items-center px-2">
               <h3 className="font-black text-sm md:text-base text-slate-400 uppercase tracking-wider">
                 4. EN RUTA AL CLIENTE

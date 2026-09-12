@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { SidebarBiz } from '@/components/layout/SidebarBiz'
+import { VamoPageHeader } from '@/components/ui/VamoPageHeader'
 import { Store, MapPin, Clock, Phone, Camera, Save, CheckCircle2, ShieldCheck, Sparkles, Navigation, Globe, Lock, QrCode, Printer } from 'lucide-react'
 import { SupabaseImageUploader } from '@/components/ui/SupabaseImageUploader'
 import { CancellationService } from '@/lib/services/cancellationService'
@@ -52,18 +53,16 @@ export default function BizSettingsPage() {
     }
   }, [])
 
-  const handleGetCurrentGps = () => {
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setLat(pos.coords.latitude)
-          setLng(pos.coords.longitude)
-          alert(`Ubicación GPS capturada: Lat ${pos.coords.latitude.toFixed(4)}, Lng ${pos.coords.longitude.toFixed(4)}`)
-        },
-        (err) => {
-          alert('No se pudo acceder al GPS del navegador. Se mantendrán las coordenadas manuales.')
-        }
-      )
+  const handleGetCurrentGps = async () => {
+    try {
+      const { deviceCapabilityService } = await import('@/lib/services/deviceCapabilityService')
+      const normalized = await deviceCapabilityService.getCurrentPosition({ enableHighAccuracy: true })
+      setLat(normalized.coords.latitude)
+      setLng(normalized.coords.longitude)
+      alert(`Ubicación GPS capturada con precisión de ±${normalized.accuracyMeters}m.`)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'No se pudo acceder al GPS.'
+      alert(msg)
     }
   }
 
@@ -112,19 +111,16 @@ export default function BizSettingsPage() {
       <div className="flex-1 flex flex-col min-w-0">
         <main className="flex-1 px-4 sm:px-8 py-6 md:py-10 max-w-4xl mx-auto w-full space-y-8">
           
-          {/* Header Section */}
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 bg-[#0056d2] text-white text-[10px] font-black px-3.5 py-1 rounded-full uppercase tracking-wider shadow-xs">
-              <Sparkles className="w-3.5 h-3.5 text-[#c3f400]" />
-              <span>VISIBILIDAD EN RADAR CLIENTE VAMO</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-[#0056d2] tracking-tight">
-              Perfil & Configuración de Local
-            </h1>
-            <p className="text-xs sm:text-sm font-semibold text-[#737785]">
-              Administra los datos comerciales, foto de portada y coordenadas GPS para que tus vecinos te encuentren en el Radar VAMO.
-            </p>
-          </div>
+          <VamoPageHeader
+            title="Perfil & Configuración de Local"
+            description="Administra datos comerciales, foto de portada y coordenadas GPS para que tus vecinos te encuentren en el Radar VAMO."
+            badge={
+              <span className="inline-flex items-center gap-1.5 bg-[#0056d2] text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
+                <Sparkles className="w-3 h-3 text-[#c3f400]" />
+                Radar VAMO
+              </span>
+            }
+          />
 
           {/* Formulario de Configuración del Local */}
           <form onSubmit={handleSaveProfile} className="bg-white p-6 sm:p-8 rounded-[32px] border border-[#e5e2e1] shadow-sm space-y-6">

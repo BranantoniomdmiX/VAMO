@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { query } from '@/lib/db/postgres'
+import { getTrustedAuthContext } from '@/lib/auth/contextResolver'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,7 +14,22 @@ interface PodRequestBody {
 
 export async function POST(request: NextRequest) {
   try {
-    const body: PodRequestBody = await request.json()
+    const authContext = await getTrustedAuthContext()
+    if (!authContext) {
+      return NextResponse.json(
+        { success: false, code: 'UNAUTHORIZED', message: 'Sesión no válida o ausente.' },
+        { status: 401 }
+      )
+    }
+
+    if (!['driver', 'superadmin', 'master'].includes(authContext.role)) {
+      return NextResponse.json(
+        { success: false, code: 'FORBIDDEN_ROLE', message: 'Solo los conductores asignados o superadministradores pueden registrar la entrega POD.' },
+        { status: 403 }
+      )
+    }
+
+    const body: PodRequestBody = await request.json().catch(() => ({}))
     const { orderId, pin, photoUrl, lat, lng } = body
 
     if (!orderId) {
@@ -28,6 +44,28 @@ export async function POST(request: NextRequest) {
         { success: false, code: 'PROOF_REQUIRED', message: 'Se requiere el PIN del cliente o la fotografía POD.' },
         { status: 400 }
       )
+    }
+
+    // Validar que el chofer autenticado sea el asignado a esta orden
+    if (authContext.role === 'driver') {
+      const orderCheck = await query<{ driver_id: string }>(
+        'SELECT driver_id FROM public.orders WHERE id = $1;',
+        [orderId]
+      )
+
+      if (orderCheck.rows.length === 0) {
+        return NextResponse.json(
+          { success: false, code: 'ORDER_NOT_FOUND', message: 'Pedido no encontrado.' },
+          { status: 404 }
+        )
+      }
+
+      if (orderCheck.rows[0].driver_id !== authContext.userId) {
+        return NextResponse.json(
+          { success: false, code: 'FORBIDDEN_WRONG_DRIVER', message: 'No es el conductor asignado a esta orden.' },
+          { status: 403 }
+        )
+      }
     }
 
     const res = await query<{ verify_order_pod: any }>(

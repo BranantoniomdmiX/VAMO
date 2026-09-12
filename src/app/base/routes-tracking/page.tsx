@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react'
 import { SidebarBase } from '@/components/layout/SidebarBase'
-import { Navigation, Bike, Route, MapPin, Clock, Eye, Radio } from 'lucide-react'
+import { VamoPageHeader } from '@/components/ui/VamoPageHeader'
+import { Navigation, Bike, Route, MapPin, Clock, Eye, Radio, AlertTriangle, Loader2 } from 'lucide-react'
 import VamoMapLibre, { DriverMarkerData, MapWaypoint } from '@/components/map/VamoMapLibre'
 import { gpsSocketService } from '@/lib/services/gpsSocketService'
 
@@ -53,19 +54,37 @@ export default function BaseRoutesTrackingPage() {
     }
   ]
 
+  const [routeStatus, setRouteStatus] = useState<'idle' | 'loading' | 'success' | 'no_route' | 'timeout' | 'network_error'>('idle')
+
   const activeDriver = driversList.find(d => d.id === selectedDriverId) || driversList[0]
 
-  // Cargar automáticamente la ruta por CALLES REALES usando OSRM
+  // Cargar automáticamente la ruta por CALLES REALES usando OSRM con manejo de estados
   React.useEffect(() => {
     let isMounted = true
     async function loadRealStreetRoute() {
       if (activeDriver.status === 'DISPONIBLE') {
         setLiveRoute([])
+        setRouteStatus('idle')
         return
       }
-      const details = await gpsSocketService.fetchRouteDetails(activeDriver.startLatLng, activeDriver.endLatLng)
-      if (isMounted && details.coordinates && details.coordinates.length > 0) {
-        setLiveRoute(details.coordinates)
+
+      setRouteStatus('loading')
+      try {
+        const details = await gpsSocketService.fetchRouteDetails(activeDriver.startLatLng, activeDriver.endLatLng)
+        if (isMounted) {
+          if (details.coordinates && details.coordinates.length > 0) {
+            setLiveRoute(details.coordinates)
+            setRouteStatus('success')
+          } else {
+            setLiveRoute([])
+            setRouteStatus('no_route')
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setLiveRoute([])
+          setRouteStatus('network_error')
+        }
       }
     }
     loadRealStreetRoute()
@@ -90,29 +109,46 @@ export default function BaseRoutesTrackingPage() {
       <SidebarBase activeTab="routes-tracking" />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-[#e5e2e1] px-4 md:px-8 py-4 flex justify-between items-center shadow-xs">
-          <div>
-            <h1 className="text-xl md:text-2xl font-extrabold text-[#0040a1]">Seguimiento de Rutas en Tiempo Real</h1>
-            <p className="text-xs text-slate-500 font-semibold">Trazabilidad en vivo del recorrido de cada motociclista en mapa GPS</p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
-              className="bg-[#f0eded] hover:bg-[#e5e2e1] text-[#1c1b1b] px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm"
-            >
-              {theme === 'dark' ? '☀️ Mapa Claro' : '🌙 Mapa Oscuro'}
-            </button>
-
-            <span className="bg-[#161e00] text-[#c3f400] px-4 py-1.5 rounded-full text-xs font-black shadow-sm flex items-center gap-1.5">
-              <Radio className="w-4 h-4 animate-pulse" />
-              Monitoreo GPS Activo
-            </span>
-          </div>
-        </header>
+        <div className="px-4 md:px-8 pt-6 pb-2">
+          <VamoPageHeader
+            title="Seguimiento de Rutas en Tiempo Real"
+            description="Trazabilidad GPS en vivo del recorrido de cada motociclista"
+            badge={
+              <span className="bg-[#161e00] text-[#c3f400] px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1.5">
+                <Radio className="w-3 h-3 animate-pulse" />
+                GPS Activo
+              </span>
+            }
+            secondaryActions={
+              <button
+                onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+                className="bg-[#f0eded] hover:bg-[#e5e2e1] text-[#1c1b1b] px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm cursor-pointer"
+              >
+                {theme === 'dark' ? '☀️ Mapa Claro' : '🌙 Mapa Oscuro'}
+              </button>
+            }
+          />
+        </div>
 
         <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
           
+          {/* Estado de carga/error de ruta */}
+          {routeStatus === 'loading' && (
+            <div role="status" aria-live="polite" className="bg-blue-50 border border-blue-200 text-blue-700 p-3 rounded-2xl flex items-center gap-2 text-xs font-semibold">
+              <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+              Calculando ruta por calles reales (OSRM)...
+            </div>
+          )}
+          {(routeStatus === 'network_error' || routeStatus === 'no_route') && (
+            <div role="alert" className="bg-amber-50 border border-amber-300 text-amber-800 p-3 rounded-2xl flex items-center gap-2 text-xs font-semibold">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              {routeStatus === 'network_error'
+                ? 'Sin conexión al servidor de rutas. Se muestra línea directa aproximada.'
+                : 'No se encontró ruta por calles para este trayecto. Se muestra línea directa.'
+              }
+            </div>
+          )}
+
           {/* BARRA DE SELECCIÓN DE MOTOCICLISTA PARA SEGUIMIENTO DE RUTA */}
           <div className="bg-white p-4 rounded-[28px] border border-[#e5e2e1] shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <span className="text-xs font-extrabold text-[#1c1b1b] uppercase tracking-wider flex items-center gap-2">
@@ -169,7 +205,7 @@ export default function BaseRoutesTrackingPage() {
           </div>
 
           {/* MAPA VECTORIAL CON POLILÍNEA DE LA RUTA SEGUIDA */}
-          <div className="h-[480px] rounded-[32px] overflow-hidden relative shadow-md border-2 border-[#e5e2e1]">
+          <div className="h-[480px] rounded-panel overflow-hidden relative shadow-md border-2 border-[#e5e2e1] dark:border-slate-800">
             <VamoMapLibre
               center={[activeDriver.lat, activeDriver.lng]}
               zoom={13.5}
@@ -178,6 +214,16 @@ export default function BaseRoutesTrackingPage() {
               drivers={driverMarkers}
               waypoints={waypoints}
               routeCoordinates={liveRoute}
+              routeStatus={routeStatus}
+              fallbackDetails={{
+                originTitle: activeDriver.origin,
+                destinationTitle: activeDriver.destination,
+                destinationLat: activeDriver.endLatLng[0],
+                destinationLng: activeDriver.endLatLng[1],
+                privacyMode: 'exact',
+                orderStatus: activeDriver.status,
+                distanceKm: '3.2'
+              }}
               className="w-full h-full"
             />
           </div>

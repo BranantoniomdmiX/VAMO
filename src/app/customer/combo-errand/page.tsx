@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { CustomerLayout } from '@/components/layout/CustomerLayout'
+import { formatCurrencyMXN } from '@/lib/utils/formatters'
 import { ShoppingBag, Pill, Store, Navigation, MapPin, Plus, Trash2, Bike, ArrowRight, Loader2, Sparkles, CheckCircle2, ShieldCheck, Tag } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { createServiceFromBase } from '@/lib/services/serviceActions'
@@ -254,7 +255,7 @@ export default function CustomerComboErrandPage() {
           <button
             type="submit"
             disabled={isCalculating}
-            className="w-full bg-[#0056d2] hover:bg-[#0040a1] disabled:bg-[#0056d2]/70 text-white py-3.5 rounded-full font-black text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full min-h-[48px] bg-[#0056d2] hover:bg-[#0040a1] disabled:bg-[#0056d2]/70 text-white py-3.5 px-4 rounded-full font-black text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             {isCalculating ? (
               <>
@@ -272,24 +273,25 @@ export default function CustomerComboErrandPage() {
           <div className="space-y-2 border-b border-blue-800 pb-4 text-xs font-bold">
             <div className="flex justify-between text-blue-200">
               <span>Artículos de los {items.length} Comercios:</span>
-              <span className="text-white font-black">${productsTotal.toFixed(2)} MXN</span>
+              <span className="text-white font-black">{formatCurrencyMXN(productsTotal)}</span>
             </div>
             <div className="flex justify-between text-[#c3f400]">
               <span>Flete Optimizado VAMO (1 sola moto):</span>
-              <span className="font-black">${estimatedFreight.toFixed(2)} MXN</span>
+              <span className="font-black">{formatCurrencyMXN(estimatedFreight)}</span>
             </div>
           </div>
 
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-1">
             <div>
               <span className="text-[10px] font-black text-blue-200 uppercase block">TOTAL GENERAL A PAGAR</span>
-              <p className="text-4xl font-black text-[#c3f400]">${grandTotal.toFixed(2)} MXN</p>
+              <p className="text-4xl font-black text-[#c3f400]">{formatCurrencyMXN(grandTotal)}</p>
             </div>
 
             <button
+              type="button"
               onClick={handleCreateComboOrder}
               disabled={isSubmitting}
-              className="w-full sm:w-auto bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] px-8 py-4 rounded-full font-black text-sm shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+              className="w-full sm:w-auto min-h-[48px] bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] px-8 py-4 rounded-full font-black text-sm shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
             >
               <Bike className="w-5 h-5" />
               <span>{isSubmitting ? 'SOLICITANDO...' : 'PAGAR Y PEDIR EN 1 SOLO CLIC ⚡'}</span>

@@ -1,0 +1,128 @@
+{
+  "totalTests": 19,
+  "pass": 19,
+  "fail": 0,
+  "blocked": 0,
+  "notApplicable": 0,
+  "sections": {
+    "SETUP": [
+      {
+        "name": "Provisioning Scenarios A & B Entities",
+        "status": "PASS",
+        "detail": "12 actores, 2 franquicias, 4 choferes, 2 comercios"
+      }
+    ],
+    "AUTH": [
+      {
+        "name": "Superadmin Cross-Franchise Global Visibility",
+        "status": "PASS",
+        "detail": "2 franquicias visibles"
+      }
+    ],
+    "ROLE_MATRIX": [
+      {
+        "name": "Customer Self-Escalation to Superadmin",
+        "status": "PASS",
+        "detail": "Rechazado por RLS/Constraint"
+      },
+      {
+        "name": "Driver Unauthorized Franchise Modification",
+        "status": "PASS",
+        "detail": "0 filas actualizadas"
+      }
+    ],
+    "ISOLATION": [
+      {
+        "name": "Merchant A cross-access to Merchant B profile",
+        "status": "PASS",
+        "detail": "Bloqueado por aislamiento"
+      },
+      {
+        "name": "Driver A reading Driver B Wallet",
+        "status": "PASS",
+        "detail": "RLS wallet_accounts_owner_only activo"
+      }
+    ],
+    "JOURNEY_A": [
+      {
+        "name": "Order A Created by Customer (PENDING)",
+        "status": "PASS",
+        "detail": "Code: VMO-9901, Total: $120"
+      },
+      {
+        "name": "Merchant A KDS Transition -> PREPARING",
+        "status": "PASS",
+        "detail": "Comanda de cocina actualizada a: PREPARING"
+      },
+      {
+        "name": "Merchant A KDS Transition -> READY_BIZ",
+        "status": "PASS",
+        "detail": ""
+      }
+    ],
+    "DISPATCH_CONCURRENCY": [
+      {
+        "name": "Atomic Row Lock: Exactly One Winner",
+        "status": "PASS",
+        "detail": "Driver 1: ORDER_ASSIGNED_SUCCESSFULLY | Driver 2: ORDER_ALREADY_TAKEN"
+      }
+    ],
+    "POD": [
+      {
+        "name": "Proof of Delivery Valid PIN (8492)",
+        "status": "PASS",
+        "detail": "¡Entrega confirmada exitosamente! Pedido finalizado y fondos liquidados."
+      },
+      {
+        "name": "POD Replay Idempotency",
+        "status": "PASS",
+        "detail": "Rechazado o idempotente"
+      }
+    ],
+    "FINANCIAL": [
+      {
+        "name": "Order Settlement & Split 50/50 Settled",
+        "status": "PASS",
+        "detail": "Estado DELIVERED y Pago PAID"
+      }
+    ],
+    "STATE_MACHINE": [
+      {
+        "name": "KDS Illegal State Rejection",
+        "status": "PASS",
+        "detail": "INVALID_STATUS"
+      }
+    ],
+    "JOURNEY_B": [
+      {
+        "name": "Package Order B Created (CARD PENDING)",
+        "status": "PASS",
+        "detail": "Code: VMO-9902, Total: $65.00"
+      },
+      {
+        "name": "POD Verified & Digital Payout Settled to Driver B",
+        "status": "PASS",
+        "detail": "¡Entrega confirmada exitosamente! Pedido finalizado y fondos liquidados."
+      }
+    ],
+    "WALLET": [
+      {
+        "name": "Driver B SPEI Withdrawal Request",
+        "status": "PASS",
+        "detail": "Restante: $432"
+      },
+      {
+        "name": "Overdraft Rejection (Insufficient Funds)",
+        "status": "PASS",
+        "detail": "Saldo insuficiente para realizar el retiro."
+      }
+    ],
+    "PERSISTENCE": [
+      {
+        "name": "Order A Status & Assignment Persisted",
+        "status": "PASS",
+        "detail": "Status: DELIVERED, Paid: PAID"
+      }
+    ]
+  }
+}

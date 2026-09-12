@@ -71,23 +71,20 @@ export default function DriverNavigationPage() {
     }
   }, [])
 
-  // Solicitar o recalcular ubicación GPS Real manualmente
-  const requestRealDeviceGps = () => {
-    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setDriverPos({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            heading: position.coords.heading || 0,
-            isRealGps: true
-          })
-        },
-        (err) => {
-          alert('Para que tu celular comparta su GPS Real sobre IP Local HTTP (192.168.0.11), debes habilitar "Unsecure origins treated as secure" en chrome://flags o usar HTTPS / localhost.')
-        },
-        { enableHighAccuracy: true }
-      )
+  // Solicitar o recalcular ubicación GPS Real manualmente mediante DeviceCapabilityService
+  const requestRealDeviceGps = async () => {
+    try {
+      const { deviceCapabilityService } = await import('@/lib/services/deviceCapabilityService')
+      const normalized = await deviceCapabilityService.getCurrentPosition({ enableHighAccuracy: true })
+      setDriverPos({
+        lat: normalized.coords.latitude,
+        lng: normalized.coords.longitude,
+        heading: normalized.coords.heading || 0,
+        isRealGps: true
+      })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'No se pudo obtener la ubicación.'
+      alert(msg)
     }
   }
 
@@ -303,11 +300,12 @@ export default function DriverNavigationPage() {
 
               {step === 'to_origin' && (
                 <button
+                  type="button"
                   onClick={() => {
                     setStep('arrived_origin')
                     setCameraMode('DRIVING')
                   }}
-                  className="w-full bg-[#0056d2] hover:bg-[#0040a1] text-white py-3.5 rounded-full font-black text-xs shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  className="w-full min-h-[48px] bg-[#0056d2] hover:bg-[#0040a1] text-white py-3.5 px-4 rounded-full font-black text-xs shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4 text-[#c3f400]" />
                   <span>LLEGUÉ AL LOCAL ORIGEN</span>
@@ -316,11 +314,12 @@ export default function DriverNavigationPage() {
 
               {step === 'arrived_origin' && (
                 <button
+                  type="button"
                   onClick={() => {
                     setStep('to_destination')
                     setCameraMode('DRIVING')
                   }}
-                  className="w-full bg-[#fddf33] hover:bg-[#e2c60f] text-[#726200] py-3.5 rounded-full font-black text-xs shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  className="w-full min-h-[48px] bg-[#fddf33] hover:bg-[#e2c60f] text-[#726200] py-3.5 px-4 rounded-full font-black text-xs shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>INICIAR NAVEGACIÓN A CLIENTE 🏎️</span>
@@ -329,8 +328,9 @@ export default function DriverNavigationPage() {
 
               {step === 'to_destination' && (
                 <button
+                  type="button"
                   onClick={() => router.push('/driver/pod')}
-                  className="w-full bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3.5 rounded-full font-black text-xs shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  className="w-full min-h-[48px] bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] py-3.5 px-4 rounded-full font-black text-xs shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>LLEGUÉ CON CLIENTE &bull; ENTREGAR</span>

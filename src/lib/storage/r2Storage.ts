@@ -1,20 +1,20 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
-const R2_ACCOUNT_ID = process.env.CLOUDFLARE_R2_ACCOUNT_ID || '8744543e820765bfe2f3a01daecd213e'
-const R2_ACCESS_KEY_ID = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || '3712bf44fcf4bff1c3b04941c4546fe9'
-const R2_SECRET_ACCESS_KEY = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || '61f1ce9b52e0a977ba9ba19340e2a772568a2cd54d3e58f96e27ba3098a520dc'
-const R2_BUCKET_NAME = process.env.CLOUDFLARE_R2_BUCKET_NAME || 'vamo-assets'
+const R2_ACCOUNT_ID = process.env.CLOUDFLARE_R2_ACCOUNT_ID
+const R2_ACCESS_KEY_ID = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID
+const R2_SECRET_ACCESS_KEY = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY
+const R2_BUCKET_NAME = process.env.CLOUDFLARE_R2_BUCKET_NAME
 const R2_PUBLIC_DOMAIN = process.env.NEXT_PUBLIC_R2_PUBLIC_DOMAIN || 'https://pub-346e104dce064f78bcd45e949decf897.r2.dev'
 
-// Cliente S3 configurado para Cloudflare R2
+// Cliente S3 configurado para Cloudflare R2 (Fail-Closed)
 export const r2Client = new S3Client({
   region: 'auto',
-  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
+  endpoint: R2_ACCOUNT_ID ? `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : undefined,
+  credentials: (R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY) ? {
     accessKeyId: R2_ACCESS_KEY_ID,
     secretAccessKey: R2_SECRET_ACCESS_KEY,
-  },
+  } : undefined,
 })
 
 /**

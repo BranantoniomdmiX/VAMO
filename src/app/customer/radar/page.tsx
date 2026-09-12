@@ -128,27 +128,26 @@ export default function CustomerRadarPage() {
 
   // 2. Autodetección de GPS
   useEffect(() => {
-    if (typeof window !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude]
-          setUserLocation(coords)
-          setHasGps(true)
-          localStorage.setItem('vamo_user_gps', JSON.stringify({ lat: coords[0], lng: coords[1] }))
-        },
-        (err) => {
-          console.log('GPS no disponible, usando ubicación de mapa:', err)
-          const cached = localStorage.getItem('vamo_user_gps')
-          if (cached) {
-            try {
-              const parsed = JSON.parse(cached)
-              setUserLocation([parsed.lat, parsed.lng])
-            } catch (e) {}
-          }
-        },
-        { enableHighAccuracy: true, timeout: 6000 }
-      )
-    }
+    import('@/lib/services/deviceCapabilityService').then(({ deviceCapabilityService }) => {
+      deviceCapabilityService.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 8000
+      }).then(normalized => {
+        const coords: [number, number] = [normalized.coords.latitude, normalized.coords.longitude]
+        setUserLocation(coords)
+        setHasGps(true)
+        localStorage.setItem('vamo_user_gps', JSON.stringify({ lat: coords[0], lng: coords[1] }))
+      }).catch(err => {
+        console.warn('GPS no disponible, usando ubicación guardada:', err.message)
+        const cached = localStorage.getItem('vamo_user_gps')
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached)
+            setUserLocation([parsed.lat, parsed.lng])
+          } catch (e) {}
+        }
+      })
+    })
   }, [])
 
   const handleMapClick = (coords: { lat: number; lng: number }) => {

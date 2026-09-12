@@ -5,6 +5,7 @@ import { MobileDriverLayout } from '@/components/layout/MobileDriverLayout'
 import { MapPin, Navigation, Clock, Check, X, ArrowLeft, Loader2, AlertCircle, Bike, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { formatCurrencyMXN } from '@/lib/utils/formatters'
 
 interface OfferData {
   id: string
@@ -62,12 +63,20 @@ function DriverOfferContent() {
     if (!activeOffer) return
 
     if (timeLeft <= 0) {
-      if (!isSubmitting) {
-        setErrorMessage('La oferta de viaje expiró o fue reasignada.')
-      }
       return
     }
-    const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000)
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          if (!isSubmitting) {
+            setErrorMessage('La oferta de viaje expiró o fue reasignada.')
+          }
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
     return () => clearInterval(timer)
   }, [timeLeft, isSubmitting, activeOffer])
 
@@ -183,7 +192,7 @@ function DriverOfferContent() {
         {/* Tarjeta de Ganancia Estimada */}
         <div className="bg-[#0040a1] text-white p-6 rounded-[28px] text-center space-y-1 shadow-md relative overflow-hidden border border-blue-800">
           <span className="text-xs font-black text-blue-200 uppercase tracking-wider block">GANANCIA TOTAL ESTIMADA</span>
-          <p className="text-5xl font-black text-[#c3f400]">${Number(activeOffer.earnings).toFixed(2)}</p>
+          <p className="text-4xl sm:text-5xl font-black text-[#c3f400]">{formatCurrencyMXN(activeOffer.earnings)}</p>
           <span className="text-xs font-black text-slate-900 bg-[#c3f400] px-3.5 py-1 rounded-full inline-block mt-2 shadow-xs">
             {activeOffer.paymentMethod === 'CASH' ? '💵 Cobro en Efectivo con Cliente' : '💳 Pago Digital Acreditado'}
           </span>
@@ -218,12 +227,13 @@ function DriverOfferContent() {
           </div>
         </div>
 
-        {/* Botones de Acción Gigantes Táctiles */}
+        {/* Botones de Acción Gigantes Táctiles (>= 48px touch target) */}
         <div className="space-y-2.5 pt-1">
           <button
+            type="button"
             onClick={handleAcceptOrder}
             disabled={isSubmitting || timeLeft <= 0}
-            className="w-full bg-[#c3f400] hover:bg-[#abd600] disabled:bg-slate-200 disabled:text-slate-500 text-[#161e00] py-4 rounded-2xl font-black text-sm shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
+            className="w-full min-h-[48px] bg-[#c3f400] hover:bg-[#abd600] disabled:bg-slate-200 disabled:text-slate-500 text-[#161e00] py-3.5 px-4 rounded-2xl font-black text-sm shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
           >
             {isSubmitting ? (
               <>
@@ -233,14 +243,14 @@ function DriverOfferContent() {
             ) : (
               <>
                 <Check className="w-5 h-5" />
-                <span>ACEPTAR VIAJE (${Number(activeOffer.earnings).toFixed(2)}) ⚡</span>
+                <span>ACEPTAR VIAJE ({formatCurrencyMXN(activeOffer.earnings)}) ⚡</span>
               </>
             )}
           </button>
 
           <Link
             href="/driver/home"
-            className="w-full bg-slate-100 hover:bg-slate-200 text-rose-700 py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
+            className="w-full min-h-[48px] bg-slate-100 hover:bg-slate-200 text-rose-700 py-3 px-4 rounded-2xl font-black text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
           >
             <X className="w-4 h-4" />
             <span>Rechazar Oferta</span>

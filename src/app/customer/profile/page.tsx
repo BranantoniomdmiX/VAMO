@@ -309,25 +309,31 @@ export default function CustomerProfilePage() {
 
         {/* Modal de Cancelación Definitiva en 2 Pasos */}
         {showCancelModal && (
-          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div 
+            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="customer-cancel-title"
+          >
             <div className="bg-white rounded-[32px] max-w-sm w-full p-6 space-y-4 shadow-2xl border border-[#e5e2e1] animate-fade-in text-left">
               <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center font-black mx-auto text-xl">
                 ⚠️
               </div>
 
               <div className="text-center space-y-1">
-                <h3 className="text-base font-black text-slate-900">¿Deseas darte de baja definitivamente?</h3>
+                <h3 id="customer-cancel-title" className="text-base font-black text-slate-900">¿Deseas darte de baja definitivamente?</h3>
                 <p className="text-xs text-slate-500 font-semibold">
                   Esta acción eliminará tu cuenta, historial de pedidos, puntos VAMO Rewards y métodos de pago guardados.
                 </p>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-500 uppercase">Motivo de la Baja</label>
+                <label htmlFor="customer-cancel-reason" className="text-[10px] font-black text-slate-500 uppercase">Motivo de la Baja</label>
                 <select
+                  id="customer-cancel-reason"
                   value={cancelReason}
                   onChange={e => setCancelReason(e.target.value)}
-                  className="w-full bg-[#f6f3f2] border border-[#e5e2e1] rounded-xl p-3 text-xs font-bold outline-none"
+                  className="w-full bg-[#f6f3f2] border border-[#e5e2e1] rounded-xl p-3 text-xs font-bold outline-none min-h-[44px]"
                 >
                   <option value="NO_USO_SERVICIO">Ya no uso el servicio con frecuencia</option>
                   <option value="CAMBIO_CIUDAD">Me mudé a otra ciudad</option>
@@ -340,7 +346,7 @@ export default function CustomerProfilePage() {
                 <button
                   type="button"
                   onClick={() => setShowCancelModal(false)}
-                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-full text-xs font-black"
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-full text-xs font-black min-h-[48px] cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -356,7 +362,7 @@ export default function CustomerProfilePage() {
                     alert('Tu cuenta ha sido eliminada y dada de baja exitosamente.')
                     window.location.href = '/customer/home'
                   }}
-                  className="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-full text-xs font-black shadow-md cursor-pointer active:scale-95 transition-all"
+                  className="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-full text-xs font-black shadow-md cursor-pointer active:scale-95 transition-all min-h-[48px]"
                 >
                   SÍ, DARME DE BAJA
                 </button>

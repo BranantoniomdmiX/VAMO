@@ -7,7 +7,10 @@ import path from 'path'
 const DOKPLOY_HOST = process.env.DOKPLOY_HOST || '163.192.147.231'
 const DOKPLOY_PORT = parseInt(process.env.DOKPLOY_PORT || '3000', 10)
 const DOKPLOY_EMAIL = process.env.DOKPLOY_EMAIL || 'branantoniomd@gmail.com'
-const DOKPLOY_PASSWORD = process.env.DOKPLOY_PASSWORD || 'NabucodonosoR50#$%'
+const DOKPLOY_PASSWORD = process.env.DOKPLOY_PASSWORD || ''
+if (!DOKPLOY_PASSWORD && process.env.NODE_ENV === 'production') {
+  throw new Error('FAIL_CLOSED: Falta DOKPLOY_PASSWORD')
+}
 
 class DokployClient {
   private cookie: string = ''

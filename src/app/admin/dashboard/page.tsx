@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from 'react'
 import { SidebarAdmin } from '@/components/layout/SidebarAdmin'
-import { Globe, Building2, Bike, DollarSign, ArrowUpRight, Activity } from 'lucide-react'
+import { ArrowUpRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { VamoCard, VamoStatusBadge, VamoButton, VamoPageHeader } from '@/components/ui'
+import { formatCurrencyMXN, formatNumberMX } from '@/lib/utils/formatters'
 
 export default function AdminDashboardPage() {
   const [fleetsCount, setFleetsCount] = useState(0)
@@ -38,71 +40,77 @@ export default function AdminDashboardPage() {
       <SidebarAdmin activeTab="dashboard" />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-[#e5e2e1] px-4 md:px-8 py-4 flex justify-between items-center shadow-sm">
-          <div>
-            <h1 className="text-xl md:text-2xl font-extrabold text-[#1c1b1b]">Dashboard Maestro Global VAMO</h1>
-            <p className="text-xs text-[#737785] font-semibold">Monitor en tiempo real de toda la infraestructura y plazas SaaS</p>
-          </div>
-
-          <span className="bg-[#1c1b1b] text-[#c3f400] px-4 py-1.5 rounded-full text-xs font-black shadow-sm">
-            ● Todos los Sistemas Operativos
-          </span>
-        </header>
-
         <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
+          <VamoPageHeader
+            title="Dashboard Maestro Global VAMO"
+            description="Monitor en tiempo real de infraestructura, plazas operativas y transacciones SaaS"
+            badge={<VamoStatusBadge status="DISPONIBLE" label="Sistemas Operativos 100%" size="sm" />}
+            primaryAction={
+              <VamoButton 
+                variant="accent" 
+                size="sm"
+                onClick={() => window.location.href = '/admin/new-fleet'}
+              >
+                + Nueva Plaza
+              </VamoButton>
+            }
+          />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-2 bg-[#1c1b1b] text-white p-6 sm:p-8 rounded-[32px] space-y-4 shadow-lg">
+            {/* KPI Card usando VamoCard variant="kpi" */}
+            <VamoCard variant="kpi" padding="lg" className="md:col-span-2 space-y-4">
               <span className="text-xs font-extrabold text-[#c3f400] uppercase tracking-wider">VOLUMEN BRUTO PROCESADO (GMV)</span>
-              <p className="text-4xl sm:text-6xl font-black text-white">${gmvTotal.toFixed(2)} MXN</p>
+              <p className="text-4xl sm:text-6xl font-black text-white">{formatCurrencyMXN(gmvTotal)}</p>
               <div className="flex items-center gap-2 text-xs font-bold text-[#e5e2e1]">
                 <ArrowUpRight className="w-4 h-4 text-[#c3f400]" />
-                <span>{fleetsCount} {fleetsCount === 1 ? 'plaza activa' : 'plazas activas'} en tiempo real</span>
+                <span>{formatNumberMX(fleetsCount)} {fleetsCount === 1 ? 'plaza activa' : 'plazas activas'} en tiempo real</span>
               </div>
-            </div>
+            </VamoCard>
 
-            <div className="bg-white p-6 rounded-[32px] border border-[#e5e2e1] shadow-sm space-y-3 flex flex-col justify-between">
+            {/* Tarjeta lateral usando VamoCard standard */}
+            <VamoCard variant="standard" padding="md" className="space-y-3 flex flex-col justify-between">
               <div>
                 <span className="text-xs font-bold text-[#737785] block">Plazas / Socios Comerciales Activos</span>
-                <p className="text-3xl font-extrabold text-[#0056d2] mt-1">{fleetsCount} Plazas</p>
+                <p className="text-3xl font-extrabold text-[#0056d2] mt-1">{formatNumberMX(fleetsCount)} Plazas</p>
               </div>
-              <span className="text-xs font-bold text-[#161e00] bg-[#c3f400] px-3 py-1 rounded-full w-fit">
-                Alta y control directo
-              </span>
-            </div>
+              <div className="flex items-center justify-between pt-2">
+                <VamoStatusBadge status="EN_SERVICIO" label="Alta y Control" size="sm" />
+                <VamoButton variant="accent" size="sm" onClick={() => window.location.href = '/admin/new-fleet'}>
+                  Nueva Plaza
+                </VamoButton>
+              </div>
+            </VamoCard>
           </div>
 
           {/* Recaudación Global de Comisiones de Plataforma */}
-          <div className="bg-white rounded-[32px] p-6 sm:p-8 border border-[#e5e2e1] shadow-sm space-y-5">
+          <VamoCard variant="elevated" padding="lg" className="space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <span className="text-[10px] font-black bg-[#0056d2]/10 text-[#0056d2] px-3 py-1 rounded-full uppercase">
+                <span className="text-[10px] font-black bg-[#0056d2]/10 text-[#0056d2] px-3 py-1 rounded-pill uppercase">
                   AUDITORÍA RECAUDACIÓN GLOBAL
                 </span>
-                <h3 className="text-xl font-extrabold text-[#1c1b1b] mt-1">Recaudación de Cuotas de Servidor & Licencias</h3>
+                <h3 className="text-xl font-extrabold text-[#1c1b1b] dark:text-white mt-1">Recaudación de Cuotas de Servidor & Licencias</h3>
               </div>
               <div className="text-right">
-                <span className="text-2xl sm:text-3xl font-black text-[#0056d2]">${platformFees.toFixed(2)} MXN</span>
-                <span className="text-xs font-bold text-[#161e00] bg-[#c3f400] px-3 py-1 rounded-full block mt-0.5">
-                  Plataforma Master
-                </span>
+                <span className="text-2xl sm:text-3xl font-black text-[#0056d2]">{formatCurrencyMXN(platformFees)}</span>
+                <div className="mt-0.5">
+                  <VamoStatusBadge status="DISPONIBLE" label="Plataforma Master" size="sm" showDot={false} />
+                </div>
               </div>
             </div>
 
-            <div className="p-4 bg-[#fcf9f8] rounded-2xl border border-slate-100 flex items-center justify-between">
+            <div className="p-4 bg-[#fcf9f8] dark:bg-slate-800/60 rounded-card border border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-blue-50 text-[#0056d2] flex items-center justify-center font-black">
+                <div className="w-10 h-10 rounded-control bg-blue-50 text-[#0056d2] flex items-center justify-center font-black">
                   🌐
                 </div>
                 <div>
-                  <strong className="text-xs font-black text-slate-900 block">Sincronización Supabase Realtime & Socket VPS</strong>
+                  <strong className="text-xs font-black text-slate-900 dark:text-slate-100 block">Sincronización Supabase Realtime & Socket VPS</strong>
                   <span className="text-[10px] font-bold text-slate-500">Oracle Cloud Infrastructure (OCI) &bull; Dokploy 163.192.147.231</span>
                 </div>
               </div>
-              <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2.5 py-1 rounded-full">
-                ONLINE
-              </span>
+              <VamoStatusBadge status="DISPONIBLE" label="ONLINE" size="sm" />
             </div>
-          </div>
+          </VamoCard>
         </main>
       </div>
     </div>

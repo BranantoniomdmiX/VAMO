@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { SidebarBiz } from '@/components/layout/SidebarBiz'
+import { VamoPageHeader } from '@/components/ui/VamoPageHeader'
 import { Store, CheckCircle2, XCircle, Clock, Send, DollarSign, ShoppingBag, Bike, Bell, Volume2, ShieldCheck, AlertCircle, Smartphone } from 'lucide-react'
 
 interface ManagerOrder {
@@ -21,6 +22,40 @@ export default function BizManagerPage() {
   const [soundEnabled, setSoundEnabled] = useState(true)
 
   const [orders, setOrders] = useState<ManagerOrder[]>([])
+  const [orderToReject, setOrderToReject] = useState<ManagerOrder | null>(null)
+  const triggerButtonRef = useRef<HTMLButtonElement | null>(null)
+  const cancelDialogButtonRef = useRef<HTMLButtonElement | null>(null)
+
+  const closeRejectDialog = () => {
+    setOrderToReject(null)
+    // Return focus to the trigger button for full accessibility
+    setTimeout(() => {
+      triggerButtonRef.current?.focus()
+    }, 50)
+  }
+
+  const openRejectDialog = (order: ManagerOrder, triggerElement: HTMLButtonElement) => {
+    triggerButtonRef.current = triggerElement
+    setOrderToReject(order)
+  }
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && orderToReject) {
+        closeRejectDialog()
+      }
+    }
+    if (orderToReject) {
+      document.addEventListener('keydown', handleKeyDown)
+      // Focus the cancel button when dialog opens for safe focus trap entry
+      setTimeout(() => {
+        cancelDialogButtonRef.current?.focus()
+      }, 50)
+    }
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [orderToReject])
 
   useEffect(() => {
     try {
@@ -28,7 +63,30 @@ export default function BizManagerPage() {
       if (storedOrders) {
         setOrders(JSON.parse(storedOrders))
       } else {
-        setOrders([])
+        const defaultOrders: ManagerOrder[] = [
+          {
+            id: 'ord-vmo-7741',
+            orderCode: '#7741',
+            customer: 'Valeria Mendoza',
+            items: ['1x Torta Especial Ahogada', '1x Refresco 600ml'],
+            totalPrice: 165.00,
+            status: 'PENDING_APPROVAL',
+            paymentMethod: 'CASH',
+            time: '12:45 PM'
+          },
+          {
+            id: 'ord-vmo-7742',
+            orderCode: '#7742',
+            customer: 'Carlos Santillán',
+            items: ['2x Tacos de Barbacoa', '1x Consomé Especial'],
+            totalPrice: 210.00,
+            status: 'APPROVED_KITCHEN',
+            paymentMethod: 'CARD',
+            time: '12:30 PM'
+          }
+        ]
+        setOrders(defaultOrders)
+        localStorage.setItem('vamo_manager_orders', JSON.stringify(defaultOrders))
       }
     } catch (e) {
       console.error(e)
@@ -87,44 +145,39 @@ export default function BizManagerPage() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        
-        {/* Header Pantalla 1: Gerencia & Caja */}
-        <header className="bg-white border-b border-[#e5e2e1] px-4 md:px-8 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
-          <div>
-            <div className="inline-flex items-center gap-2 bg-[#0056d2] text-white text-[10px] font-black px-3.5 py-1 rounded-full uppercase tracking-wider mb-1">
-              <span>PANTALLA 1 &bull; GERENCIA & CAJA</span>
-            </div>
-            <h1 className="text-xl md:text-2xl font-black text-[#1c1b1b] tracking-tight flex items-center gap-2">
-              <Store className="w-6 h-6 text-[#0056d2]" />
-              {storeName} &bull; Aprobación de Pedidos Entrantes
-            </h1>
-            <p className="text-xs md:text-sm text-[#737785] font-semibold mt-0.5">
-              Valida los pagos y presiona "Enviar a {isFoodCategory ? 'Cocina' : 'Mostrador'}" para transmitir el ticket en vivo a los cocineros.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <a
-              href="/kds/display"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-[#0056d2] hover:bg-[#0040a1] text-white px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
-            >
-              <Smartphone className="w-4 h-4 text-[#c3f400]" />
-              <span>📱 Abrir Monitor KDS en Celular / Tablet ↗</span>
-            </a>
-
-            <button
-              onClick={() => setSoundEnabled(!soundEnabled)}
-              className={`px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all cursor-pointer ${
-                soundEnabled ? 'bg-[#c3f400] text-[#161e00]' : 'bg-slate-200 text-slate-700'
-              }`}
-            >
-              <Volume2 className="w-4 h-4" />
-              <span>{soundEnabled ? 'Sonido Activo 🔊' : 'Silenciado 🔇'}</span>
-            </button>
-          </div>
-        </header>
+        <div className="px-4 md:px-8 pt-6 pb-2">
+          <VamoPageHeader
+            title={`${storeName} • Aprobación de Pedidos`}
+            description={`Valida los pagos y envía el ticket a ${isFoodCategory ? 'Cocina' : 'Mostrador'} (KDS).`}
+            badge={
+              <span className="bg-[#0056d2] text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
+                Pantalla 1 • Gerencia & Caja
+              </span>
+            }
+            primaryAction={
+              <div className="flex flex-wrap items-center gap-2">
+                <a
+                  href="/kds/display"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-[#0056d2] hover:bg-[#0040a1] text-white px-4 py-2 rounded-full text-xs font-black flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-[#c3f400]" />
+                  Monitor KDS ↗
+                </a>
+                <button
+                  onClick={() => setSoundEnabled(!soundEnabled)}
+                  className={`px-4 py-2 rounded-full text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer ${
+                    soundEnabled ? 'bg-[#c3f400] text-[#161e00]' : 'bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  <Volume2 className="w-3.5 h-3.5" />
+                  {soundEnabled ? 'Sonido 🔊' : 'Silenciado 🔇'}
+                </button>
+              </div>
+            }
+          />
+        </div>
 
         <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-6">
           
@@ -188,7 +241,9 @@ export default function BizManagerPage() {
 
                     <div className="flex gap-2 pt-1">
                       <button
-                        onClick={() => handleRejectOrder(order.id)}
+                        type="button"
+                        onClick={(e) => openRejectDialog(order, e.currentTarget)}
+                        aria-label={`Rechazar pedido ${order.orderCode}`}
                         className="w-1/3 bg-[#ffdad6] hover:bg-[#ffb4ab] text-[#ba1a1a] py-3 rounded-full font-black text-xs transition-all flex items-center justify-center gap-1 cursor-pointer"
                       >
                         <XCircle className="w-4 h-4" /> RECHAZAR
@@ -252,8 +307,87 @@ export default function BizManagerPage() {
             </div>
           </div>
 
+          {/* Modal VAMO de Confirmación Destructiva: Rechazo de Pedido */}
+          {orderToReject && (
+            <div
+              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) closeRejectDialog()
+              }}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="reject-dialog-title"
+                aria-describedby="reject-dialog-description"
+                className="bg-white rounded-[32px] max-w-md w-full p-6 space-y-4 shadow-2xl border border-[#e5e2e1] text-left animate-fade-in"
+              >
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                  <div className="w-10 h-10 rounded-2xl bg-[#ba1a1a] text-white flex items-center justify-center font-black shrink-0">
+                    <XCircle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 id="reject-dialog-title" className="text-base font-black text-slate-900">
+                      ¿Rechazar este pedido?
+                    </h3>
+                    <span className="text-[10px] font-bold text-[#ba1a1a] uppercase tracking-wider">
+                      Acción Destructiva Irreversible
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-slate-500">Folio:</span>
+                    <strong className="font-black text-slate-900">{orderToReject.orderCode}</strong>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-slate-500">Cliente:</span>
+                    <strong className="font-black text-slate-900">{orderToReject.customer}</strong>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-slate-500">Total:</span>
+                    <strong className="font-black text-[#0056d2]">${orderToReject.totalPrice.toFixed(2)} MXN</strong>
+                  </div>
+                  <div className="pt-1 border-t border-slate-200 text-xs text-slate-600 font-semibold">
+                    <span className="text-[10px] font-black text-slate-500 uppercase block mb-0.5">Artículos:</span>
+                    <span>{orderToReject.items.join(', ')}</span>
+                  </div>
+                </div>
+
+                <p id="reject-dialog-description" className="text-xs text-slate-600 font-medium leading-relaxed">
+                  El pedido <strong>{orderToReject.orderCode}</strong> será eliminado de forma definitiva del sistema de gerencia. El cliente no será notificado por esta vía y la orden no se transmitirá a cocina ni a mostrador. <strong>Esta acción no se puede deshacer.</strong>
+                </p>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    ref={cancelDialogButtonRef}
+                    type="button"
+                    onClick={closeRejectDialog}
+                    className="flex-1 bg-[#f0eded] hover:bg-slate-200 text-slate-700 py-3 rounded-full text-xs font-bold transition-all cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const id = orderToReject.id
+                      closeRejectDialog()
+                      handleRejectOrder(id)
+                    }}
+                    className="flex-1 bg-[#ba1a1a] hover:bg-[#93000a] text-white py-3 rounded-full font-black text-xs shadow-md active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    <span>Rechazar pedido</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
         </main>
       </div>
     </div>
   )
 }
+

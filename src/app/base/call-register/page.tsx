@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { SidebarBase } from '@/components/layout/SidebarBase'
+import { VamoPageHeader } from '@/components/ui/VamoPageHeader'
 import { 
   PhoneCall, 
   MapPin, 
@@ -134,43 +135,41 @@ export default function BaseCallRegisterPage() {
       <SidebarBase activeTab="call" />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-[#e5e2e1] px-4 md:px-8 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="bg-[#0040a1] text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase">
-                CENTRAL TELEFÓNICA VAMO
+        <div className="px-4 md:px-8 pt-6 pb-2">
+          <VamoPageHeader
+            title="Recepción Telefónica & Despacho Manual"
+            description="Central telefónica VAMO · Línea de despacho 24/7"
+            badge={
+              <span className="bg-[#0040a1] text-white text-[10px] font-black px-3 py-1 rounded-full">
+                📞 CENTRAL VAMO
               </span>
-              <span className="text-xs text-slate-400 font-bold">• Línea de Despacho 24/7</span>
-            </div>
-            <h1 className="text-xl md:text-2xl font-extrabold text-slate-900 mt-0.5">
-              Recepción Telefónica & Despacho Manual
-            </h1>
-          </div>
-
-          {/* Selector de Pestañas: [ + Capturar Pedido ] vs [ 📋 Bitácora del Turno ] */}
-          <div className="flex bg-slate-100 p-1 rounded-full text-xs font-bold border border-slate-200">
-            <button
-              onClick={() => setActiveTab('create')}
-              className={`px-4 py-2 rounded-full transition-all cursor-pointer ${
-                activeTab === 'create' 
-                  ? 'bg-[#0040a1] text-white shadow-xs font-black' 
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              📞 + Nueva Llamada
-            </button>
-            <button
-              onClick={() => setActiveTab('history')}
-              className={`px-4 py-2 rounded-full transition-all cursor-pointer ${
-                activeTab === 'history' 
-                  ? 'bg-[#0040a1] text-white shadow-xs font-black' 
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              📋 Bitácora del Turno ({callHistory.length})
-            </button>
-          </div>
-        </header>
+            }
+            primaryAction={
+              <div className="flex bg-slate-100 p-1 rounded-full text-xs font-bold border border-slate-200">
+                <button
+                  onClick={() => setActiveTab('create')}
+                  className={`px-4 py-2 rounded-full transition-all cursor-pointer ${
+                    activeTab === 'create' 
+                      ? 'bg-[#0040a1] text-white shadow-xs font-black' 
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  📞 + Nueva Llamada
+                </button>
+                <button
+                  onClick={() => setActiveTab('history')}
+                  className={`px-4 py-2 rounded-full transition-all cursor-pointer ${
+                    activeTab === 'history' 
+                      ? 'bg-[#0040a1] text-white shadow-xs font-black' 
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  📋 Bitácora ({callHistory.length})
+                </button>
+              </div>
+            }
+          />
+        </div>
 
         <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6">
           
@@ -379,7 +378,22 @@ export default function BaseCallRegisterPage() {
               </div>
 
               <div className="space-y-3">
-                {filteredHistory.map((item) => (
+                {filteredHistory.length === 0 ? (
+                  <div role="status" className="bg-white p-8 rounded-[24px] border border-dashed border-slate-200 text-center space-y-2">
+                    <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mx-auto">
+                      <History className="w-6 h-6 text-slate-400" />
+                    </div>
+                    <h4 className="text-sm font-bold text-slate-700">
+                      {searchTerm ? 'Sin resultados para la búsqueda' : 'La bitácora del turno está vacía'}
+                    </h4>
+                    <p className="text-xs text-slate-400 font-medium max-w-xs mx-auto">
+                      {searchTerm
+                        ? `No se encontraron pedidos con "${searchTerm}". Verifica el nombre o folio.`
+                        : 'Los pedidos capturados durante este turno aparecerán aquí automáticamente.'}
+                    </p>
+                  </div>
+                ) : (
+                  filteredHistory.map((item) => (
                   <div key={item.id} className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-all">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
@@ -414,7 +428,8 @@ export default function BaseCallRegisterPage() {
                       </button>
                     </div>
                   </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           )}

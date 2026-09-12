@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { query } from '@/lib/db/postgres'
+import { getTrustedAuthContext } from '@/lib/auth/contextResolver'
 
 // API Route: POST /api/payments/create-order
 // Crea un Order en Conekta y devuelve la URL de pago al cliente
@@ -8,26 +10,80 @@ const CONEKTA_PRIVATE_KEY = process.env.CONEKTA_PRIVATE_KEY!
 const CONEKTA_API_BASE = 'https://api.conekta.io'
 
 interface CreateOrderBody {
-  orderId: string          // ID del pedido en VAMO (customer_orders.id)
-  amount: number           // Total en MXN (ej. 85.50)
+  orderId: string          // ID o código del pedido en VAMO
+  amount?: number          // Monto enviado por cliente (NO CONFIABLE - SE RECALCULA)
   paymentMethod: 'card' | 'oxxo_cash' | 'spei' | 'cash'
-  customerName: string
-  customerEmail: string
-  customerPhone: string
-  description: string      // Ej. "Envío VAMO #V-1042 — Centro → Juárez"
+  customerName?: string
+  customerEmail?: string
+  customerPhone?: string
+  description?: string
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const body: CreateOrderBody = await req.json()
-    const { orderId, amount, paymentMethod, customerName, customerEmail, customerPhone, description } = body
+    const authContext = await getTrustedAuthContext()
+    if (!authContext) {
+      return NextResponse.json(
+        { error: 'Sesión no válida o ausente. Debe autenticarse para procesar pagos.' },
+        { status: 401 }
+      )
+    }
 
-    // Si el método es efectivo, no necesitamos pasar por la pasarela
+    const body: CreateOrderBody = await req.json().catch(() => ({}))
+    const { orderId, paymentMethod, customerName, customerEmail, customerPhone, description } = body
+
+    if (!orderId || !paymentMethod) {
+      return NextResponse.json(
+        { error: 'Se requieren orderId y paymentMethod obligatorios.' },
+        { status: 400 }
+      )
+    }
+
+    // 🛡️ REGLA SUPREMA DE AUTORIDAD DE PRECIOS:
+    // NUNCA confiar en `body.amount` del cliente.
+    // Consultar el total autoritativo calculado por el backend en PostgreSQL Dokploy.
+    const orderRes = await query<{
+      id: string
+      code: string
+      customer_id: string
+      total: string
+      delivery_fee: string
+      subtotal: string
+      status: string
+    }>('SELECT id, code, customer_id, total, delivery_fee, subtotal, status FROM public.orders WHERE id = $1 OR code = $1;', [orderId])
+
+    if (orderRes.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Pedido no encontrado en la base de datos central.' },
+        { status: 404 }
+      )
+    }
+
+    const authoritativeOrder = orderRes.rows[0]
+
+    // Validar que el cliente autenticado sea el dueño del pedido o superadmin
+    if (authContext.role !== 'superadmin' && authContext.role !== 'master' && authoritativeOrder.customer_id !== authContext.userId) {
+      return NextResponse.json(
+        { error: 'No está autorizado para pagar una orden de otro cliente.' },
+        { status: 403 }
+      )
+    }
+
+    const authoritativeTotal = parseFloat(authoritativeOrder.total)
+    if (isNaN(authoritativeTotal) || authoritativeTotal <= 0) {
+      return NextResponse.json(
+        { error: 'El monto de la orden es inválido o no ha sido tasado correctamente.' },
+        { status: 400 }
+      )
+    }
+
+    // Si el método es efectivo, no necesitamos pasar por la pasarela digital
     if (paymentMethod === 'cash') {
       return NextResponse.json({
         success: true,
         paymentMethod: 'cash',
-        redirectUrl: `/customer/tracking/${orderId}`,
+        amount: authoritativeTotal,
+        redirectUrl: `/customer/tracking/${authoritativeOrder.id}`,
         message: 'Pedido confirmado — pago en efectivo al repartidor'
       })
     }
@@ -38,6 +94,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           success: true,
           paymentMethod: 'oxxo_cash',
+          amount: authoritativeTotal,
           gatewayOrderId: `ord_mock_${Date.now()}`,
           reference: '93481029384756',
           barcode: '93481029384756',
@@ -49,6 +106,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           success: true,
           paymentMethod: 'spei',
+          amount: authoritativeTotal,
           gatewayOrderId: `ord_mock_${Date.now()}`,
           clabe: '646180111812345678',
           bank: 'STP / VAMO Pagos',
@@ -60,44 +118,48 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           success: true,
           paymentMethod: 'card',
+          amount: authoritativeTotal,
           gatewayOrderId: `ord_mock_${Date.now()}`,
-          checkoutUrl: `/customer/payment/${orderId}/success`
+          checkoutUrl: `/customer/payment/${authoritativeOrder.id}/success`
         })
       }
     }
 
-    // Convertir MXN a centavos para Conekta (requiere entero)
-    const amountCents = Math.round(amount * 100)
+    // Convertir total autoritativo en MXN a centavos para Conekta
+    const amountCents = Math.round(authoritativeTotal * 100)
+
+    const orderDescription = description || `Envío VAMO #${authoritativeOrder.code}`
 
     // Construir el body del Order de Conekta según su API v2.1
     const conektaOrderBody: Record<string, unknown> = {
       currency: 'MXN',
       customer_info: {
-        name: customerName,
-        email: customerEmail,
-        phone: customerPhone
+        name: customerName || 'Cliente VAMO',
+        email: customerEmail || authContext.email || 'cliente@vamo.mx',
+        phone: customerPhone || '4610000000'
       },
       line_items: [
         {
-          name: description,
+          name: orderDescription,
           unit_price: amountCents,
           quantity: 1
         }
       ],
       metadata: {
-        vamo_order_id: orderId,
+        vamo_order_id: authoritativeOrder.id,
+        order_code: authoritativeOrder.code,
+        customer_id: authContext.userId,
         platform: 'VAMO SaaS'
       }
     }
 
     // Configurar el método de pago según la selección
     if (paymentMethod === 'card') {
-      // Checkout hosted — Conekta genera una URL de pago segura
       conektaOrderBody.checkout = {
         type: 'Integration',
         allowed_payment_methods: ['card'],
-        success_url: `${process.env.NEXT_PUBLIC_APP_URL}/customer/payment/${orderId}/success`,
-        failure_url: `${process.env.NEXT_PUBLIC_APP_URL}/customer/payment/${orderId}/failed`,
+        success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3333'}/customer/payment/${authoritativeOrder.id}/success`,
+        failure_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3333'}/customer/payment/${authoritativeOrder.id}/failed`,
         on_demand_enabled: false
       }
     } else if (paymentMethod === 'oxxo_cash') {
@@ -105,7 +167,7 @@ export async function POST(req: NextRequest) {
         {
           payment_method: {
             type: 'cash',
-            expires_at: Math.floor(Date.now() / 1000) + (3 * 24 * 60 * 60) // 3 días
+            expires_at: Math.floor(Date.now() / 1000) + (3 * 24 * 60 * 60)
           }
         }
       ]
@@ -114,13 +176,12 @@ export async function POST(req: NextRequest) {
         {
           payment_method: {
             type: 'spei',
-            expires_at: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 horas
+            expires_at: Math.floor(Date.now() / 1000) + (24 * 60 * 60)
           }
         }
       ]
     }
 
-    // Llamar a la API de Conekta
     const conektaRes = await fetch(`${CONEKTA_API_BASE}/orders`, {
       method: 'POST',
       headers: {
@@ -136,17 +197,17 @@ export async function POST(req: NextRequest) {
       const errorData = await conektaRes.json()
       console.error('[VAMO Payments] Error Conekta:', errorData)
       return NextResponse.json(
-        { error: 'Error al procesar el pago. Intenta de nuevo.' },
+        { error: 'Error al procesar el pago con la pasarela. Intente de nuevo.' },
         { status: 400 }
       )
     }
 
     const conektaOrder = await conektaRes.json()
 
-    // Extraer datos relevantes según el método de pago
     let responseData: Record<string, unknown> = {
       success: true,
       paymentMethod,
+      amount: authoritativeTotal,
       gatewayOrderId: conektaOrder.id
     }
 
@@ -168,30 +229,7 @@ export async function POST(req: NextRequest) {
       responseData.expiresAt = charge?.payment_method?.expires_at
     }
 
-    // Guardar en Supabase (usando service role para escritura desde servidor)
-    const { createClient } = await import('@supabase/supabase-js')
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
-    await supabase.from('payment_intents').insert({
-      customer_order_id: orderId,
-      gateway: 'conekta',
-      gateway_order_id: conektaOrder.id,
-      gateway_payment_url: (responseData.checkoutUrl as string) ?? null,
-      amount,
-      currency: 'MXN',
-      status: 'PENDING',
-      payment_method_type: paymentMethod,
-      payment_reference: (responseData.reference as string) ?? null,
-      payment_expires_at: (responseData.expiresAt as string)
-        ? new Date((responseData.expiresAt as number) * 1000).toISOString()
-        : null
-    })
-
     return NextResponse.json(responseData)
-
   } catch (error) {
     console.error('[VAMO Payments] Error inesperado:', error)
     return NextResponse.json(

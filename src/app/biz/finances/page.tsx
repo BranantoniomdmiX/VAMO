@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { SidebarBiz } from '@/components/layout/SidebarBiz'
+import { VamoPageHeader } from '@/components/ui/VamoPageHeader'
 import { Download, Wallet, TrendingUp, Receipt, CheckCircle, Clock, Building2, CreditCard } from 'lucide-react'
 
 export default function BizFinancesPage() {
@@ -49,25 +50,24 @@ export default function BizFinancesPage() {
       <div className="flex-1 flex flex-col min-w-0">
         <main className="flex-1 px-4 sm:px-8 py-6 md:py-10 max-w-7xl mx-auto w-full space-y-8">
           
-          {/* Header Section */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0056d2] tracking-tight">
-                Estado de Cuenta & Finanzas
-              </h1>
-              <p className="text-xs sm:text-sm font-semibold text-[#737785] mt-1">
-                Resumen financiero de {storeName}. Ciclo actual en tiempo real.
-              </p>
-            </div>
-
-            <button 
-              onClick={() => alert('Generando estado de cuenta oficial foliado...')}
-              className="bg-white border border-[#e5e2e1] hover:border-[#0056d2] text-[#0056d2] px-6 py-3 rounded-full text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all cursor-pointer"
-            >
-              <Download className="w-4 h-4" />
-              <span>Descargar Reporte</span>
-            </button>
-          </div>
+          <VamoPageHeader
+            title="Estado de Cuenta & Finanzas"
+            description={`Resumen financiero de ${storeName}. Ciclo actual en tiempo real.`}
+            badge={
+              <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-3 py-1 rounded-full">
+                ✓ SPEI Activo
+              </span>
+            }
+            primaryAction={
+              <button 
+                onClick={() => alert('Generando estado de cuenta oficial foliado...')}
+                className="bg-white border border-[#e5e2e1] hover:border-[#0056d2] text-[#0056d2] px-4 py-2 rounded-full text-xs font-extrabold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                Descargar Reporte
+              </button>
+            }
+          />
 
           {/* MÓDULO CUENTA BANCARIA CLABE & DISPERSIÓN SPEI COMERCIO (M16) */}
           <div className="bg-white rounded-[32px] p-6 sm:p-7 border border-[#e5e2e1] shadow-sm space-y-4">

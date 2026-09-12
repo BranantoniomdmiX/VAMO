@@ -1,11 +1,19 @@
 import { Pool, QueryResult, QueryResultRow } from 'pg'
 
 // String de conexión PostgreSQL (Oracle Cloud Always Free o Local)
-const connectionString = process.env.DATABASE_URL || 'postgresql://vamo_admin:tMEMwBsulRU5ZdulEp8g@163.192.147.231:5432/vamo_production'
+const connectionString = process.env.DATABASE_URL
+
+if (!connectionString && process.env.NODE_ENV === 'production') {
+  console.error('🚨 [SECURITY FATAL]: DATABASE_URL no está configurada en las variables de entorno.')
+}
 
 let pool: Pool | null = null
 
 export function getPostgresPool(): Pool {
+  if (!connectionString) {
+    throw new Error('FAIL_CLOSED: DATABASE_URL environment variable is missing.')
+  }
+
   if (!pool) {
     pool = new Pool({
       connectionString,
@@ -53,4 +61,46 @@ export async function getTransactionClient() {
   const pool = getPostgresPool()
   const client = await pool.connect()
   return client
+}
+
+export interface AuthenticatedDbContext {
+  userId?: string | null
+  role?: string | null
+  franchiseId?: string | null
+  baseId?: string | null
+}
+
+/**
+ * 🛡️ Helper de Ejecución en Contexto de Transacción Autenticada
+ * Inyecta las variables de sesión de manera transaction-scoped (SET LOCAL)
+ * Evita fugas entre conexiones reutilizadas en el Connection Pool.
+ */
+export async function withAuthenticatedDbContext<T>(
+  context: AuthenticatedDbContext,
+  callback: (client: any) => Promise<T>
+): Promise<T> {
+  const client = await getTransactionClient()
+  try {
+    await client.query('BEGIN')
+
+    // Inyectar variables locales de la transacción (Fail-closed si es null)
+    if (context.userId) {
+      await client.query('SELECT set_config($1, $2, true)', ['app.current_user_id', context.userId])
+    }
+    if (context.role) {
+      await client.query('SELECT set_config($1, $2, true)', ['app.current_role', context.role])
+    }
+    if (context.franchiseId) {
+      await client.query('SELECT set_config($1, $2, true)', ['app.current_franchise_id', context.franchiseId])
+    }
+
+    const result = await callback(client)
+    await client.query('COMMIT')
+    return result
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
+  }
 }

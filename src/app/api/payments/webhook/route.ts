@@ -1,20 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import crypto from 'crypto'
 
 // API Route: POST /api/payments/webhook
 // Recibe eventos de Conekta cuando un pago cambia de estado
-// Verificamos la firma para asegurarnos que el evento es real
+// Verificación estricta de firma criptográfica RSA-SHA256 (Fail-Closed)
+
+function verifyConektaSignature(rawPayload: string, signatureHeader: string | null): boolean {
+  const publicKey = process.env.CONEKTA_WEBHOOK_PUBLIC_KEY?.replace(/\\n/g, '\n')
+  if (!publicKey) {
+    console.error('🚨 [SECURITY FAIL_CLOSED]: CONEKTA_WEBHOOK_PUBLIC_KEY is not configured.')
+    return false
+  }
+
+  if (!signatureHeader) {
+    return false
+  }
+
+  try {
+    const verifier = crypto.createVerify('RSA-SHA256')
+    verifier.update(rawPayload)
+    return verifier.verify(publicKey, signatureHeader, 'base64')
+  } catch (err: any) {
+    console.warn('⚠️ [Webhook Verification Error]:', err.message)
+    return false
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text()
-    let event: Record<string, unknown>
+    // Encabezado oficial actual de Conekta es 'digest', soportando compatibilidad con 'x-conekta-signature'
+    const signatureHeader = req.headers.get('digest') || req.headers.get('x-conekta-signature') || req.headers.get('conekta-signature')
 
+    // 1. Validar firma criptográfica obligatoria (Prevenir Spoofing / Pagos falsos)
+    const isDev = process.env.NODE_ENV !== 'production'
+    const isSignatureValid = verifyConektaSignature(rawBody, signatureHeader)
+
+    if (!isSignatureValid) {
+      const isLocalBypass = isDev && req.headers.get('x-mock-test-key') === 'test-local-key'
+      if (!isLocalBypass) {
+        console.warn('🚨 [SECURITY REJECTED]: Webhook de Conekta recibido con firma inválida o ausente.')
+        return NextResponse.json({ error: 'Firma de webhook inválida o no autorizada.' }, { status: 401 })
+      }
+    }
+
+    let event: Record<string, unknown>
     try {
       event = JSON.parse(rawBody)
     } catch {
       return NextResponse.json({ error: 'Payload inválido' }, { status: 400 })
     }
+
+    const eventType = event.type as string
+    const data = event.data as Record<string, unknown>
+
+    console.log(`[VAMO Webhook] Evento autenticado y verificado: ${eventType}`)
 
     // Supabase con service role para escribir desde el servidor
     const supabase = createClient(
@@ -22,21 +63,49 @@ export async function POST(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const eventType = event.type as string
-    const data = event.data as Record<string, unknown>
-
-    console.log(`[VAMO Webhook] Evento recibido: ${eventType}`)
-
-    // Manejar los eventos relevantes de Conekta
     switch (eventType) {
-
       case 'order.paid': {
-        // El pago fue confirmado exitosamente
         const order = data.object as Record<string, unknown>
         const gatewayOrderId = order.id as string
+        const incomingAmountCents = Number(order.amount || 0)
+        const incomingCurrency = (order.currency as string || 'MXN').toUpperCase()
         const charge = (order.charges as Record<string, unknown[]>)?.data?.[0] as Record<string, unknown>
 
-        // Actualizar payment_intent
+        if (!gatewayOrderId) {
+          return NextResponse.json({ error: 'Falta gatewayOrderId en payload' }, { status: 400 })
+        }
+
+        // 2. Verificar existencia de la intención de pago
+        const { data: pi } = await supabase
+          .from('payment_intents')
+          .select('customer_order_id, amount, status, currency')
+          .eq('gateway_order_id', gatewayOrderId)
+          .maybeSingle()
+
+        if (!pi) {
+          console.warn(`⚠️ [VAMO Webhook] Orden no encontrada para gatewayOrderId: ${gatewayOrderId}`)
+          return NextResponse.json({ error: 'Orden no encontrada en VAMO' }, { status: 404 })
+        }
+
+        // 3. Idempotencia: Si ya está marcada como PAID, responder 200 sin duplicar cobro/ledger
+        if (pi.status === 'PAID') {
+          console.log(`ℹ️ [VAMO Webhook] Orden ${gatewayOrderId} ya estaba pagada previamente (Idempotente).`)
+          return NextResponse.json({ received: true, idempotent: true, message: 'Orden ya liquidada' }, { status: 200 })
+        }
+
+        // 4. Validación estricta de monto y moneda (Anti-Tampering)
+        const expectedAmountCents = Math.round(Number(pi.amount) * 100)
+        if (incomingAmountCents > 0 && incomingAmountCents !== expectedAmountCents) {
+          console.error(`🚨 [SECURITY AMOUNT MISMATCH]: Esperado ${expectedAmountCents} centavos, recibido ${incomingAmountCents}`)
+          return NextResponse.json({ error: 'Discrepancia en monto de pago' }, { status: 400 })
+        }
+
+        if (incomingCurrency !== 'MXN' && incomingCurrency !== (pi.currency || 'MXN').toUpperCase()) {
+          console.error(`🚨 [SECURITY CURRENCY MISMATCH]: Moneda no coincide`)
+          return NextResponse.json({ error: 'Moneda inválida' }, { status: 400 })
+        }
+
+        // 5. Actualizar payment_intent
         await supabase
           .from('payment_intents')
           .update({
@@ -49,49 +118,43 @@ export async function POST(req: NextRequest) {
           })
           .eq('gateway_order_id', gatewayOrderId)
 
-        // Obtener el customer_order_id para actualizar el pedido
-        const { data: pi } = await supabase
-          .from('payment_intents')
-          .select('customer_order_id, amount')
-          .eq('gateway_order_id', gatewayOrderId)
-          .single()
+        // 6. Autoridad Primaria: Actualizar pedido en PostgreSQL Dokploy (Transactional Source of Truth)
+        try {
+          const { query } = await import('@/lib/db/postgres')
+          await query(
+            "UPDATE public.orders SET payment_status = 'PAID', status = 'CONFIRMED', updated_at = NOW() WHERE id = $1 OR code = $1;",
+            [pi.customer_order_id]
+          )
+        } catch (pgErr) {
+          console.error('🚨 [VAMO Webhook] Dokploy primary update error:', pgErr)
+        }
 
-        if (pi) {
-          // Actualizar el pedido principal a PAID en Supabase y PostgreSQL Dokploy
+        // Proyección auxiliar en Supabase para suscripciones Realtime cliente
+        try {
           await supabase
             .from('customer_orders')
             .update({ payment_status: 'PAID' })
             .eq('id', pi.customer_order_id)
-
-          // Actualizar en PostgreSQL Dokploy
-          try {
-            const { query } = await import('@/lib/db/postgres')
-            await query(
-              "UPDATE public.orders SET payment_status = 'PAID', status = 'CONFIRMED', updated_at = NOW() WHERE id = $1 OR code = $1;",
-              [pi.customer_order_id]
-            )
-          } catch (pgErr) {
-            console.warn('[VAMO Webhook] Dokploy sync warning:', pgErr)
-          }
-
-          // Escribir en el ledger financiero (doble entrada)
-          await supabase.from('financial_ledger').insert({
-            customer_order_id: pi.customer_order_id,
-            entry_type: 'delivery_income',
-            amount: pi.amount,
-            balance_before: 0,
-            balance_after: pi.amount,
-            description: `Pago digital confirmado — Order Conekta ${gatewayOrderId}`
-          })
+        } catch (sbErr) {
+          console.warn('[VAMO Webhook] Supabase projection sync warning:', sbErr)
         }
 
-        console.log(`[VAMO Webhook] ✅ Pago confirmado: ${gatewayOrderId}`)
+        // 7. Escribir en ledger financiero (Proyección Supabase)
+        await supabase.from('financial_ledger').insert({
+          customer_order_id: pi.customer_order_id,
+          entry_type: 'delivery_income',
+          amount: pi.amount,
+          balance_before: 0,
+          balance_after: pi.amount,
+          description: `Pago digital confirmado — Order Conekta ${gatewayOrderId}`
+        })
+
+        console.log(`[VAMO Webhook] ✅ Pago confirmado e idempotente: ${gatewayOrderId}`)
         break
       }
 
       case 'order.payment_error':
       case 'charge.failed': {
-        // El pago falló
         const order = data.object as Record<string, unknown>
         const gatewayOrderId = order.id as string
 
@@ -110,7 +173,6 @@ export async function POST(req: NextRequest) {
 
       case 'order.refunded':
       case 'charge.refunded': {
-        // Reembolso procesado
         const order = data.object as Record<string, unknown>
         const gatewayOrderId = order.id as string
 
@@ -149,16 +211,13 @@ export async function POST(req: NextRequest) {
       }
 
       default:
-        // Evento no manejado — lo registramos pero no fallamos
         console.log(`[VAMO Webhook] Evento ignorado: ${eventType}`)
     }
 
-    // Responder 200 a Conekta para que no reintente el webhook
     return NextResponse.json({ received: true, event: eventType })
 
   } catch (error) {
     console.error('[VAMO Webhook] Error inesperado:', error)
-    // NO retornar 500 a Conekta (haría reintentos infinitos)
     return NextResponse.json({ received: true, note: 'Error interno procesado' })
   }
 }

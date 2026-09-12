@@ -67,20 +67,30 @@ class GpsSocketService {
     }
   }
 
-  // 1. Transmitir posición GPS en tiempo real usando GPS Real del Celular (navigator.geolocation) con Fallback Simulado
+  // 1. Transmitir posición GPS en tiempo real usando DeviceCapabilityService con Fallback Simulado
   public startGpsTransmitter(driverId: string, onUpdate?: (payload: GpsLocationPayload) => void) {
-    let lat = 20.5218
-    let lng = -100.8142
-    let heading = 45
+    const lat = 20.5218
+    const lng = -100.8142
+    const heading = 45
 
-    // A. Intentar usar GPS Real del Celular (HTML5 Geolocation API)
-    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
-      this.watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          const realLat = position.coords.latitude
-          const realLng = position.coords.longitude
-          const realHeading = position.coords.heading || heading
-          const realSpeed = position.coords.speed ? Math.round(position.coords.speed * 3.6) : 30
+    if (typeof window === 'undefined') return
+
+    // Import dinámico / uso seguro de DeviceCapabilityService
+    import('./deviceCapabilityService').then(({ deviceCapabilityService }) => {
+      if (!deviceCapabilityService.checkSupport('GEOLOCATION')) {
+        console.warn('⚠️ [GPS] Geolocation no soportada. Usando fallback simulado.')
+        this.startSimulatedGps(driverId, lat, lng, heading, onUpdate)
+        return
+      }
+
+      this.stopGpsTransmitter()
+
+      const stopWatchFn = deviceCapabilityService.startWatch(
+        (normalized) => {
+          const realLat = normalized.coords.latitude
+          const realLng = normalized.coords.longitude
+          const realHeading = normalized.coords.heading || heading
+          const realSpeed = normalized.coords.speed ? Math.round(normalized.coords.speed * 3.6) : 30
 
           const payload: GpsLocationPayload = {
             driverId,
@@ -89,11 +99,9 @@ class GpsSocketService {
             lng: realLng,
             heading: realHeading,
             speed: realSpeed,
-            timestamp: new Date().toISOString(),
+            timestamp: new Date(normalized.timestamp).toISOString(),
             isRealGps: true
           }
-
-          console.log(`📱 [GPS REAL CELULAR] Lat: ${realLat.toFixed(5)}, Lng: ${realLng.toFixed(5)}`)
 
           if (this.socket && this.socket.connected) {
             this.socket.emit('repartidor:ubicacion', payload)
@@ -101,20 +109,21 @@ class GpsSocketService {
 
           if (onUpdate) onUpdate(payload)
         },
-        (error) => {
-          console.warn('⚠️ [GPS REAL] Permiso denegado o no disponible. Usando simulación de ruta Celaya:', error.message)
-          this.startSimulatedGps(driverId, lat, lng, heading, onUpdate)
-        },
         {
           enableHighAccuracy: true,
-          maximumAge: 0,
-          timeout: 10000
+          timeout: 12000,
+          maximumAge: 1000
         }
       )
-    } else {
+
+      // Guardar función desuscriptora
+      this.capabilityUnsubscribe = stopWatchFn
+    }).catch(() => {
       this.startSimulatedGps(driverId, lat, lng, heading, onUpdate)
-    }
+    })
   }
+
+  private capabilityUnsubscribe: (() => void) | null = null
 
   private startSimulatedGps(
     driverId: string,
@@ -157,6 +166,10 @@ class GpsSocketService {
     if (this.gpsInterval) {
       clearInterval(this.gpsInterval)
       this.gpsInterval = null
+    }
+    if (this.capabilityUnsubscribe) {
+      this.capabilityUnsubscribe()
+      this.capabilityUnsubscribe = null
     }
     if (this.watchId !== null && typeof window !== 'undefined' && 'geolocation' in navigator) {
       navigator.geolocation.clearWatch(this.watchId)

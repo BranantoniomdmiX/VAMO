@@ -5,6 +5,7 @@ import { MobileDriverLayout } from '@/components/layout/MobileDriverLayout'
 import { Wallet, ArrowDownRight, ArrowUpRight, History, PlusCircle, CheckCircle2, AlertTriangle, Lock, Award, Loader2, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { formatCurrencyMXN } from '@/lib/utils/formatters'
 
 export interface DriverWalletState {
   balance: number // Saldo digital a favor
@@ -195,8 +196,8 @@ export default function DriverWalletPage() {
             </span>
           </div>
 
-          <p className="text-4xl font-black text-white">
-            ${wallet.codBalance.toFixed(2)} <span className="text-xl font-bold text-blue-200">MXN</span>
+          <p className="text-3xl sm:text-4xl font-black text-white">
+            {formatCurrencyMXN(wallet.codBalance)}
           </p>
 
           {/* Barra de progreso de retención COD */}
@@ -211,7 +212,7 @@ export default function DriverWalletPage() {
             </div>
             <div className="flex justify-between text-[10px] font-bold text-blue-200">
               <span>$0.00</span>
-              <span>Límite Máximo: ${wallet.maxCodLimit.toFixed(2)} MXN</span>
+              <span>Límite Máximo: {formatCurrencyMXN(wallet.maxCodLimit)}</span>
             </div>
           </div>
 
@@ -356,7 +357,7 @@ export default function DriverWalletPage() {
                   </div>
 
                   <span className={`text-sm font-extrabold ${t.isPositive ? 'text-[#161e00]' : 'text-[#ba1a1a]'}`}>
-                    {t.isPositive ? '+' : '-'}${Math.abs(t.amount).toFixed(2)}
+                    {t.isPositive ? '+' : '-'}{formatCurrencyMXN(Math.abs(t.amount))}
                   </span>
                 </div>
               ))

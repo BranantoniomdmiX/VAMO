@@ -2,14 +2,14 @@
 
 import React, { useState, useEffect } from 'react'
 import { SidebarBase } from '@/components/layout/SidebarBase'
-import { UserCheck, Clock, Share2, AlertTriangle, ShieldCheck } from 'lucide-react'
+import { VamoPageHeader } from '@/components/ui/VamoPageHeader'
+import { UserCheck, Clock, Share2, Zap } from 'lucide-react'
 import VamoMapLibre, { DriverMarkerData } from '@/components/map/VamoMapLibre'
 import { gpsSocketService } from '@/lib/services/gpsSocketService'
-
 import { orderRealtimeService, ServiceOrderPayload } from '@/lib/services/orderRealtimeService'
 import { audioService } from '@/lib/services/audioService'
 import { createClient } from '@/lib/supabase/client'
-import { AntiFraudService, OVERFLOW_TIMEOUT_SECONDS, OVERFLOW_COMPENSATION_PERCENT } from '@/lib/services/antiFraudService'
+import { OVERFLOW_TIMEOUT_SECONDS } from '@/lib/services/antiFraudService'
 
 export default function BaseDispatchPage() {
   const [orders, setOrders] = useState<any[]>([])
@@ -131,26 +131,25 @@ export default function BaseDispatchPage() {
       <SidebarBase activeTab="dispatch" />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white dark:bg-slate-900 border-b border-[#e5e2e1] dark:border-slate-800 px-4 md:px-8 py-4 flex justify-between items-center shadow-xs">
-          <div className="flex items-center gap-3">
-            <img 
-              src="/logos/logo-base-corporate.png" 
-              alt="VAMO Base" 
-              className="w-10 h-10 rounded-xl object-contain shadow-xs bg-slate-900 p-1 shrink-0" 
-            />
-            <div>
-              <h1 className="text-xl md:text-2xl font-extrabold text-[#0040a1]">Consola de Despacho & Desborde Inteligente</h1>
-              <p className="text-xs text-slate-500 font-semibold">Supervisión en vivo, auto-despacho y desborde entre flotas (3 min)</p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
-            className="px-3.5 py-1.5 rounded-full text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 shadow-xs active:scale-95 transition-transform cursor-pointer"
-          >
-            {theme === 'light' ? '🌙 Modo Oscuro' : '☀️ Modo Claro'}
-          </button>
-        </header>
+        <div className="px-4 md:px-8 pt-6 pb-2 bg-[#fcf9f8] dark:bg-slate-950">
+          <VamoPageHeader
+            title="Despacho & Desborde Inteligente"
+            description="Supervisión en vivo, auto-despacho y desborde entre flotas (3 min · regla ADM-01)"
+            badge={
+              <span className="bg-[#c3f400] text-[#161e00] text-[10px] font-black px-3 py-1 rounded-full flex items-center gap-1">
+                <Zap className="w-3 h-3" /> ADM-01 ACTIVO
+              </span>
+            }
+            secondaryActions={
+              <button
+                onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
+                className="px-3.5 py-1.5 rounded-full text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 shadow-xs active:scale-95 transition-transform cursor-pointer"
+              >
+                {theme === 'light' ? '🌙 Oscuro' : '☀️ Claro'}
+              </button>
+            }
+          />
+        </div>
 
         <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
           
