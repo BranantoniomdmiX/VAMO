@@ -36,7 +36,11 @@ AGE_RECIPIENT="${AGE_PUBLIC_KEY:-}"
 
 # Backblaze B2 (Bucket y Target)
 B2_BUCKET="${B2_BUCKET:-}"
-B2_REMOTE_ALIAS="${B2_REMOTE_ALIAS:-b2-vamo}"
+B2_KEY_ID="${B2_KEY_ID:-}"
+B2_APPLICATION_KEY="${B2_APPLICATION_KEY:-}"
+B2_ENDPOINT="${B2_ENDPOINT:-}"
+B2_REMOTE_NAME="${B2_REMOTE_NAME:-b2vamo}"
+# RETENTION_DAYS: RESERVED_NOT_ACTIVE (La retención remota se delega a las políticas de ciclo de vida del bucket en Backblaze B2)
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
 
 # Archivos Temporales de Trabajo
@@ -110,49 +114,59 @@ if [ ! -s "${ENC_FILE}" ]; then
   fail "El archivo cifrado está vacío o corrupto tras la ejecución de age."
 fi
 
-# 6. Destrucción Inmediata del Dump en Claro (Mandato de Seguridad)
+# 6. Eliminación de Archivo Temporal en Claro (Mandato de Seguridad)
 rm -f "${DUMP_FILE}"
-log "INFO" "Dump en texto claro eliminado de forma segura. Solo permanece artefacto cifrado."
+log "INFO" "PLAINTEXT_TEMP_FILE_REMOVED: El archivo temporal en claro fue eliminado. Solo permanece artefacto cifrado."
 
 ENC_SIZE=$(stat -c%s "${ENC_FILE}" 2>/dev/null || stat -f%z "${ENC_FILE}")
 ENC_SHA256=$(sha256sum "${ENC_FILE}" | awk '{print $1}')
 log "INFO" "Artefacto cifrado listo (Tamaño: ${ENC_SIZE} bytes, SHA256: ${ENC_SHA256})."
 
-# 7. Subida Segura a Backblaze B2 (Offsite Storage)
-log "INFO" "Subiendo artefacto cifrado al bucket Backblaze B2: ${B2_BUCKET}..."
-REMOTE_DEST="${B2_REMOTE_ALIAS}:${B2_BUCKET}/backups/postgres/$(basename "${ENC_FILE}")"
+# 7. Subida Segura a Backblaze B2 (Offsite Storage con Credenciales Ephemeral/Env)
+log "INFO" "Subiendo artefacto cifrado a Backblaze B2 bucket: ${B2_BUCKET}..."
+REMOTE_TARGET="backups/postgres/$(basename "${ENC_FILE}")"
 
-UPLOAD_SUCCESS=false
-if command -v rclone >/dev/null 2>&1; then
-  if rclone copyto "${ENC_FILE}" "${REMOTE_DEST}"; then
-    UPLOAD_SUCCESS=true
+UPLOAD_ACCEPTED=false
+if command -v rclone >/dev/null 2>&1 && [ -n "${B2_KEY_ID}" ] && [ -n "${B2_APPLICATION_KEY}" ]; then
+  # Configuración efímera de rclone 100% en memoria vía variables de entorno (Sin rclone.conf en disco)
+  export RCLONE_CONFIG_B2VAMO_TYPE="s3"
+  export RCLONE_CONFIG_B2VAMO_PROVIDER="Other"
+  export RCLONE_CONFIG_B2VAMO_ACCESS_KEY_ID="${B2_KEY_ID}"
+  export RCLONE_CONFIG_B2VAMO_SECRET_ACCESS_KEY="${B2_APPLICATION_KEY}"
+  if [ -n "${B2_ENDPOINT}" ]; then
+    export RCLONE_CONFIG_B2VAMO_ENDPOINT="${B2_ENDPOINT}"
+  fi
+  
+  # Compatible con B2 write-only / restricted (evita bucket listing amplio y sube directo)
+  if rclone copyto --no-check-dest "${ENC_FILE}" "${B2_REMOTE_NAME}:${B2_BUCKET}/${REMOTE_TARGET}"; then
+    UPLOAD_ACCEPTED=true
   fi
 elif command -v aws >/dev/null 2>&1 && [ -n "${B2_ENDPOINT:-}" ]; then
-  if aws s3 cp "${ENC_FILE}" "s3://${B2_BUCKET}/backups/postgres/$(basename "${ENC_FILE}")" --endpoint-url "${B2_ENDPOINT}"; then
-    UPLOAD_SUCCESS=true
+  if aws s3 cp "${ENC_FILE}" "s3://${B2_BUCKET}/${REMOTE_TARGET}" --endpoint-url "${B2_ENDPOINT}"; then
+    UPLOAD_ACCEPTED=true
   fi
 elif command -v b2 >/dev/null 2>&1; then
-  if b2 upload-file "${B2_BUCKET}" "${ENC_FILE}" "backups/postgres/$(basename "${ENC_FILE}")"; then
-    UPLOAD_SUCCESS=true
+  if b2 upload-file "${B2_BUCKET}" "${ENC_FILE}" "${REMOTE_TARGET}"; then
+    UPLOAD_ACCEPTED=true
   fi
 else
-  fail "No se encontró ningún cliente compatible (rclone, aws-cli o b2-cli). Respaldo no subido."
+  fail "No se encontró ningún cliente compatible configurado (rclone con credenciales de entorno, aws-cli o b2-cli). Respaldo no subido."
 fi
 
-if [ "${UPLOAD_SUCCESS}" != "true" ]; then
+if [ "${UPLOAD_ACCEPTED}" != "true" ]; then
   fail "Error al transferir el artefacto cifrado a Backblaze B2."
 fi
 
-log "INFO" "Subida a Backblaze B2 verificada exitosamente."
+log "INFO" "UPLOAD_ACCEPTED: Subida a Backblaze B2 aceptada por el servidor remoto (Nota: REMOTE_OBJECT_VERIFIED requiere auditoría de lectura separada)."
 
 # 8. Registro Estructurado en Manifiesto de Auditoría (Sin secretos)
 cat <<EOF >> "${MANIFEST_FILE}"
-{"timestamp":"${TIMESTAMP}","database":"${PG_DATABASE}","postgres_major":16,"encrypted_file":"$(basename "${ENC_FILE}")","encrypted_bytes":${ENC_SIZE},"sha256":"${ENC_SHA256}","provider":"BACKBLAZE_B2","bucket_alias":"${B2_BUCKET}","status":"SUCCESS","format":"pg_dump_custom_v1"}
+{"timestamp":"${TIMESTAMP}","database":"${PG_DATABASE}","postgres_major":16,"encrypted_file":"$(basename "${ENC_FILE}")","encrypted_bytes":${ENC_SIZE},"sha256":"${ENC_SHA256}","provider":"BACKBLAZE_B2","bucket_alias":"${B2_BUCKET}","upload_accepted":true,"remote_object_verified":false,"status":"UPLOAD_ACCEPTED","format":"pg_dump_custom_v1"}
 EOF
 
-# 9. Política de Retención Local de Archivos Cifrados
+# 9. Retención Local de Emergencia
 # Mantener copias cifradas locales por seguridad temporal de disco (ej. últimas 48h)
 find "${BACKUP_DIR}" -name "vamo_prod_*.dump.enc" -type f -mtime +2 -delete 2>/dev/null || true
 
-log "INFO" "Respaldo completado satisfactoriamente [PASS]."
+log "INFO" "Proceso de respaldo finalizado con éxito: UPLOAD_ACCEPTED."
 log "INFO" "=========================================================="

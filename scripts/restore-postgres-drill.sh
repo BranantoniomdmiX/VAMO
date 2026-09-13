@@ -51,55 +51,129 @@ command -v docker >/dev/null 2>&1 || fail "Binario 'docker' requerido para el dr
 
 TEMP_DIR="$(mktemp -d)"
 TEMP_DUMP="${TEMP_DIR}/restore_payload.dump"
+CREATED_DRILL_CONTAINER=false
 
 cleanup() {
   log "Limpiando artefactos temporales descifrados..."
   rm -rf "${TEMP_DIR}"
+  if [ "${CREATED_DRILL_CONTAINER}" = "true" ]; then
+    log "CONTAINER_CLEANUP: Deteniendo y destruyendo contenedor temporal aislado '${TARGET_CONTAINER}'..."
+    docker rm -f "${TARGET_CONTAINER}" >/dev/null 2>&1 || true
+    log "CONTAINER_CLEANUP_COMPLETED: Contenedor temporal '${TARGET_CONTAINER}' destruido exitosamente."
+  else
+    log "CONTAINER_CLEANUP_NOTE: El contenedor '${TARGET_CONTAINER}' preexistía; no fue destruido por este script."
+  fi
 }
 trap cleanup EXIT
 
-log "Iniciando simulacro seguro de restauración en contenedor aislado: ${TARGET_CONTAINER}"
-
-# 2. Descifrado Local Temporal con Clave Privada Offline
-log "Descifrando respaldo con clave privada offline..."
-if ! age -d -i "${AGE_IDENTITY_FILE}" -o "${TEMP_DUMP}" "${BACKUP_ENC_FILE}"; then
-  fail "Fallo al descifrar el respaldo con la clave privada proporcionada."
+# 2. Gestión del Ciclo de Vida del Contenedor Temporal (Modelo A: Creación y Destrucción Automatizada)
+if docker ps -a --format '{{.Names}}' | grep -Eq "^${TARGET_CONTAINER}\$"; then
+  log "Usando contenedor temporal existente '${TARGET_CONTAINER}'."
+else
+  log "Creando contenedor temporal aislado de prueba '${TARGET_CONTAINER}' (PostgreSQL 16, red aislada)..."
+  docker run -d \
+    --name "${TARGET_CONTAINER}" \
+    --network none \
+    -e POSTGRES_PASSWORD=vamo_drill_temp_pass \
+    postgres:16-alpine >/dev/null
+  CREATED_DRILL_CONTAINER=true
+  
+  # Esperar a que el motor esté listo para recibir conexiones
+  log "Esperando inicialización del PostgreSQL temporal..."
+  READY=false
+  for _ in {1..30}; do
+    if docker exec -i "${TARGET_CONTAINER}" pg_isready -U postgres >/dev/null 2>&1; then
+      READY=true
+      break
+    fi
+    sleep 1
+  done
+  if [ "${READY}" != "true" ]; then
+    fail "RESTORE_FAIL: El contenedor temporal '${TARGET_CONTAINER}' no respondió a pg_isready a tiempo."
+  fi
 fi
 
-# 3. Restauración en Base de Datos de Prueba Efímera
+log "Iniciando simulacro seguro de restauración en contenedor aislado: ${TARGET_CONTAINER}"
+
+# 3. Descifrado Local Temporal con Clave Privada Offline
+log "Descifrando respaldo con clave privada offline..."
+if ! age -d -i "${AGE_IDENTITY_FILE}" -o "${TEMP_DUMP}" "${BACKUP_ENC_FILE}"; then
+  fail "RESTORE_FAIL: Fallo al descifrar el respaldo con la clave privada proporcionada."
+fi
+
+# 4. Restauración en Base de Datos de Prueba Efímera (FAIL CLOSED)
 log "Ejecutando pg_restore en base de datos temporal..."
 docker exec -i "${TARGET_CONTAINER}" dropdb -U postgres --if-exists vamo_drill_db || true
 docker exec -i "${TARGET_CONTAINER}" createdb -U postgres vamo_drill_db
 
-if ! docker exec -i "${TARGET_CONTAINER}" pg_restore -U postgres -d vamo_drill_db --no-owner --no-privileges < "${TEMP_DUMP}"; then
-  log "Aviso: pg_restore completó con warnings normales de esquema/roles."
+# pg_restore debe retornar 0. Cualquier código de salida distinto de 0 es RESTORE_FAIL.
+RESTORE_STATUS=0
+docker exec -i "${TARGET_CONTAINER}" pg_restore -U postgres -d vamo_drill_db --no-owner --no-privileges < "${TEMP_DUMP}" || RESTORE_STATUS=$?
+
+if [ "${RESTORE_STATUS}" -ne 0 ]; then
+  fail "RESTORE_FAIL: pg_restore retornó código de error ${RESTORE_STATUS}. Respaldo rechazado (Fail Closed)."
+fi
+log "pg_restore finalizó con código de salida 0 (sin errores)."
+
+# 5. Verificaciones de Integridad y Consulta de Sanidad (Sin exponer PII ni datos sensibles)
+log "Verificando apertura y accesibilidad de la base de datos..."
+if ! docker exec -i "${TARGET_CONTAINER}" psql -U postgres -d vamo_drill_db -c "SELECT 1;" >/dev/null 2>&1; then
+  fail "RESTORE_FAIL: La base de datos restaurada no acepta conexiones SQL."
 fi
 
-# 4. Verificaciones de Integridad y Consulta de Sanidad (Sin exponer PII ni datos sensibles)
-log "Verificando apertura de base de datos..."
 TABLES_COUNT=$(docker exec -i "${TARGET_CONTAINER}" psql -U postgres -d vamo_drill_db -t -A -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';")
-log "Tablas restauradas detectadas: ${TABLES_COUNT}"
+log "Tablas restauradas detectadas en schema public: ${TABLES_COUNT}"
 
 if [ "${TABLES_COUNT}" -lt 5 ]; then
-  fail "Prueba fallida: Conteo de tablas anormalmente bajo (${TABLES_COUNT})."
+  fail "RESTORE_FAIL: Conteo de tablas anormalmente bajo (${TABLES_COUNT})."
 fi
 
-# Comprobar existencia de tablas maestras críticas
-for T in orders drivers wallet_accounts wallet_transactions profiles; do
+# ==============================================================================
+# TABLAS CANÓNICAS AUDITADAS (Esquema Autorizado PostgreSQL 16 Dokploy / Supabase)
+# ==============================================================================
+# REQUIRED_TABLE: Esenciales para operación, ledger financiero y órdenes.
+# OPTIONAL_TABLE: Tablas complementarias de catálogo o soporte.
+# LEGACY_TABLE: Tablas del modelo histórico anterior.
+# ==============================================================================
+REQUIRED_TABLES=("orders" "drivers" "wallet_accounts" "wallet_transactions" "profiles")
+OPTIONAL_TABLES=("merchants" "products" "cities" "territories")
+LEGACY_TABLES=("franchises")
+
+log "Ejecutando aserciones sobre tablas canónicas requeridas..."
+for T in "${REQUIRED_TABLES[@]}"; do
   EXISTS=$(docker exec -i "${TARGET_CONTAINER}" psql -U postgres -d vamo_drill_db -t -A -c "SELECT to_regclass('public.${T}');")
   if [ "${EXISTS}" = "public.${T}" ] || [ -n "${EXISTS}" ]; then
-    log "  ✓ Tabla crítica presente: ${T}"
+    log "  [REQUIRED_TABLE] ✓ Presente: ${T}"
   else
-    log "  ✗ Tabla crítica no encontrada: ${T}"
+    fail "RESTORE_FAIL: Asersión violada. Falta la tabla crítica requerida: public.${T}"
   fi
 done
 
-# Comprobar lectura representativa sin exponer filas
-ORDERS_COUNT=$(docker exec -i "${TARGET_CONTAINER}" psql -U postgres -d vamo_drill_db -t -A -c "SELECT count(*) FROM public.orders;" 2>/dev/null || echo "0")
-LEDGER_COUNT=$(docker exec -i "${TARGET_CONTAINER}" psql -U postgres -d vamo_drill_db -t -A -c "SELECT count(*) FROM public.wallet_transactions;" 2>/dev/null || echo "0")
-log "Verificación de lectura completada: Órdenes registradas (${ORDERS_COUNT}), Transacciones contables (${LEDGER_COUNT})."
+for T in "${OPTIONAL_TABLES[@]}"; do
+  EXISTS=$(docker exec -i "${TARGET_CONTAINER}" psql -U postgres -d vamo_drill_db -t -A -c "SELECT to_regclass('public.${T}');")
+  if [ "${EXISTS}" = "public.${T}" ] || [ -n "${EXISTS}" ]; then
+    log "  [OPTIONAL_TABLE] ✓ Presente: ${T}"
+  else
+    log "  [OPTIONAL_TABLE] - Ausente (opcional): ${T}"
+  fi
+done
+
+for T in "${LEGACY_TABLES[@]}"; do
+  EXISTS=$(docker exec -i "${TARGET_CONTAINER}" psql -U postgres -d vamo_drill_db -t -A -c "SELECT to_regclass('public.${T}');")
+  if [ "${EXISTS}" = "public.${T}" ] || [ -n "${EXISTS}" ]; then
+    log "  [LEGACY_TABLE] ! Presente (rastreabilidad histórica): ${T}"
+  fi
+done
+
+# 6. Comprobación de lectura representativa sin exponer filas (Counts únicos)
+ORDERS_COUNT=$(docker exec -i "${TARGET_CONTAINER}" psql -U postgres -d vamo_drill_db -t -A -c "SELECT count(*) FROM public.orders;" 2>/dev/null) || fail "RESTORE_FAIL: Falló lectura representativa de tabla de órdenes (orders)."
+LEDGER_COUNT=$(docker exec -i "${TARGET_CONTAINER}" psql -U postgres -d vamo_drill_db -t -A -c "SELECT count(*) FROM public.wallet_transactions;" 2>/dev/null) || fail "RESTORE_FAIL: Falló lectura representativa de libro contable (wallet_transactions)."
+
+log "Evidencia de lectura de autoridad completada exitosamente:"
+log "  - Conteo de órdenes registradas (order authority): ${ORDERS_COUNT}"
+log "  - Conteo de transacciones contables (financial ledger): ${LEDGER_COUNT}"
 
 log "=========================================================="
 log "RESTORE DRILL COMPLETADO EXITOSAMENTE [PASS]."
-log "Destruya el contenedor temporal '${TARGET_CONTAINER}' de acuerdo al protocolo."
+log "STATUS: RESTORE_INTEGRITY_VERIFIED"
 log "=========================================================="
