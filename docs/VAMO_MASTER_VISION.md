@@ -1,9 +1,12 @@
 # 🏍️🚗🚲 VAMO — TÚ PIDES. NOSOTROS VAMOS. 📦📍
 
-## 📜 VISIÓN GENERAL DEL SISTEMA & MODELO SIMBIÓTICO
-**VAMO** es la plataforma integral de logística urbana, entregas y motomandados diseñada para conectar a **Superusuario (Fundador/Plataforma Master)**, **Franquiciatarios Territoriales**, **Dueños de Flotas**, **Bases de Operación**, **Negocios/Locatarios**, **Repartidores** y **Clientes** en un solo ecosistema rentable y en tiempo real.
+> ⚠️ **AVISO DE AUTORIDAD Y MODELO CANÓNICO:**  
+> La economía y modelo de negocio actual aprobados por Jorge (Product Owner) residen en:  
+> **[`docs/business/VAMO_BUSINESS_CONSTITUTION.md`](file:///c:/Users/BranmiX/Desktop/VAMO/docs/business/VAMO_BUSINESS_CONSTITUTION.md)**.  
+> *Las referencias históricas a "Franquicias Territoriales ($80k-$186k setup)", "Igualas de franquicia ($3k-$5k)" y "Monopolios territoriales" quedan clasificadas como `LEGACY_FRANCHISE_MODEL` y no rigen nuevos desarrollos.*
 
-Combina una **suite de aplicaciones PWA de estándar global (Next.js 16 + React 19 + MapLibre GL 3D)** con un **modelo de negocio recurrente de Franquicias Territoriales ($80k-$186k setup + iguala SaaS) y Renta de Flotas ($150-$300/moto o $2-$4/orden)**.
+## 📜 VISIÓN GENERAL DEL SISTEMA & MODELO SIMBIÓTICO
+**VAMO** es la plataforma integral de logística urbana, entregas y motomandados diseñada para conectar a **Plataforma Master**, **Socios Comerciales Locales**, **Dueños de Flotas**, **Bases de Operación**, **Negocios/Locatarios**, **Repartidores** y **Clientes** en un solo ecosistema rentable y en tiempo real bajo la filosofía: *"En los centavos están los millones"*.
 
 ---
 

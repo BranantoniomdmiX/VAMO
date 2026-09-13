@@ -1,6 +1,10 @@
 # 📘 MANUAL DE PROCEDIMIENTOS OPERATIVOS ESTÁNDAR (SOPs): FRANQUICIA VAMO
 
-Este manual contiene los procedimientos operativos, financieros y de gobernanza obligatorios para la apertura y operación exitosa de una **Plaza Franquiciada VAMO** o **Base de Operaciones**.
+> ⚠️ **DOCUMENTO HISTÓRICO — CLASIFICACIÓN: `LEGACY_FRANCHISE_MODEL`**  
+> Por decisión de Jorge (Product Owner), el modelo de Franquicias Territoriales Exclusivas y Cánones de Entrada queda clasificado como **HISTÓRICO / LEGACY**. No aplica para nuevo desarrollo ni rige la economía del sistema.  
+> La autoridad oficial vigente es la **[`Constitución del Modelo de Negocio VAMO`](file:///c:/Users/BranmiX/Desktop/VAMO/docs/business/VAMO_BUSINESS_CONSTITUTION.md)** (Red de Socios Comerciales + Chofer $100/sem split 50/50 + Comercios fijas 50/50).
+
+Este manual contiene los procedimientos operativos y checklists para la apertura física de una Base de Operaciones.
 
 ---
 
