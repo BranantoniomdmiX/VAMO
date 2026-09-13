@@ -17,6 +17,11 @@ TARGET_CONTAINER="${1:-}"
 BACKUP_ENC_FILE="${2:-}"
 AGE_IDENTITY_FILE="${3:-}"
 
+# Imagen de PostgreSQL para el entorno temporal aislado.
+# Por defecto se utiliza una imagen compatible con PostgreSQL 16 y extensiones requeridas (ej. PostGIS).
+# El valor definitivo debe alinearse con la inspección en producción de 'SELECT extname, extversion FROM pg_extension;'.
+RESTORE_DB_IMAGE="${RESTORE_DB_IMAGE:-postgis/postgis:16-3.4-alpine}"
+
 log() {
   echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] [DRILL] $1"
 }
@@ -30,6 +35,8 @@ fail() {
 if [ -z "${TARGET_CONTAINER}" ] || [ -z "${BACKUP_ENC_FILE}" ] || [ -z "${AGE_IDENTITY_FILE}" ]; then
   echo "Uso:"
   echo "  $0 <temporary-container-name> <backup-file.dump.enc> <age-private-key-file>"
+  echo "Variables opcionales de entorno:"
+  echo "  RESTORE_DB_IMAGE (por defecto: postgis/postgis:16-3.4-alpine)"
   fail "Faltan parámetros obligatorios."
 fi
 
@@ -70,12 +77,12 @@ trap cleanup EXIT
 if docker ps -a --format '{{.Names}}' | grep -Eq "^${TARGET_CONTAINER}\$"; then
   log "Usando contenedor temporal existente '${TARGET_CONTAINER}'."
 else
-  log "Creando contenedor temporal aislado de prueba '${TARGET_CONTAINER}' (PostgreSQL 16, red aislada)..."
+  log "Creando contenedor temporal aislado de prueba '${TARGET_CONTAINER}' con imagen '${RESTORE_DB_IMAGE}' (red aislada)..."
   docker run -d \
     --name "${TARGET_CONTAINER}" \
     --network none \
     -e POSTGRES_PASSWORD=vamo_drill_temp_pass \
-    postgres:16-alpine >/dev/null
+    "${RESTORE_DB_IMAGE}" >/dev/null
   CREATED_DRILL_CONTAINER=true
   
   # Esperar a que el motor esté listo para recibir conexiones
@@ -120,6 +127,21 @@ log "Verificando apertura y accesibilidad de la base de datos..."
 if ! docker exec -i "${TARGET_CONTAINER}" psql -U postgres -d vamo_drill_db -c "SELECT 1;" >/dev/null 2>&1; then
   fail "RESTORE_FAIL: La base de datos restaurada no acepta conexiones SQL."
 fi
+
+# ==============================================================================
+# ASERCIÓN DE EXTENSIONES OBLIGATORIAS (PostgreSQL 16 + PostGIS)
+# ==============================================================================
+log "Verificando extensiones críticas presentes en la base restaurada..."
+INSTALLED_EXTENSIONS=$(docker exec -i "${TARGET_CONTAINER}" psql -U postgres -d vamo_drill_db -t -A -c "SELECT extname FROM pg_extension ORDER BY extname;")
+
+REQUIRED_EXTENSIONS=("postgis" "uuid-ossp" "pgcrypto")
+for EXT in "${REQUIRED_EXTENSIONS[@]}"; do
+  if echo "${INSTALLED_EXTENSIONS}" | grep -qx "${EXT}"; then
+    log "  [REQUIRED_EXTENSION] ✓ Presente: ${EXT}"
+  else
+    fail "RESTORE_FAIL: Extensión crítica obligatoria ausente tras restore: ${EXT}"
+  fi
+done
 
 TABLES_COUNT=$(docker exec -i "${TARGET_CONTAINER}" psql -U postgres -d vamo_drill_db -t -A -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';")
 log "Tablas restauradas detectadas en schema public: ${TABLES_COUNT}"

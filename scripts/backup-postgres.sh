@@ -15,6 +15,9 @@
 #   - Fails closed immediately on any step error (set -euo pipefail).
 #   - Plaintext dump is purged immediately after successful encryption.
 #   - Private decryption keys are NEVER stored on the production server.
+#   - Canonical backup uses default pg_dump (row_security=off). If dump identity
+#     lacks BYPASSRLS, pg_dump fails closed with an error rather than dumping partial rows.
+#     Rationale: COMPLETE_BACKUP_REQUIRES_RLS_BYPASS (DO NOT use --enable-row-security).
 # ==============================================================================
 
 set -euo pipefail
