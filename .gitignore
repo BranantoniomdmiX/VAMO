@@ -50,3 +50,6 @@ next-env.d.ts
 *.identity
 /backups/
 /var/backups/
+
+# Explicitly block previously leaked SSH key
+/scratch/dokploy_key
