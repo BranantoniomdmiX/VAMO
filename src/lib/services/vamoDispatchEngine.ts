@@ -56,10 +56,12 @@ export const vamoDispatchEngine = {
   /**
    * Ejecuta la asignación atómica en PostgreSQL Dokploy con Row-Level Locking
    * Impide colisiones de concurrencia cuando 2 choferes aceptan al mismo tiempo.
+   * Si se provee un client de transacción (PoolClient), ejecuta la consulta dentro de su contexto RLS.
    */
-  async acceptOrderAtomic(orderId: string, driverId: string): Promise<AtomicAssignmentResult> {
+  async acceptOrderAtomic(orderId: string, driverId: string, dbClient?: any): Promise<AtomicAssignmentResult> {
     try {
-      const res = await query<{ assign_order_atomic: AtomicAssignmentResult }>(
+      const runner = dbClient ? dbClient.query.bind(dbClient) : query
+      const res = await runner(
         'SELECT public.assign_order_atomic($1, $2) as assign_order_atomic;',
         [orderId, driverId]
       )

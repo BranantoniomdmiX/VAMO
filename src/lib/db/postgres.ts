@@ -1,4 +1,4 @@
-import { Pool, QueryResult, QueryResultRow } from 'pg'
+import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg'
 
 // String de conexión PostgreSQL (Oracle Cloud Always Free o Local)
 const connectionString = process.env.DATABASE_URL
@@ -77,7 +77,7 @@ export interface AuthenticatedDbContext {
  */
 export async function withAuthenticatedDbContext<T>(
   context: AuthenticatedDbContext,
-  callback: (client: any) => Promise<T>
+  callback: (client: PoolClient) => Promise<T>
 ): Promise<T> {
   const client = await getTransactionClient()
   try {

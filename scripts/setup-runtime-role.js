@@ -66,14 +66,54 @@ async function setupRuntimeRole() {
       `);
     }
 
-    // 2. Permisos mínimos indispensables
+    // 2. Permisos mínimos indispensables (Deny-by-default)
     await client.query('GRANT CONNECT ON DATABASE vamo_production TO vamo_app;');
     await client.query('GRANT USAGE ON SCHEMA public TO vamo_app;');
-    await client.query('GRANT USAGE ON SCHEMA auth TO vamo_app;');
+
+    // Revocar acceso al schema auth para vamo_app
+    await client.query('REVOKE ALL ON SCHEMA auth FROM vamo_app;');
+    await client.query('REVOKE ALL ON ALL TABLES IN SCHEMA auth FROM vamo_app;');
+    await client.query('REVOKE ALL ON ALL ROUTINES IN SCHEMA auth FROM vamo_app;');
+
+    // Tablas y secuencias públicas
     await client.query('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO vamo_app;');
     await client.query('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO vamo_app;');
-    await client.query('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO vamo_app;');
-    await client.query('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO vamo_app;');
+
+    // Deny-by-default en funciones
+    await client.query('REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM vamo_app;');
+    await client.query('REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA auth FROM vamo_app;');
+    await client.query('REVOKE USAGE ON SCHEMA auth FROM vamo_app;');
+
+    // Evitar que futuras funciones creadas por vamo_admin sean ejecutables por PUBLIC
+    await client.query('ALTER DEFAULT PRIVILEGES FOR ROLE vamo_admin IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;');
+
+    // GRANT explícito ÚNICAMENTE a funciones aprobadas para runtime con verificación de contexto
+    const approvedFunctions = [
+      'assign_order_atomic(uuid, uuid)',
+      'update_kds_order_status(uuid, text)',
+      'verify_order_pod(uuid, text, text, numeric, numeric)',
+      'request_wallet_withdrawal(uuid, numeric, text)',
+      'current_app_user_id()',
+      'current_app_role()',
+      'current_app_franchise_id()'
+    ];
+
+    for (const fn of approvedFunctions) {
+      await client.query(`GRANT EXECUTE ON FUNCTION public.${fn} TO vamo_app;`);
+    }
+
+    // Funciones críticas que DEBEN permanecer inaccesibles para PUBLIC y vamo_app
+    const forbiddenFunctions = [
+      'process_order_settlement(uuid)',
+      'ensure_wallet_account(uuid)',
+      'process_wallet_payout(uuid, numeric, text)',
+      'register_bank_account(uuid, text, text, text)',
+      'register_device_token(uuid, text, text)'
+    ];
+
+    for (const fn of forbiddenFunctions) {
+      await client.query(`REVOKE EXECUTE ON FUNCTION public.${fn} FROM PUBLIC, vamo_app;`);
+    }
 
     // 3. Forzar RLS en todas las tablas maestras
     const tables = [
