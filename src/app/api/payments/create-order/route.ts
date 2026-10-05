@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { query } from '@/lib/db/postgres'
-import { getTrustedAuthContext } from '@/lib/auth/contextResolver'
+import { withTrustedAuthContext } from '@/lib/auth/contextResolver'
 
 // API Route: POST /api/payments/create-order
 // Crea un Order en Conekta y devuelve la URL de pago al cliente
@@ -21,14 +20,6 @@ interface CreateOrderBody {
 
 export async function POST(req: NextRequest) {
   try {
-    const authContext = await getTrustedAuthContext()
-    if (!authContext) {
-      return NextResponse.json(
-        { error: 'Sesión no válida o ausente. Debe autenticarse para procesar pagos.' },
-        { status: 401 }
-      )
-    }
-
     const body: CreateOrderBody = await req.json().catch(() => ({}))
     const { orderId, paymentMethod, customerName, customerEmail, customerPhone, description } = body
 
@@ -39,43 +30,69 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // 🛡️ REGLA SUPREMA DE AUTORIDAD DE PRECIOS:
-    // NUNCA confiar en `body.amount` del cliente.
-    // Consultar el total autoritativo calculado por el backend en PostgreSQL Dokploy.
-    const orderRes = await query<{
-      id: string
-      code: string
-      customer_id: string
-      total: string
-      delivery_fee: string
-      subtotal: string
-      status: string
-    }>('SELECT id, code, customer_id, total, delivery_fee, subtotal, status FROM public.orders WHERE id = $1 OR code = $1;', [orderId])
+    // 🛡️ Consultar el pedido y verificar permisos bajo la transacción con contexto RLS coherente
+    const authOrderResult = await withTrustedAuthContext(async (authContext, client) => {
+      // 🛡️ REGLA SUPREMA DE AUTORIDAD DE PRECIOS:
+      // NUNCA confiar en `body.amount` del cliente.
+      // Consultar el total autoritativo calculado por el backend en PostgreSQL Dokploy.
+      const orderRes = await client.query<{
+        id: string
+        code: string
+        customer_id: string
+        total: string
+        delivery_fee: string
+        subtotal: string
+        status: string
+      }>('SELECT id, code, customer_id, total, delivery_fee, subtotal, status FROM public.orders WHERE id = $1 OR code = $1;', [orderId])
 
-    if (orderRes.rows.length === 0) {
+      if (orderRes.rows.length === 0) {
+        return {
+          status: 404,
+          error: 'Pedido no encontrado en la base de datos central.'
+        }
+      }
+
+      const authoritativeOrder = orderRes.rows[0]
+
+      // Validar que el cliente autenticado sea el dueño del pedido o superadmin
+      if (authContext.role !== 'superadmin' && authContext.role !== 'master' && authoritativeOrder.customer_id !== authContext.userId) {
+        return {
+          status: 403,
+          error: 'No está autorizado para pagar una orden de otro cliente.'
+        }
+      }
+
+      const authoritativeTotal = parseFloat(authoritativeOrder.total)
+      if (isNaN(authoritativeTotal) || authoritativeTotal <= 0) {
+        return {
+          status: 400,
+          error: 'El monto de la orden es inválido o no ha sido tasado correctamente.'
+        }
+      }
+
+      return {
+        status: 200,
+        authoritativeOrder,
+        authoritativeTotal,
+        authContext
+      }
+    })
+
+    if (!authOrderResult) {
       return NextResponse.json(
-        { error: 'Pedido no encontrado en la base de datos central.' },
-        { status: 404 }
+        { error: 'Sesión no válida o ausente. Debe autenticarse para procesar pagos.' },
+        { status: 401 }
       )
     }
 
-    const authoritativeOrder = orderRes.rows[0]
-
-    // Validar que el cliente autenticado sea el dueño del pedido o superadmin
-    if (authContext.role !== 'superadmin' && authContext.role !== 'master' && authoritativeOrder.customer_id !== authContext.userId) {
+    if (authOrderResult.error || !authOrderResult.authoritativeOrder) {
       return NextResponse.json(
-        { error: 'No está autorizado para pagar una orden de otro cliente.' },
-        { status: 403 }
+        { error: authOrderResult.error },
+        { status: authOrderResult.status }
       )
     }
 
-    const authoritativeTotal = parseFloat(authoritativeOrder.total)
-    if (isNaN(authoritativeTotal) || authoritativeTotal <= 0) {
-      return NextResponse.json(
-        { error: 'El monto de la orden es inválido o no ha sido tasado correctamente.' },
-        { status: 400 }
-      )
-    }
+    const { authoritativeOrder, authoritativeTotal, authContext } = authOrderResult
 
     // Si el método es efectivo, no necesitamos pasar por la pasarela digital
     if (paymentMethod === 'cash') {

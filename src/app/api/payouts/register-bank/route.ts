@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { PayoutService } from '@/lib/services/payoutService'
+import { getTrustedAuthContext } from '@/lib/auth/contextResolver'
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,14 +24,13 @@ export async function POST(req: NextRequest) {
       }
     )
 
-    // Validar usuario autenticado con getUser()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const authContext = await getTrustedAuthContext()
+    if (!authContext) {
       return NextResponse.json({ error: 'No autorizado. Inicia sesión.' }, { status: 401 })
     }
 
     const body = await req.json()
-    const { bankName, clabeNumber, cardNumber, beneficiaryName, rfcCurp, payoutFrequency, role } = body
+    const { bankName, clabeNumber, cardNumber, beneficiaryName, rfcCurp, payoutFrequency } = body
 
     if (!clabeNumber || !beneficiaryName) {
       return NextResponse.json({ error: 'CLABE interbancaria y Nombre del titular son requeridos.' }, { status: 400 })
@@ -44,37 +44,39 @@ export async function POST(req: NextRequest) {
     const finalBankName = bankName || validation.bankName || 'Banco Mexicano'
 
     // Upsert en la tabla user_bank_accounts
+    // NOTA: is_verified queda en false por defecto para requerir validación de titularidad real
     const { data, error } = await supabase.from('user_bank_accounts').upsert({
-      user_id: user.id,
-      role: role || 'driver',
+      user_id: authContext.userId,
+      role: authContext.role,
       bank_name: finalBankName,
       clabe_number: clabeNumber.replace(/\s+/g, ''),
       card_number: cardNumber ? cardNumber.replace(/\s+/g, '') : null,
       beneficiary_name: beneficiaryName.toUpperCase(),
       rfc_curp: rfcCurp ? rfcCurp.toUpperCase() : null,
       payout_frequency: payoutFrequency || 'DAILY',
-      is_verified: true
+      is_verified: false // Requiere verificación de titularidad; no asumir verificado inmediatamente
     }).select().single()
 
-    // Guardar en PostgreSQL Dokploy
+    // Intentar registrar en PostgreSQL Dokploy si está habilitada la función para el rol o servicio
     try {
       const { query } = await import('@/lib/db/postgres')
       await query(
         'SELECT public.register_bank_account($1, $2, $3, $4);',
-        [user.id, beneficiaryName.toUpperCase(), clabeNumber.replace(/\s+/g, ''), finalBankName]
+        [authContext.userId, beneficiaryName.toUpperCase(), clabeNumber.replace(/\s+/g, ''), finalBankName]
       )
     } catch (pgErr) {
-      console.warn('[Register Bank] Dokploy direct sync warning:', pgErr)
+      console.warn('[Register Bank] Dokploy direct sync notice:', pgErr)
     }
 
     return NextResponse.json({ 
       success: true, 
-      message: `Cuenta de ${finalBankName} vinculada exitosamente para dispersión SPEI.`, 
+      message: `Cuenta de ${finalBankName} vinculada exitosamente (pendiente de validación SPEI).`,
       data: {
-        userId: user.id,
+        userId: authContext.userId,
         bankName: finalBankName,
         beneficiaryName: beneficiaryName.toUpperCase(),
-        clabeMasked: '••••••••••••••' + clabeNumber.slice(-4)
+        clabeMasked: '••••••••••••••' + clabeNumber.slice(-4),
+        isVerified: false
       }
     })
   } catch (error: any) {

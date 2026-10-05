@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { query } from '@/lib/db/postgres'
-import { getTrustedAuthContext } from '@/lib/auth/contextResolver'
+import { withTrustedAuthContext } from '@/lib/auth/contextResolver'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,21 +13,6 @@ interface PodRequestBody {
 
 export async function POST(request: NextRequest) {
   try {
-    const authContext = await getTrustedAuthContext()
-    if (!authContext) {
-      return NextResponse.json(
-        { success: false, code: 'UNAUTHORIZED', message: 'Sesión no válida o ausente.' },
-        { status: 401 }
-      )
-    }
-
-    if (!['driver', 'superadmin', 'master'].includes(authContext.role)) {
-      return NextResponse.json(
-        { success: false, code: 'FORBIDDEN_ROLE', message: 'Solo los conductores asignados o superadministradores pueden registrar la entrega POD.' },
-        { status: 403 }
-      )
-    }
-
     const body: PodRequestBody = await request.json().catch(() => ({}))
     const { orderId, pin, photoUrl, lat, lng } = body
 
@@ -46,40 +30,74 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validar que el chofer autenticado sea el asignado a esta orden
-    if (authContext.role === 'driver') {
-      const orderCheck = await query<{ driver_id: string }>(
-        'SELECT driver_id FROM public.orders WHERE id = $1;',
-        [orderId]
+    const result = await withTrustedAuthContext(async (authContext, client) => {
+      // 1. Verificar rol autorizado (driver, superadmin, master)
+      if (!['driver', 'superadmin', 'master'].includes(authContext.role)) {
+        return {
+          status: 403,
+          payload: {
+            success: false,
+            code: 'FORBIDDEN_ROLE',
+            message: 'Solo los conductores asignados o superadministradores pueden registrar la entrega POD.'
+          }
+        }
+      }
+
+      // 2. Validar que el chofer autenticado sea el asignado a esta orden bajo RLS
+      if (authContext.role === 'driver') {
+        const orderCheck = await client.query<{ driver_id: string }>(
+          'SELECT driver_id FROM public.orders WHERE id = $1;',
+          [orderId]
+        )
+
+        if (orderCheck.rows.length === 0) {
+          return {
+            status: 404,
+            payload: { success: false, code: 'ORDER_NOT_FOUND', message: 'Pedido no encontrado.' }
+          }
+        }
+
+        if (orderCheck.rows[0].driver_id !== authContext.userId) {
+          return {
+            status: 403,
+            payload: {
+              success: false,
+              code: 'FORBIDDEN_WRONG_DRIVER',
+              message: 'No es el conductor asignado a esta orden.'
+            }
+          }
+        }
+      }
+
+      // 3. Ejecutar función atómica verify_order_pod bajo RLS
+      const res = await client.query<{ verify_order_pod: any }>(
+        'SELECT public.verify_order_pod($1, $2, $3, $4, $5) as verify_order_pod;',
+        [orderId, pin || null, photoUrl || null, lat || null, lng || null]
       )
 
-      if (orderCheck.rows.length === 0) {
-        return NextResponse.json(
-          { success: false, code: 'ORDER_NOT_FOUND', message: 'Pedido no encontrado.' },
-          { status: 404 }
-        )
+      const podResult = res.rows[0]?.verify_order_pod
+
+      if (!podResult?.success) {
+        return {
+          status: 400,
+          payload: podResult || { success: false, message: 'No fue posible validar la entrega.' }
+        }
       }
 
-      if (orderCheck.rows[0].driver_id !== authContext.userId) {
-        return NextResponse.json(
-          { success: false, code: 'FORBIDDEN_WRONG_DRIVER', message: 'No es el conductor asignado a esta orden.' },
-          { status: 403 }
-        )
+      return {
+        status: 200,
+        payload: podResult
       }
+    })
+
+    if (!result) {
+      return NextResponse.json(
+        { success: false, code: 'UNAUTHORIZED', message: 'Sesión no válida o ausente.' },
+        { status: 401 }
+      )
     }
 
-    const res = await query<{ verify_order_pod: any }>(
-      'SELECT public.verify_order_pod($1, $2, $3, $4, $5) as verify_order_pod;',
-      [orderId, pin || null, photoUrl || null, lat || null, lng || null]
-    )
-
-    const result = res.rows[0]?.verify_order_pod
-
-    if (!result?.success) {
-      return NextResponse.json(result || { success: false, message: 'No fue posible validar la entrega.' }, { status: 400 })
-    }
-
-    return NextResponse.json(result, { status: 200 })
+    return NextResponse.json(result.payload, { status: result.status })
   } catch (error: any) {
     return NextResponse.json(
       { success: false, code: 'INTERNAL_ERROR', message: error.message || 'Error al verificar la entrega.' },

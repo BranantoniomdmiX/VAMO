@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getTrustedAuthContext } from '@/lib/auth/contextResolver'
 
 // POST /api/notifications/register-token
 // Registra o actualiza el token Push (FCM / Web Push) del dispositivo
-
 export async function POST(req: NextRequest) {
   try {
+    const authContext = await getTrustedAuthContext()
+    if (!authContext) {
+      return NextResponse.json(
+        { success: false, code: 'UNAUTHORIZED', error: 'Sesión no válida o ausente.' },
+        { status: 401 }
+      )
+    }
+
     const body = await req.json()
-    const { userId, role, deviceToken, platform, deviceInfo } = body
+    const { deviceToken, platform, deviceInfo } = body
 
     if (!deviceToken) {
       return NextResponse.json({ error: 'deviceToken es requerido' }, { status: 400 })
@@ -18,12 +26,16 @@ export async function POST(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const { data, error } = await supabase
+    // Identidad y rol se derivan ESTRICTAMENTE de la sesión autenticada
+    const effectiveUserId = authContext.userId
+    const effectiveRole = authContext.role
+
+    const { error: sbError } = await supabase
       .from('device_push_tokens')
       .upsert(
         {
-          user_id: userId || null,
-          role: role || 'customer',
+          user_id: effectiveUserId,
+          role: effectiveRole,
           device_token: deviceToken,
           platform: platform || 'web',
           device_info: deviceInfo || {},
@@ -32,20 +44,25 @@ export async function POST(req: NextRequest) {
         },
         { onConflict: 'device_token' }
       )
-    // 2. Guardar en PostgreSQL Dokploy si hay userId
-    if (userId) {
-      try {
-        const { query } = await import('@/lib/db/postgres')
-        await query(
-          'SELECT public.register_device_token($1, $2, $3);',
-          [userId, deviceToken, platform || 'web']
-        )
-      } catch (pgErr) {
-        console.warn('[RegisterToken] Dokploy direct sync warning:', pgErr)
-      }
+
+    if (sbError) {
+      console.error('[RegisterToken API] Error en Supabase upsert:', sbError)
     }
 
-    return NextResponse.json({ success: true, message: 'Token push registrado con éxito en Dokploy.' })
+    // Registrar en PostgreSQL Dokploy usando el pool con credenciales administrativas si procede
+    // o fallback informativo (la función register_device_token no está en vamo_app)
+    try {
+      const { query } = await import('@/lib/db/postgres')
+      await query(
+        'SELECT public.register_device_token($1, $2, $3);',
+        [effectiveUserId, deviceToken, platform || 'web']
+      )
+    } catch (pgErr) {
+      // Si vamo_app no tiene acceso directo a register_device_token, se registra en Supabase
+      console.warn('[RegisterToken] Dokploy direct sync notice:', pgErr)
+    }
+
+    return NextResponse.json({ success: true, message: 'Token push registrado con éxito.' })
   } catch (err) {
     console.error('[RegisterToken API] Error procesando solicitud:', err)
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { getTrustedAuthContext } from '@/lib/auth/contextResolver'
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,13 +23,23 @@ export async function POST(req: NextRequest) {
       }
     )
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const authContext = await getTrustedAuthContext()
+    if (!authContext) {
       return NextResponse.json({ error: 'No autorizado.' }, { status: 401 })
     }
 
+    // Solo superadmin / master puede ordenar dispersiones masivas/directas de fondos de usuarios
+    if (authContext.role !== 'superadmin' && authContext.role !== 'master') {
+      return NextResponse.json(
+        { error: 'Prohibido. La dispersión directa requiere permisos administrativos.' },
+        { status: 403 }
+      )
+    }
+
     const body = await req.json()
-    const { amount, payoutType, destinationClabe, destinationBank, beneficiaryName, role } = body
+    const { targetUserId, amount, destinationClabe, destinationBank } = body
+
+    const beneficiaryUserId = targetUserId || authContext.userId
 
     if (!amount || amount <= 0 || !destinationClabe) {
       return NextResponse.json({ error: 'Monto y CLABE destino son obligatorios.' }, { status: 400 })
@@ -37,26 +48,26 @@ export async function POST(req: NextRequest) {
     const transferId = `SPEI-CONEKTA-${Date.now()}`
 
     // 1. Ejecutar dispersión atómica y deducción en PostgreSQL Dokploy
-    let pgPayoutResult: any = null
-    try {
-      const { query } = await import('@/lib/db/postgres')
-      const pgRes = await query<{ process_wallet_payout: any }>(
-        'SELECT public.process_wallet_payout($1, $2, $3) as process_wallet_payout;',
-        [user.id, amount, transferId]
+    // FAIL-CLOSED: Cualquier fallo en base de datos detiene la operación inmediatamente.
+    const { query } = await import('@/lib/db/postgres')
+    const pgRes = await query<{ process_wallet_payout: any }>(
+      'SELECT public.process_wallet_payout($1, $2, $3) as process_wallet_payout;',
+      [beneficiaryUserId, amount, transferId]
+    )
+
+    const pgPayoutResult = pgRes.rows[0]?.process_wallet_payout
+    if (!pgPayoutResult?.success) {
+      return NextResponse.json(
+        pgPayoutResult || { success: false, error: 'Error al procesar deducción de dispersión en balance' },
+        { status: 400 }
       )
-      pgPayoutResult = pgRes.rows[0]?.process_wallet_payout
-      if (!pgPayoutResult?.success) {
-        return NextResponse.json(pgPayoutResult, { status: 400 })
-      }
-    } catch (pgErr) {
-      console.warn('[Payout Disburse] Dokploy direct sync warning:', pgErr)
     }
 
     return NextResponse.json({
       success: true,
       transferId,
       netAmount: amount,
-      message: `Dispersión SPEI de $${amount.toFixed(2)} MXN procesada con éxito a ${destinationBank} (${destinationClabe}).`,
+      message: `Dispersión SPEI de $${amount.toFixed(2)} MXN procesada con éxito a ${destinationBank || 'banco'} (${destinationClabe}).`,
       payout: pgPayoutResult
     })
   } catch (error: any) {
