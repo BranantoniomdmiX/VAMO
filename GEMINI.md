@@ -46,6 +46,26 @@ Use these statuses for substantial capabilities:
 
 Do not write `100% complete` unless the relevant end-to-end acceptance gates have been executed successfully against the current implementation.
 
+## Antigravity repair handoff — important
+
+This branch already contains Antigravity's order-spine repair originally committed as:
+
+- `574b3b141a6ee7f482d6f338fd223b5fed9957c6` — `fix(core): unify VAMO order lifecycle end to end`
+
+Treat this work as a valuable implementation baseline, **not as unquestionable production proof**.
+
+Antigravity reported TypeScript/build/touched-file lint success and a local spine suite, but during the investigation direct connectivity to the PostgreSQL Dokploy authority was not consistently available. Several checks in the local suite are source-code assertions or simulated state transitions rather than a live browser/API/database transaction across production-like infrastructure.
+
+Therefore:
+
+1. Preserve the repair unless evidence shows a regression or design flaw.
+2. Re-run the build, typecheck and relevant tests yourself.
+3. Audit every new order/KDS/dispatch/payment/wallet endpoint for trusted auth, tenant isolation, state-machine correctness, idempotency and authoritative database usage.
+4. Add or improve decisive integration/E2E tests that create a real test order in an isolated non-production environment and prove the same order ID through customer creation → merchant/KDS → dispatch → driver → tracking → POD → history/payment where applicable.
+5. Never run destructive or synthetic probe inserts against production data merely to discover schema. Use migrations, information schema through an authorized read-only path, staging/test databases, or explicit Product Owner-approved diagnostics.
+6. Do not downgrade the repair simply because its existing tests are imperfect; strengthen the evidence around it.
+7. Until live/staging end-to-end evidence exists, classify the repaired spine as `IMPLEMENTED_UNVERIFIED` or `VERIFIED_STATICALLY`, not production-certified.
+
 ## First technical priorities
 
 Before broad feature expansion, resolve the known integrity risks already acknowledged by the repository:
