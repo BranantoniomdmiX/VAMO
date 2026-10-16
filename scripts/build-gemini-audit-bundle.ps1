@@ -1,10 +1,11 @@
 # VAMO - Generador de bundle de auditoria para Gemini (Windows PowerShell)
+# Compatible con Windows PowerShell 5.1 y PowerShell 7+
 # Ejecutar desde la raiz del repo con:
 #   powershell -ExecutionPolicy Bypass -File .\scripts\build-gemini-audit-bundle.ps1
 
 $ErrorActionPreference = 'Stop'
 
-$RepoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
+$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $RepoRoot
 
 $OutDir = Join-Path $RepoRoot '_audit_bundle'
@@ -15,7 +16,7 @@ $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 function Write-TextFile {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
-        [Parameter(Mandatory = $true)][string]$Content
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Content
     )
     [System.IO.File]::WriteAllText($Path, $Content, $Utf8NoBom)
 }
@@ -23,7 +24,7 @@ function Write-TextFile {
 function Append-Text {
     param(
         [Parameter(Mandatory = $true)][System.Text.StringBuilder]$Builder,
-        [Parameter(Mandatory = $true)][string]$Text
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Text
     )
     [void]$Builder.AppendLine($Text)
 }
@@ -36,15 +37,18 @@ function Append-FileContent {
 
     if (-not (Test-Path -LiteralPath $FilePath -PathType Leaf)) { return }
 
-    $Relative = [System.IO.Path]::GetRelativePath($RepoRoot, (Resolve-Path -LiteralPath $FilePath))
+    $ResolvedFile = (Resolve-Path -LiteralPath $FilePath).Path
+    $Relative = $ResolvedFile.Substring($RepoRoot.Length) -replace '^[\\/]+',''
+
     Append-Text $Builder ''
     Append-Text $Builder ''
     Append-Text $Builder '================================================================================'
-    Append-Text $Builder ("FILE: {0}" -f $Relative.Replace('\\','/'))
+    Append-Text $Builder ("FILE: {0}" -f ($Relative -replace '\\','/'))
     Append-Text $Builder '================================================================================'
 
     try {
         $Content = Get-Content -LiteralPath $FilePath -Raw -Encoding UTF8
+        if ($null -eq $Content) { $Content = '' }
         [void]$Builder.Append($Content)
         if (-not $Content.EndsWith("`n")) { [void]$Builder.AppendLine() }
     }
@@ -71,7 +75,7 @@ function Get-TextFiles {
         Get-ChildItem -LiteralPath $Root -Recurse -File | ForEach-Object {
             $Ext = $_.Extension.ToLowerInvariant()
             if ($Allowed -contains $Ext -or $_.Name.EndsWith('.env.example')) {
-                if ($_.FullName -notmatch '[\\/](node_modules|\.next|public)[\\/]') {
+                if ($_.FullName -notmatch '[\\/](node_modules|\.next|public|_audit_bundle)[\\/]') {
                     $Files.Add($_)
                 }
             }
@@ -94,8 +98,10 @@ Append-Text $B0 (git log -n 10 --oneline | Out-String)
 Append-Text $B0 ("HEAD: {0}" -f (git rev-parse HEAD))
 Append-Text $B0 ''
 Append-Text $B0 '# ANTIGRAVITY COMMIT 574b3b141a6ee7f482d6f338fd223b5fed9957c6'
-try { Append-Text $B0 (git show --stat 574b3b141a6ee7f482d6f338fd223b5fed9957c6 | Out-String) } catch { Append-Text $B0 'Commit not available' }
-try { Append-Text $B0 (git show 574b3b141a6ee7f482d6f338fd223b5fed9957c6 | Out-String) } catch { }
+$AntigravityStat = git show --stat 574b3b141a6ee7f482d6f338fd223b5fed9957c6 2>&1 | Out-String
+if ($LASTEXITCODE -eq 0) { Append-Text $B0 $AntigravityStat } else { Append-Text $B0 'Commit not available' }
+$AntigravityDiff = git show 574b3b141a6ee7f482d6f338fd223b5fed9957c6 2>&1 | Out-String
+if ($LASTEXITCODE -eq 0) { Append-Text $B0 $AntigravityDiff }
 
 $RootDocs = @('GEMINI.md','AGENTS.md','CLAUDE.md','README.md','package.json','tsconfig.json','next.config.ts','eslint.config.mjs')
 foreach ($F in $RootDocs) { Append-FileContent $B0 (Join-Path $RepoRoot $F) }
