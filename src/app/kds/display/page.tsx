@@ -6,6 +6,7 @@ import { Clock, Bike, CheckCircle2, ArrowRight, Volume2, Flame, Maximize2, Minim
 
 interface Ticket {
   id: string
+  orderId?: string
   customer: string
   items: string[]
   status: 'new' | 'preparing' | 'waiting_driver' | 'on_way'
@@ -58,13 +59,30 @@ export default function StandaloneKdsDisplayPage() {
 
   const [tickets, setTickets] = useState<Ticket[]>([])
 
-  useEffect(() => {
+  const fetchRealTickets = async () => {
+    try {
+      const res = await fetch('/api/biz/kds/list', { cache: 'no-store' })
+      const data = await res.json()
+      if (res.ok && data.success && Array.isArray(data.tickets) && data.tickets.length > 0) {
+        setTickets(data.tickets)
+        return
+      }
+    } catch (e) {
+      console.warn('Error consultando /api/biz/kds/list:', e)
+    }
+
     try {
       const stored = localStorage.getItem('vamo_kds_tickets')
       if (stored) {
         setTickets(JSON.parse(stored))
       }
     } catch (e) {}
+  }
+
+  useEffect(() => {
+    fetchRealTickets()
+    const interval = setInterval(fetchRealTickets, 10000)
+    return () => clearInterval(interval)
   }, [])
 
   const saveTickets = (updated: Ticket[]) => {
@@ -75,6 +93,9 @@ export default function StandaloneKdsDisplayPage() {
   }
 
   const moveTicket = async (id: string, newStatus: Ticket['status']) => {
+    const targetTicket = tickets.find(t => t.id === id)
+    const effectiveOrderId = targetTicket?.orderId || id
+
     const updated = tickets.map(t => t.id === id ? { ...t, status: newStatus } : t)
     saveTickets(updated)
 
@@ -82,7 +103,7 @@ export default function StandaloneKdsDisplayPage() {
     const statusMap: Record<Ticket['status'], string> = {
       'new': 'CONFIRMED',
       'preparing': 'PREPARING',
-      'waiting_driver': 'READY_FOR_PICKUP',
+      'waiting_driver': 'READY_BIZ',
       'on_way': 'IN_TRANSIT'
     }
 
@@ -91,7 +112,7 @@ export default function StandaloneKdsDisplayPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          orderId: 'f1a9b2c3-d4e5-4f6a-8b9c-0d1e2f3a4b5c',
+          orderId: effectiveOrderId,
           status: statusMap[newStatus] || 'PREPARING'
         })
       })

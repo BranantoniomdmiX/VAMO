@@ -105,8 +105,21 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Si la clave de Conekta no está en el entorno, usar simulador sandbox para no bloquear pruebas locales
+    // Si la clave de Conekta no está en el entorno:
     if (!CONEKTA_PRIVATE_KEY) {
+      const isProduction = process.env.NODE_ENV === 'production'
+      const isDemoMode = process.env.VAMO_DEMO_MODE === 'true'
+
+      if (isProduction || !isDemoMode) {
+        return NextResponse.json(
+          { 
+            error: 'Servicio de pasarela de pago no configurado o no disponible en este entorno (Fail-Closed).',
+            code: 'GATEWAY_CONFIG_MISSING'
+          },
+          { status: 503 }
+        )
+      }
+
       if (paymentMethod === 'oxxo_cash') {
         return NextResponse.json({
           success: true,

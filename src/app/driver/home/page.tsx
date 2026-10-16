@@ -35,19 +35,19 @@ export default function DriverHomePage() {
           const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Conductor'
           setDriverName(name)
 
-          // 1. Consultar balance de billetera real y viajes de hoy
+          // 1. Consultar ganancias de hoy en public.orders
           const today = new Date()
           today.setHours(0, 0, 0, 0)
 
           const { data: completedOrders } = await supabase
-            .from('service_orders')
-            .select('driver_fee, delivery_fee')
+            .from('orders')
+            .select('delivery_fee, total')
             .eq('driver_id', user.id)
             .eq('status', 'DELIVERED')
             .gte('created_at', today.toISOString())
 
           if (completedOrders && completedOrders.length > 0) {
-            const total = completedOrders.reduce((sum, o) => sum + (o.driver_fee || o.delivery_fee || 0), 0)
+            const total = completedOrders.reduce((sum, o) => sum + Number(o.delivery_fee || o.total || 0), 0)
             setEarningsToday(total)
             setTripsCompletedToday(completedOrders.length)
           } else {
@@ -56,22 +56,17 @@ export default function DriverHomePage() {
           }
         }
 
-        // 2. Consultar si hay órdenes disponibles para despacho
-        const { data: pendingOrder } = await supabase
-          .from('service_orders')
-          .select('*')
-          .in('status', ['PENDING', 'ASSIGNING', 'READY_FOR_PICKUP'])
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
+        // 2. Consultar oferta activa elegible mediante API autoritativa de despacho
+        const offerRes = await fetch('/api/dispatch/active-offer', { cache: 'no-store' })
+        const offerData = await offerRes.json()
 
-        if (pendingOrder) {
+        if (offerRes.ok && offerData.hasOffer && offerData.offer) {
           setActivePendingOffer({
-            id: pendingOrder.id,
-            code: pendingOrder.order_code || `V-${pendingOrder.id.slice(0, 4).toUpperCase()}`,
-            earnings: pendingOrder.driver_fee || pendingOrder.delivery_fee || 0,
-            origin: pendingOrder.pickup_contact_name || pendingOrder.merchant_name || 'Comercio Local',
-            distance: pendingOrder.distance_km || 1.5
+            id: offerData.offer.id,
+            code: offerData.offer.code,
+            earnings: offerData.offer.earnings,
+            origin: offerData.offer.originName,
+            distance: offerData.offer.distanceKm
           })
         } else {
           setActivePendingOffer(null)

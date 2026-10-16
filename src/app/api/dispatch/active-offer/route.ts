@@ -1,83 +1,141 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { withTrustedAuthContext } from '@/lib/auth/contextResolver'
 
 export const dynamic = 'force-dynamic'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://cheoxokdpgbjgfdghhzt.supabase.co',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-)
-
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const orderId = searchParams.get('orderId')
-
   try {
-    // Si se pasa un orderId específico, consultar esa orden real
-    if (orderId && orderId !== 'mock' && orderId.length > 5) {
-      const { data: order, error } = await supabase
-        .from('service_orders')
-        .select('*')
-        .eq('id', orderId)
-        .maybeSingle()
+    const { searchParams } = new URL(request.url)
+    const orderId = searchParams.get('orderId')
 
-      if (order && !error) {
-        return NextResponse.json({
-          hasOffer: true,
-          offer: {
-            id: order.id,
-            code: order.order_code || `V-${order.id.slice(0, 4).toUpperCase()}`,
-            originName: order.pickup_contact_name || order.merchant_name || 'Punto de Recolección',
-            originAddress: order.pickup_address || 'Dirección de Recolección',
-            destinationName: order.delivery_contact_name || order.customer_name || 'Cliente',
-            destinationAddress: order.delivery_address || 'Dirección de Entrega',
-            earnings: order.driver_fee || order.delivery_fee || 0,
-            paymentMethod: order.payment_method || 'CASH',
-            distanceKm: order.distance_km || 0,
-            status: order.status
+    const authResult = await withTrustedAuthContext(async (authContext, client) => {
+      // 1. Roles autorizados: driver, dispatcher, superadmin, master
+      if (!['driver', 'dispatcher', 'superadmin', 'master'].includes(authContext.role)) {
+        return {
+          status: 403,
+          body: {
+            hasOffer: false,
+            code: 'FORBIDDEN_ROLE',
+            message: `El rol ${authContext.role} no tiene permisos para consultar ofertas de despacho.`
           }
-        })
-      }
-    }
-
-    // Si no hay orderId o no existe, consultar si hay alguna orden en estado 'PENDING' o 'ASSIGNING'
-    const { data: latestPending } = await supabase
-      .from('service_orders')
-      .select('*')
-      .in('status', ['PENDING', 'ASSIGNING', 'READY_FOR_PICKUP'])
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (latestPending) {
-      return NextResponse.json({
-        hasOffer: true,
-        offer: {
-          id: latestPending.id,
-          code: latestPending.order_code || `V-${latestPending.id.slice(0, 4).toUpperCase()}`,
-          originName: latestPending.pickup_contact_name || latestPending.merchant_name || 'Punto de Recolección',
-          originAddress: latestPending.pickup_address || 'Dirección de Recolección',
-          destinationName: latestPending.delivery_contact_name || latestPending.customer_name || 'Cliente',
-          destinationAddress: latestPending.delivery_address || 'Dirección de Entrega',
-          earnings: latestPending.driver_fee || latestPending.delivery_fee || 0,
-          paymentMethod: latestPending.payment_method || 'CASH',
-          distanceKm: latestPending.distance_km || 0,
-          status: latestPending.status
         }
-      })
+      }
+
+      // 2. Si se solicitó un orderId específico
+      if (orderId && orderId !== 'mock' && orderId.length > 5) {
+        let queryStr = 'SELECT * FROM public.orders WHERE (id = $1 OR code = $1)'
+        const queryParams: (string | number)[] = [orderId]
+
+        // Restricción anti cross-franchise para roles no globales
+        if (authContext.role !== 'superadmin' && authContext.role !== 'master' && authContext.franchiseId) {
+          queryStr += ' AND (franchise_id = $2 OR franchise_id IS NULL)'
+          queryParams.push(authContext.franchiseId)
+        }
+
+        const res = await client.query(queryStr, queryParams)
+        const order = res.rows[0]
+
+        if (order) {
+          return {
+            status: 200,
+            body: {
+              hasOffer: true,
+              offer: {
+                id: order.id,
+                code: order.code || `V-${order.id.slice(0, 4).toUpperCase()}`,
+                originName: order.origin_address || 'Punto de Recolección',
+                originAddress: order.origin_address || 'Dirección de Recolección',
+                destinationName: order.destination_address || 'Cliente',
+                destinationAddress: order.destination_address || 'Dirección de Entrega',
+                earnings: parseFloat(order.delivery_fee) || 0,
+                paymentMethod: order.payment_method || 'CASH',
+                distanceKm: parseFloat(order.distance_km) || 0,
+                status: order.status
+              }
+            }
+          }
+        }
+
+        return {
+          status: 404,
+          body: {
+            hasOffer: false,
+            offer: null,
+            message: 'Pedido no encontrado o fuera de tu jurisdicción territorial.'
+          }
+        }
+      }
+
+      // 3. Buscar orden pendiente elegible para el conductor o despachador
+      let pendingQuery = `
+        SELECT * FROM public.orders 
+        WHERE status IN ('PENDING', 'ACCEPTED_BIZ', 'PREPARING', 'READY_BIZ', 'READY_FOR_PICKUP')
+          AND driver_id IS NULL
+      `
+      const pendingParams: (string | number)[] = []
+
+      if (authContext.role !== 'superadmin' && authContext.role !== 'master' && authContext.franchiseId) {
+        pendingQuery += ' AND (franchise_id = $1 OR franchise_id IS NULL)'
+        pendingParams.push(authContext.franchiseId)
+      }
+
+      pendingQuery += ' ORDER BY created_at DESC LIMIT 1;'
+
+      const pendingRes = await client.query(pendingQuery, pendingParams)
+      const latestPending = pendingRes.rows[0]
+
+      if (latestPending) {
+        return {
+          status: 200,
+          body: {
+            hasOffer: true,
+            offer: {
+              id: latestPending.id,
+              code: latestPending.code || `V-${latestPending.id.slice(0, 4).toUpperCase()}`,
+              originName: latestPending.origin_address || 'Punto de Recolección',
+              originAddress: latestPending.origin_address || 'Dirección de Recolección',
+              destinationName: latestPending.destination_address || 'Cliente',
+              destinationAddress: latestPending.destination_address || 'Dirección de Entrega',
+              earnings: parseFloat(latestPending.delivery_fee) || 0,
+              paymentMethod: latestPending.payment_method || 'CASH',
+              distanceKm: parseFloat(latestPending.distance_km) || 0,
+              status: latestPending.status
+            }
+          }
+        }
+      }
+
+      return {
+        status: 200,
+        body: {
+          hasOffer: false,
+          offer: null,
+          message: 'No hay ofertas de viaje activas en este momento.'
+        }
+      }
+    })
+
+    if (!authResult) {
+      return NextResponse.json(
+        {
+          hasOffer: false,
+          code: 'UNAUTHORIZED',
+          message: 'Debe iniciar sesión para consultar ofertas activas.'
+        },
+        { status: 401 }
+      )
     }
 
-    // Si la base de datos está limpia y no hay viajes activos
-    return NextResponse.json({
-      hasOffer: false,
-      offer: null,
-      message: 'No hay ofertas de viaje activas en este momento.'
-    })
-  } catch (error: any) {
-    return NextResponse.json({
-      hasOffer: false,
-      offer: null,
-      error: error.message
-    })
+    return NextResponse.json(authResult.body, { status: authResult.status })
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : 'Error al consultar oferta activa.'
+    return NextResponse.json(
+      {
+        hasOffer: false,
+        offer: null,
+        error: errorMsg
+      },
+      { status: 500 }
+    )
   }
 }

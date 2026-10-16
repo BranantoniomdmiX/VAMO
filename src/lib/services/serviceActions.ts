@@ -43,7 +43,7 @@ export async function getCustomerServices(userId?: string) {
   const supabase = createClient()
   try {
     let query = supabase
-      .from('services')
+      .from('orders')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(5)
@@ -53,11 +53,35 @@ export async function getCustomerServices(userId?: string) {
     }
 
     const { data, error } = await query
-    if (error) {
-      console.warn('No se pudieron obtener pedidos recientes del cliente:', error.message)
-      return []
+    if (error || !data || data.length === 0) {
+      // Fallback a services si orders no tiene filas aún
+      const { data: legacyData } = await supabase
+        .from('services')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5)
+      return (legacyData || []) as Service[]
     }
-    return (data || []) as Service[]
+
+    return (data as Array<Record<string, unknown>>).map((o) => ({
+      id: String(o.id || ''),
+      tenant_id: String(o.franchise_id || '00000000-0000-0000-0000-000000000001'),
+      service_code: String(o.code || `V-${String(o.id || '').slice(0, 4)}`),
+      customer_id: o.customer_id ? String(o.customer_id) : null,
+      driver_id: o.driver_id ? String(o.driver_id) : null,
+      service_type: 'DIRECT' as const,
+      status: o.status === 'DELIVERED' ? ('ENTREGADO' as const) : ('CONFIRMADO' as const),
+      origin_address: String(o.origin_address || 'Origen'),
+      destination_address: String(o.destination_address || 'Destino'),
+      distance_km: parseFloat(String(o.distance_km || 0)) || 0,
+      total_price: parseFloat(String(o.total || 0)) || 0,
+      driver_earnings: parseFloat(String(o.delivery_fee || 0)) || 0,
+      company_earnings: 0,
+      payment_method: 'CASH' as const,
+      payment_status: String(o.payment_status || 'PENDING'),
+      created_at: String(o.created_at || ''),
+      updated_at: String(o.updated_at || '')
+    })) as Service[]
   } catch (err) {
     console.warn('Excepción al consultar servicios del cliente:', err)
     return []
@@ -68,10 +92,9 @@ export async function getPendingRatingService(userId?: string) {
   const supabase = createClient()
   try {
     let query = supabase
-      .from('services')
-      .select('*, driver:drivers(*)')
-      .eq('status', 'ENTREGADO')
-      .is('customer_rating', null)
+      .from('orders')
+      .select('*')
+      .eq('status', 'DELIVERED')
       .order('updated_at', { ascending: false })
       .limit(1)
 
@@ -83,8 +106,18 @@ export async function getPendingRatingService(userId?: string) {
     if (error || !data || data.length === 0) {
       return null
     }
-    return data[0]
-  } catch (err) {
+
+    const o = data[0]
+    return {
+      id: o.id,
+      service_code: o.code,
+      customer_id: o.customer_id,
+      driver_id: o.driver_id,
+      driver: { full_name: 'Conductor VAMO' },
+      status: 'ENTREGADO',
+      updated_at: o.updated_at
+    }
+  } catch {
     return null
   }
 }

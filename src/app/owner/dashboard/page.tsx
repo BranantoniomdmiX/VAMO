@@ -70,15 +70,17 @@ export default function OwnerDashboardPage() {
 
         setMerchantsCount(businessesCount || 0)
 
-        // 3. Consultar órdenes para calcular utilidad y tiempo de entrega
+        // 3. Consultar órdenes para calcular utilidad y tiempo de entrega desde public.orders
         const { data: orders } = await supabase
-          .from('service_orders')
-          .select('total_amount, driver_fee, platform_fee, status, created_at, delivery_fee')
+          .from('orders')
+          .select('total, delivery_fee, status, created_at')
 
         if (orders && orders.length > 0) {
           const completed = orders.filter(o => o.status === 'DELIVERED')
-          const totalRevenue = completed.reduce((sum, o) => sum + Number(o.platform_fee || (o.delivery_fee ? o.delivery_fee * 0.15 : 0)), 0)
-          setNetProfit(totalRevenue * 0.50) // Split 50/50
+          // En VAMO el chofer conserva el 100% de la tarifa del viaje (0% comisión por viaje).
+          // El ingreso del socio comercial proviene de cuotas semanales de $100 ($50 socio / $50 master).
+          const weeklyFeeIncome = (driversCount || 0) * 50.00
+          setNetProfit(weeklyFeeIncome)
           setAvgDeliveryTime(completed.length > 0 ? '14.2 min' : '0 min')
         } else {
           setNetProfit(0)

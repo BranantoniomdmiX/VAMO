@@ -25,7 +25,13 @@ function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2:
   return Math.round(R * c)
 }
 
-export default function CustomerTrackingPage() {
+interface CustomerTrackingPageProps {
+  params: Promise<{ id: string }>
+}
+
+export default function CustomerTrackingPage({ params }: CustomerTrackingPageProps) {
+  const [orderId, setOrderId] = useState<string>('')
+  const [orderCode, setOrderCode] = useState<string>('V-...')
   const [driverPos, setDriverPos] = useState<{ lat: number; lng: number; heading: number }>({
     lat: 20.5218,
     lng: -100.8142,
@@ -39,11 +45,26 @@ export default function CustomerTrackingPage() {
   const [hasAlerted50m, setHasAlerted50m] = useState<boolean>(false)
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const [orderStatus, setOrderStatus] = useState<string>('EN CAMINO')
-  const [pinCode, setPinCode] = useState<string>('8492')
+  const [pinCode, setPinCode] = useState<string>('----')
+  const [driverName, setDriverName] = useState<string>('Conductor VAMO')
 
-  // 1. Obtener GPS Real del Cliente en Celular
+  // 1. Cargar Pedido Real de public.orders mediante el parámetro dinámico
   useEffect(() => {
-    setPinCode(AntiFraudService.getOrderPin('V-9042'))
+    params.then(p => {
+      setOrderId(p.id)
+      fetch(`/api/orders/${p.id}`, { cache: 'no-store' })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.order) {
+            setOrderCode(data.order.code)
+            setOrderStatus(data.order.status)
+            if (data.order.pinCode) {
+              setPinCode(data.order.pinCode)
+            }
+          }
+        })
+        .catch(err => console.warn('Error cargando orden de tracking:', err))
+    })
 
     import('@/lib/services/deviceCapabilityService').then(({ deviceCapabilityService }) => {
       deviceCapabilityService.getCurrentPosition({
@@ -58,7 +79,7 @@ export default function CustomerTrackingPage() {
         console.warn('GPS del cliente usando ubicación de entrega registrada:', err.message)
       })
     })
-  }, [])
+  }, [params])
 
   // 2. Suscribirse a la posición en vivo del repartidor y calcular distancia a 50m
   useEffect(() => {
@@ -140,7 +161,7 @@ export default function CustomerTrackingPage() {
             <span className="bg-[#c3f400] text-[#161e00] text-xs font-black px-3 py-1 rounded-full uppercase">
               {orderStatus}
             </span>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-[#1c1b1b] dark:text-white mt-1">Seguimiento de Envío #V-9042</h1>
+            <h1 className="text-xl sm:text-2xl font-extrabold text-[#1c1b1b] dark:text-white mt-1">Seguimiento de Envío {orderCode}</h1>
           </div>
           
           <div className="flex items-center gap-2">

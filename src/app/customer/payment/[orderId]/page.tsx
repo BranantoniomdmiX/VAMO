@@ -27,16 +27,29 @@ export default function CustomerPaymentPage({ params }: PaymentPageProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null)
 
   useEffect(() => {
-    params.then(p => setOrderId(p.orderId))
-    // Recuperar datos del pedido de localStorage (guardados en quote/page.tsx)
-    try {
-      const pendingPayment = localStorage.getItem('vamo_pending_payment')
-      if (pendingPayment) {
-        const data = JSON.parse(pendingPayment)
-        setAmount(data.amount || 85)
-        setDescription(data.description || 'Envío VAMO')
-      }
-    } catch {}
+    params.then(p => {
+      setOrderId(p.orderId)
+      // 1. Cargar datos autoritativos de la orden desde el servidor (F5 Safe)
+      fetch(`/api/orders/${p.orderId}`, { cache: 'no-store' })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.order) {
+            setAmount(data.order.total)
+            setDescription(`Envío VAMO ${data.order.code} — ${data.order.originAddress} ➔ ${data.order.destinationAddress}`)
+          }
+        })
+        .catch(() => {
+          // Fallback a localStorage sólo como caché secundario si la red parpadea
+          try {
+            const pendingPayment = localStorage.getItem('vamo_pending_payment')
+            if (pendingPayment) {
+              const data = JSON.parse(pendingPayment)
+              setAmount(data.amount || 85)
+              setDescription(data.description || 'Envío VAMO')
+            }
+          } catch {}
+        })
+    })
   }, [params])
 
   const handleCopy = (text: string, field: string) => {
