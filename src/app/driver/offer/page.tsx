@@ -30,7 +30,23 @@ function DriverOfferContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const orderId = searchParams.get('orderId')
-  const driverId = searchParams.get('driverId') || 'c7e8d9a0-b1c2-4d3e-8f9a-0b1c2d3e4f5a'
+  const [driverId, setDriverId] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function resolveDriver() {
+      try {
+        const { createClient } = await import('@/lib/supabase/client')
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          setDriverId(user.id)
+        }
+      } catch (err) {
+        console.warn('Error resolviendo conductor autenticado:', err)
+      }
+    }
+    resolveDriver()
+  }, [])
 
   // 1. Cargar oferta real desde Supabase
   useEffect(() => {

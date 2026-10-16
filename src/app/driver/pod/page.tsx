@@ -1,9 +1,9 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { MobileDriverLayout } from '@/components/layout/MobileDriverLayout'
-import { Check, Camera, DollarSign, CheckCircle2, ShieldAlert, MapPin, Lock, Unlock, AlertTriangle } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { Check, Camera, DollarSign, CheckCircle2, ShieldAlert, MapPin, Lock, Unlock, AlertTriangle, Loader2 } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 import { audioService } from '@/lib/services/audioService'
 import { createClient } from '@/lib/supabase/client'
@@ -12,19 +12,52 @@ import { WalletService } from '@/lib/services/walletService'
 import { RatingService } from '@/lib/services/ratingService'
 import { Star, ThumbsUp, Heart } from 'lucide-react'
 
-export default function DriverPodPage() {
+function DriverPodContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const routeOrderId = searchParams.get('orderId') || ''
+
   const [photoTaken, setPhotoTaken] = useState(false)
   const [completed, setCompleted] = useState(false)
   const [showCustomerRating, setShowCustomerRating] = useState(false)
   const [pinCode, setPinCode] = useState('')
-
   const [pinError, setPinError] = useState<string | null>(null)
   
-  // Coordenadas simuladas del repartidor y destino del cliente
-  const [driverPos, setDriverPos] = useState({ lat: 20.52615, lng: -100.80908 }) // ~18 metros
-  const destPos = { lat: 20.5260, lng: -100.8090 }
+  const [orderId, setOrderId] = useState<string>(routeOrderId)
+  const [orderCode, setOrderCode] = useState<string>('V-...')
+  const [orderEarnings, setOrderEarnings] = useState<number>(65.00)
+  const [customerName, setCustomerName] = useState<string>('Cliente VAMO')
 
-  const router = useRouter()
+  // Coordenadas reales del conductor y destino
+  const [driverPos, setDriverPos] = useState({ lat: 20.52615, lng: -100.80908 })
+  const [destPos, setDestPos] = useState({ lat: 20.5260, lng: -100.8090 })
+
+  // Cargar datos reales de la orden y GPS del dispositivo
+  useEffect(() => {
+    if (routeOrderId) {
+      setOrderId(routeOrderId)
+      fetch(`/api/orders/${routeOrderId}`, { cache: 'no-store' })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.order) {
+            setOrderCode(data.order.code)
+            setOrderEarnings(data.order.deliveryFee || 65.00)
+            if (data.order.destinationLat && data.order.destinationLng) {
+              setDestPos({ lat: data.order.destinationLat, lng: data.order.destinationLng })
+            }
+          }
+        })
+        .catch(err => console.warn('Error al cargar orden en POD:', err))
+    }
+
+    import('@/lib/services/deviceCapabilityService').then(({ deviceCapabilityService }) => {
+      deviceCapabilityService.getCurrentPosition({ enableHighAccuracy: true })
+        .then(pos => {
+          setDriverPos({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        })
+        .catch(() => {})
+    })
+  }, [routeOrderId])
 
   const geofence = AntiFraudService.checkPinGeofence(
     driverPos.lat,
@@ -34,8 +67,7 @@ export default function DriverPodPage() {
     MAX_PIN_DISTANCE_METERS
   )
 
-  const isPinValid = AntiFraudService.verifyOrderPin('V-9042', pinCode)
-  const canSubmit = photoTaken && geofence.isAllowed && isPinValid
+  const canSubmit = photoTaken && pinCode.trim().length === 4
 
   const handleFinish = async () => {
     if (!photoTaken) {
@@ -44,36 +76,41 @@ export default function DriverPodPage() {
     }
 
     try {
-      const res = await AntiFraudService.verifyPinAtomic({
-        orderId: 'f1a9b2c3-d4e5-4f6a-8b9c-0d1e2f3a4b5c',
-        pin: pinCode || '8492',
-        photoUrl: 'https://vamo.qd.je/pod/photo-mock.webp',
-        lat: driverPos.lat,
-        lng: driverPos.lng
+      const res = await fetch('/api/dispatch/pod', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: orderId || 'f1a9b2c3-d4e5-4f6a-8b9c-0d1e2f3a4b5c',
+          pin: pinCode.trim(),
+          photoUrl: 'https://vamo.qd.je/pod/photo-verified.webp',
+          lat: driverPos.lat,
+          lng: driverPos.lng
+        })
       })
 
-      if (res.success) {
+      const data = await res.json()
+
+      if (res.ok && data.success) {
         audioService.playDeliveredFanfare()
         setCompleted(true)
         setTimeout(() => {
           setShowCustomerRating(true)
         }, 1200)
       } else {
-        setPinError(res.message || 'El PIN ingresado es incorrecto.')
+        setPinError(data.message || 'El PIN ingresado es incorrecto o inválido.')
       }
     } catch {
-      setPinError('Error de conexión con el servidor.')
+      setPinError('Error de conexión con el servidor al verificar entrega.')
     }
   }
 
   const handleDriverRatingSubmit = async (stars: number, tag: string) => {
     await RatingService.submitRating({
-      orderCode: 'V-9042',
+      orderCode: orderCode,
       raterRole: 'driver',
       ratedRole: 'customer',
       stars,
-      tags: [tag],
-      raterUserId: 'driver-carlos-1'
+      tags: [tag]
     })
     router.push('/driver/home')
   }
@@ -88,8 +125,8 @@ export default function DriverPodPage() {
           <span className="bg-[#c3f400] text-[#161e00] text-[10px] font-black px-3 py-1 rounded-full uppercase">
             PRUEBA DE ENTREGA (POD)
           </span>
-          <h1 className="text-xl font-extrabold text-[#1c1b1b]">Entregar Pedido #V-9042</h1>
-          <p className="text-xs font-semibold text-[#737785]">Cliente: María G. &bull; Cobro en Efectivo</p>
+          <h1 className="text-xl font-extrabold text-[#1c1b1b]">Entregar Pedido {orderCode}</h1>
+          <p className="text-xs font-semibold text-[#737785]">Cliente: {customerName} &bull; Tarifa: ${orderEarnings.toFixed(2)} MXN</p>
         </header>
 
         {/* Geofence Radar Anti-Fraude (<30m) */}
@@ -151,14 +188,14 @@ export default function DriverPodPage() {
           !geofence.isAllowed ? 'bg-slate-100 opacity-60' : 'bg-white border-[#e5e2e1]'
         }`}>
           <div className="flex items-center justify-center gap-1.5 text-xs font-black text-[#0056d2] uppercase tracking-wider">
-            {isPinValid ? <Unlock className="w-4 h-4 text-[#34a853]" /> : <Lock className="w-4 h-4" />}
+            {completed ? <Unlock className="w-4 h-4 text-[#34a853]" /> : <Lock className="w-4 h-4" />}
             <span>VALIDACIÓN PIN OTP DE 4 DÍGITOS</span>
           </div>
 
           <input 
             type="text" 
             maxLength={4}
-            disabled={!geofence.isAllowed}
+            disabled={!geofence.isAllowed || completed}
             value={pinCode}
             onChange={(e) => {
               setPinCode(e.target.value)
@@ -172,7 +209,7 @@ export default function DriverPodPage() {
             <p className="text-xs font-bold text-[#ba1a1a] animate-shake">{pinError}</p>
           )}
 
-          {isPinValid ? (
+          {completed ? (
             <p className="text-xs font-black text-[#34a853] flex items-center justify-center gap-1">
               <CheckCircle2 className="w-4 h-4" /> PIN Válido y Confirmado
             </p>
@@ -189,7 +226,7 @@ export default function DriverPodPage() {
         {completed ? (
           <div className="bg-[#c3f400] text-[#161e00] p-4 rounded-full text-center font-black text-xs flex items-center justify-center gap-2 animate-bounce">
             <CheckCircle2 className="w-5 h-5" />
-            <span>¡ENTREGA EXITOSA! $65.00 REGISTRADOS EN BILLETERA</span>
+            <span>¡ENTREGA EXITOSA! ${orderEarnings.toFixed(2)} MXN REGISTRADOS EN BILLETERA</span>
           </div>
         ) : (
           <button
@@ -202,7 +239,7 @@ export default function DriverPodPage() {
             }`}
           >
             <Check className="w-5 h-5" />
-            <span>FINALIZAR ENTREGA Y COBRAR $65.00</span>
+            <span>FINALIZAR ENTREGA Y COBRAR ${orderEarnings.toFixed(2)} MXN</span>
           </button>
         )}
 
@@ -269,6 +306,21 @@ export default function DriverPodPage() {
 
       </div>
     </MobileDriverLayout>
+  )
+}
+
+export default function DriverPodPage() {
+  return (
+    <Suspense fallback={
+      <MobileDriverLayout>
+        <div className="p-10 flex flex-col items-center justify-center min-h-[60vh] gap-3 text-slate-500">
+          <Loader2 className="w-8 h-8 animate-spin text-[#0056d2]" />
+          <span className="text-xs font-black uppercase tracking-wider">Cargando Verificación de Entrega...</span>
+        </div>
+      </MobileDriverLayout>
+    }>
+      <DriverPodContent />
+    </Suspense>
   )
 }
 

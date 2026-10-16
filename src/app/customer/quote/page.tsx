@@ -113,37 +113,55 @@ function QuoteContent() {
     }, 400)
   }
 
+  const [createError, setCreateError] = useState<string | null>(null)
+
   const handleCreateOrder = async () => {
     setIsSubmitting(true)
+    setCreateError(null)
     const validStops = serviceMode === 'multistop' ? intermediateStops.filter(Boolean) : []
     const fullRouteSummary = [origin, ...validStops, destination].join(' ➔ ')
+    const fullDestination = `${destination} (${serviceMode === 'multistop' ? 'Multi-Parada' : 'Directo'}: ${fullRouteSummary})`
     
-    const result = await createServiceFromBase({
-      tenantId: '00000000-0000-0000-0000-000000000001',
-      customerName: 'Cliente Web VAMO',
-      phone: '5551234567',
-      originAddress: origin || 'Av. Hidalgo #104, Centro',
-      destinationAddress: `${destination} (${serviceMode === 'multistop' ? 'Multi-Parada' : 'Directo'}: ${fullRouteSummary})`,
-      totalPrice: estimatedPrice || 63,
-      serviceType: 'DIRECT'
-    })
-
-    setIsSubmitting(false)
-
-    const orderId = result?.service?.id || 'demo-123'
-    const finalAmount = estimatedPrice || 63
-
-    // M9 — Guardar datos del pago en localStorage para la pantalla de pago
     try {
-      localStorage.setItem('vamo_pending_payment', JSON.stringify({
-        orderId,
-        amount: finalAmount,
-        description: `Envío VAMO — ${origin || 'Origen'} ➔ ${destination || 'Destino'}`
-      }))
-    } catch {}
+      const res = await fetch('/api/orders/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          originAddress: origin || 'Av. Hidalgo #104, Centro',
+          destinationAddress: fullDestination,
+          distanceKm: distanceKm || 3.5,
+          paymentMethod: 'CASH'
+        })
+      })
 
-    // Redirigir a pantalla de selección de método de pago (M9)
-    router.push(`/customer/payment/${orderId}`)
+      const data = await res.json()
+
+      if (!res.ok || !data.success || !data.orderId) {
+        setCreateError(data.error || 'No fue posible crear la orden en el servidor.')
+        setIsSubmitting(false)
+        return
+      }
+
+      const orderId = data.orderId
+      const finalAmount = data.total || estimatedPrice || 63
+
+      // Guardar en localStorage sólo como caché visual para la UI
+      try {
+        localStorage.setItem('vamo_pending_payment', JSON.stringify({
+          orderId,
+          amount: finalAmount,
+          code: data.code,
+          description: `Envío VAMO — ${origin || 'Origen'} ➔ ${destination || 'Destino'}`
+        }))
+      } catch {}
+
+      setIsSubmitting(false)
+      // Redirigir a pantalla de pago con el orderId UUID real
+      router.push(`/customer/payment/${orderId}`)
+    } catch (err: any) {
+      setIsSubmitting(false)
+      setCreateError(err.message || 'Error de conexión al procesar el pedido.')
+    }
   }
 
 
@@ -356,6 +374,13 @@ function QuoteContent() {
               Distancia estimada: {distanceKm} km &bull; {serviceMode === 'multistop' ? `${intermediateStops.length} Paradas intermedias` : 'Envío directo sin escalas'}
             </p>
           </div>
+
+          {createError && (
+            <div className="p-3 bg-red-50 border border-red-300 rounded-2xl text-xs font-bold text-red-700 flex items-center gap-2">
+              <span className="shrink-0 text-base">⚠️</span>
+              <span>{createError}</span>
+            </div>
+          )}
 
           <button
             type="button"

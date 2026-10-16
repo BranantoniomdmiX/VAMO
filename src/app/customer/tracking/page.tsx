@@ -32,7 +32,7 @@ export default function CustomerOrdersListPage() {
         const { data: { user } } = await supabase.auth.getUser()
         
         let query = supabase
-          .from('service_orders')
+          .from('orders')
           .select('*')
           .order('created_at', { ascending: false })
           .limit(20)
@@ -49,15 +49,15 @@ export default function CustomerOrdersListPage() {
             if (o.status === 'DELIVERED') statusBadge = 'ENTREGADO'
             else if (o.status === 'IN_TRANSIT') statusBadge = 'EN_CAMINO'
             else if (o.status === 'CANCELLED') statusBadge = 'CANCELADO'
-            else if (o.status === 'READY_FOR_PICKUP' || o.status === 'PREPARING') statusBadge = 'PREPARANDO'
+            else if (o.status === 'READY_BIZ' || o.status === 'READY_FOR_PICKUP' || o.status === 'PREPARING') statusBadge = 'PREPARANDO'
 
             return {
               id: o.id,
-              code: o.service_code || `#VAMO-${o.id.slice(0, 4).toUpperCase()}`,
-              merchantName: o.origin_name || o.merchant_name || 'Envío Directo VAMO',
+              code: o.code || `#VAMO-${o.id.slice(0, 4).toUpperCase()}`,
+              merchantName: o.origin_address || 'Envío Directo VAMO',
               date: new Date(o.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
-              itemsSummary: o.package_description || o.items_summary || 'Servicio de entrega local',
-              total: Number(o.total_amount || o.price || 0),
+              itemsSummary: `De ${o.origin_address} a ${o.destination_address}`,
+              total: Number(o.total || o.delivery_fee || 0),
               status: statusBadge,
               trackingUrl: `/customer/tracking/${o.id}`
             }

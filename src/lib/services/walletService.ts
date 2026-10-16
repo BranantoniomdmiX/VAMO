@@ -19,7 +19,7 @@ export interface UserWallet {
   balance: number // Saldo digital a favor (recargas / retiros)
   codBalance: number // Efectivo físico recolectado en viajes COD
   maxCodLimit: number // Límite máximo de retención ($1,500.00 MXN)
-  weeklyFee: number // Cuota fija de acceso ($50.00 MXN/semana)
+  weeklyFee: number // Cuota fija canónica de acceso ($100.00 MXN/semana: $50 Socio / $50 Master)
   negativeTolerance: number // Margen de saldo negativo (-$100.00 MXN)
   tier: 'PLATA' | 'ORO' | 'PLATINO' | 'DIAMANTE'
   status: 'ACTIVE' | 'COD_RESTRICTED' | 'SUSPENDED_DEBT'
@@ -28,7 +28,7 @@ export interface UserWallet {
 }
 
 export const MAX_COD_CASH = 1500.00
-export const WEEKLY_FEE = 50.00
+export const WEEKLY_FEE = 100.00
 export const NEGATIVE_TOLERANCE = -100.00
 
 // Almacén reactivo local con fallback para demo/desconexión

@@ -16,11 +16,13 @@ const BASE_DEFAULT_CENTER: [number, number] = [20.5218, -100.8142]
 
 export interface DispatchOrderItem {
   id: string
+  orderId?: string
   origin: string
   destination: string
   customer: string
   status: 'assigned' | 'unassigned'
   driver?: string
+  driverId?: string
   elapsedSeconds: number
   primaryFleet: string
   overflowFleet: string
@@ -28,37 +30,30 @@ export interface DispatchOrderItem {
 
 export default function BaseDispatchPage() {
   const [orders, setOrders] = useState<DispatchOrderItem[]>([])
+  const [availableDrivers, setAvailableDrivers] = useState<Array<{ id: string; name: string }>>([])
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const [fleet, setFleet] = useState<DriverMarkerData[]>([])
+  const [assignError, setAssignError] = useState<string | null>(null)
+
+  const loadActiveOrders = async () => {
+    try {
+      const res = await fetch('/api/dispatch/orders', { cache: 'no-store' })
+      const data = await res.json()
+      if (res.ok && data.success && Array.isArray(data.orders)) {
+        setOrders(data.orders)
+        if (Array.isArray(data.drivers)) {
+          setAvailableDrivers(data.drivers)
+        }
+      }
+    } catch (err) {
+      console.warn('Error al cargar órdenes de despacho desde API:', err)
+    }
+  }
 
   useEffect(() => {
-    async function loadActiveServices() {
-      try {
-        const supabase = createClient()
-        const { data, error } = await supabase
-          .from('services')
-          .select('*')
-          .in('status', ['CREADO', 'CONFIRMADO', 'ASIGNADO', 'EN_CAMINO_RECOGER', 'RECOGIDO', 'EN_CAMINO_ENTREGA'])
-          .order('created_at', { ascending: false })
-
-        if (data && data.length > 0) {
-          setOrders(data.map(s => ({
-            id: s.service_code || `#V-${s.id.slice(0, 4)}`,
-            origin: s.origin_address || 'Origen',
-            destination: s.destination_address || 'Destino',
-            customer: s.customer_name || 'Cliente VAMO',
-            status: s.status === 'ASIGNADO' || s.status === 'EN_CAMINO_RECOGER' || s.status === 'RECOGIDO' ? 'assigned' : 'unassigned',
-            driver: s.driver_name || undefined,
-            elapsedSeconds: Math.floor((Date.now() - new Date(s.created_at).getTime()) / 1000),
-            primaryFleet: 'Flota Centro Titular',
-            overflowFleet: 'Flota Galery Norte'
-          })))
-        }
-      } catch (err) {
-        console.warn('Error al cargar órdenes de despacho:', err)
-      }
-    }
-    loadActiveServices()
+    loadActiveOrders()
+    const interval = setInterval(loadActiveOrders, 10000)
+    return () => clearInterval(interval)
   }, [])
 
   // Temporizador para simular incremento de segundos en órdenes pendientes
@@ -142,22 +137,40 @@ export default function BaseDispatchPage() {
     }
   }, [])
 
-  const assignDriver = async (id: string, driverName: string) => {
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'assigned', driver: driverName } : o))
-    audioService.playStatusUpdateTone()
+  const assignDriver = async (orderIdentifier: string, targetDriverName: string, targetDriverId?: string) => {
+    setAssignError(null)
+    const targetOrder = orders.find(o => o.id === orderIdentifier || o.orderId === orderIdentifier)
+    const effectiveOrderId = targetOrder?.orderId || orderIdentifier
+    const effectiveDriverId = targetDriverId || availableDrivers[0]?.id
+
+    if (!effectiveDriverId) {
+      setAssignError('No hay conductores disponibles registrados para asignar.')
+      return
+    }
 
     try {
-      const supabase = createClient()
-      await supabase
-        .from('services')
-        .update({
-          status: 'ASIGNADO',
-          driver_name: driverName,
-          updated_at: new Date().toISOString()
+      const res = await fetch('/api/dispatch/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: effectiveOrderId,
+          driverId: effectiveDriverId
         })
-        .neq('status', 'ENTREGADO')
-    } catch (err) {
-      console.warn('⚡ Fallback silencioso de asignación Realtime en Despacho:', err)
+      })
+
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        audioService.playStatusUpdateTone()
+        setOrders(prev => prev.map(o => (o.id === orderIdentifier || o.orderId === orderIdentifier)
+          ? { ...o, status: 'assigned', driver: targetDriverName, driverId: effectiveDriverId }
+          : o
+        ))
+      } else {
+        setAssignError(data.message || 'No fue posible asignar el pedido.')
+      }
+    } catch {
+      setAssignError('Error de red al asignar el conductor.')
     }
   }
 

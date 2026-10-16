@@ -55,9 +55,9 @@ export default function DriverWalletPage() {
           const bal = parseFloat(data.wallet.balance) || 0
           const cod = 0 // Inicialmente $0 en efectivo acumulado para bases limpias
 
-          // Conteo de viajes para gamificación real
+          // Conteo de viajes para gamificación real en public.orders
           const { count: completedCount } = await supabase
-            .from('service_orders')
+            .from('orders')
             .select('*', { count: 'exact', head: true })
             .eq('driver_id', currentUserId)
             .eq('status', 'DELIVERED')
