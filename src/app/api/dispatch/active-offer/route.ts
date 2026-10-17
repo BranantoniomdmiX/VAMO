@@ -67,10 +67,19 @@ export async function GET(request: NextRequest) {
       }
 
       // 3. Buscar orden pendiente elegible para el conductor o despachador
+      // 🛡️ Reglas Canónicas:
+      // - Si es SCHEDULED: Solo elegible si dispatch_not_before IS NULL o <= NOW()
+      // - OWN_FLEET: Solo elegible para choferes vinculados al comercio
+      // - HYBRID_OVERFLOW: Solo elegible para choferes de red si overflow_after_at IS NULL o <= NOW()
       let pendingQuery = `
         SELECT * FROM public.orders 
         WHERE status IN ('PENDING', 'ACCEPTED_BIZ', 'PREPARING', 'READY_BIZ', 'READY_FOR_PICKUP')
           AND driver_id IS NULL
+          AND (schedule_type = 'ASAP' OR dispatch_not_before IS NULL OR dispatch_not_before <= NOW())
+          AND (
+            fleet_mode = 'VAMO_NETWORK'
+            OR (fleet_mode = 'HYBRID_OVERFLOW' AND (overflow_after_at IS NULL OR overflow_after_at <= NOW()))
+          )
       `
       const pendingParams: (string | number)[] = []
 

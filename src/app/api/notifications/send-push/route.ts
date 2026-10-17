@@ -1,11 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { FcmServerService } from '@/lib/services/fcmServerService'
+import { getTrustedAuthContext } from '@/lib/auth/contextResolver'
 
 // POST /api/notifications/send-push
 // Endpoint para emitir notificaciones operativas en segundo plano
+// 🛡️ Protegido: Solo accesible por roles autorizados (superadmin, master, dispatcher) o clave interna de backend
 
 export async function POST(req: NextRequest) {
   try {
+    const internalSecret = req.headers.get('x-internal-push-secret')
+    const isValidInternal = internalSecret && internalSecret === process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    if (!isValidInternal) {
+      const authContext = await getTrustedAuthContext()
+      if (!authContext) {
+        return NextResponse.json(
+          { error: 'Sesión no válida o ausente.' },
+          { status: 401 }
+        )
+      }
+
+      if (!['superadmin', 'master', 'dispatcher'].includes(authContext.role)) {
+        return NextResponse.json(
+          { error: `El rol ${authContext.role} no tiene autorización para emitir notificaciones push.` },
+          { status: 403 }
+        )
+      }
+    }
+
     const body = await req.json()
     const { targetType, targetId, role, title, body: messageBody, url, data } = body
 

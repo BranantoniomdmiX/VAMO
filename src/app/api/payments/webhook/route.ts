@@ -21,8 +21,9 @@ function verifyConektaSignature(rawPayload: string, signatureHeader: string | nu
     const verifier = crypto.createVerify('RSA-SHA256')
     verifier.update(rawPayload)
     return verifier.verify(publicKey, signatureHeader, 'base64')
-  } catch (err: any) {
-    console.warn('⚠️ [Webhook Verification Error]:', err.message)
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : 'Error desconocido'
+    console.warn('⚠️ [Webhook Verification Error]:', errorMsg)
     return false
   }
 }
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
         // 2. Verificar existencia de la intención de pago
         const { data: pi } = await supabase
           .from('payment_intents')
-          .select('customer_order_id, amount, status, currency')
+          .select('id, order_id, customer_order_id, amount, status, currency')
           .eq('gateway_order_id', gatewayOrderId)
           .maybeSingle()
 
@@ -86,6 +87,8 @@ export async function POST(req: NextRequest) {
           console.warn(`⚠️ [VAMO Webhook] Orden no encontrada para gatewayOrderId: ${gatewayOrderId}`)
           return NextResponse.json({ error: 'Orden no encontrada en VAMO' }, { status: 404 })
         }
+
+        const canonicalOrderId = pi.order_id || pi.customer_order_id
 
         // 3. Idempotencia: Si ya está marcada como PAID, responder 200 sin duplicar cobro/ledger
         if (pi.status === 'PAID') {
@@ -118,36 +121,43 @@ export async function POST(req: NextRequest) {
           })
           .eq('gateway_order_id', gatewayOrderId)
 
-        // 6. Autoridad Primaria: Actualizar pedido en PostgreSQL Dokploy (Transactional Source of Truth)
+        // 6. Autoridad Primaria: Actualizar pedido en public.orders
         try {
           const { query } = await import('@/lib/db/postgres')
           await query(
             "UPDATE public.orders SET payment_status = 'PAID', status = 'CONFIRMED', updated_at = NOW() WHERE id = $1 OR code = $1;",
-            [pi.customer_order_id]
+            [canonicalOrderId]
           )
         } catch (pgErr) {
-          console.error('🚨 [VAMO Webhook] Dokploy primary update error:', pgErr)
+          console.error('🚨 [VAMO Webhook] public.orders update error:', pgErr)
         }
 
-        // Proyección auxiliar en Supabase para suscripciones Realtime cliente
+        // Proyección auxiliar en Supabase si existe customer_orders (retrocompatibilidad)
         try {
-          await supabase
-            .from('customer_orders')
-            .update({ payment_status: 'PAID' })
-            .eq('id', pi.customer_order_id)
+          if (pi.customer_order_id) {
+            await supabase
+              .from('customer_orders')
+              .update({ payment_status: 'PAID' })
+              .eq('id', pi.customer_order_id)
+          }
         } catch (sbErr) {
           console.warn('[VAMO Webhook] Supabase projection sync warning:', sbErr)
         }
 
         // 7. Escribir en ledger financiero (Proyección Supabase)
-        await supabase.from('financial_ledger').insert({
-          customer_order_id: pi.customer_order_id,
-          entry_type: 'delivery_income',
-          amount: pi.amount,
-          balance_before: 0,
-          balance_after: pi.amount,
-          description: `Pago digital confirmado — Order Conekta ${gatewayOrderId}`
-        })
+        try {
+          await supabase.from('financial_ledger').insert({
+            order_id: canonicalOrderId,
+            customer_order_id: pi.customer_order_id || null,
+            entry_type: 'delivery_income',
+            amount: pi.amount,
+            balance_before: 0,
+            balance_after: pi.amount,
+            description: `Pago digital confirmado — Order Conekta ${gatewayOrderId}`
+          })
+        } catch (fErr) {
+          console.warn('[VAMO Webhook] Ledger insert warning:', fErr)
+        }
 
         console.log(`[VAMO Webhook] ✅ Pago confirmado e idempotente: ${gatewayOrderId}`)
         break

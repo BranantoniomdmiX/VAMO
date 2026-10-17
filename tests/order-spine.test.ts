@@ -102,7 +102,7 @@ export async function runOrderSpineTestSuite(): Promise<{
   const orderId = 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d'
   const mockOrder = {
     id: orderId,
-    code: 'V-8492',
+    code: 'V-9042',
     status: 'PENDING' as CanonicalOrderStatus,
     customer_id: 'cust-123',
     driver_id: null as string | null,

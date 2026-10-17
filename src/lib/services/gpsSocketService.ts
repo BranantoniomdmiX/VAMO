@@ -39,8 +39,13 @@ class GpsSocketService {
   private reconnectAttempts = 0
 
   constructor() {
-    const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://163.192.147.231:3000'
-    console.log(`🔌 [GPS Socket] Conectando a Oracle Cloud Dokploy: ${socketServerUrl}`)
+    const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || ''
+    if (!socketServerUrl) {
+      console.warn('⚠️ [GPS Socket] NEXT_PUBLIC_SOCKET_SERVER_URL no configurado. GPS Socket en modo latente.')
+      this.status = 'DISCONNECTED'
+      return
+    }
+    console.log(`🔌 [GPS Socket] Conectando a servidor de telemetría: ${socketServerUrl}`)
     this.status = 'CONNECTING'
 
     try {

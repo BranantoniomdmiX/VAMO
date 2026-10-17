@@ -70,9 +70,17 @@ export async function POST(req: NextRequest) {
 }
 
 // DELETE /api/notifications/register-token
-// Desactiva el token cuando el usuario cierra sesión
+// Desactiva el token cuando el usuario cierra sesión (Protegido por sesión del usuario)
 export async function DELETE(req: NextRequest) {
   try {
+    const authContext = await getTrustedAuthContext()
+    if (!authContext) {
+      return NextResponse.json(
+        { success: false, code: 'UNAUTHORIZED', error: 'Sesión no válida o ausente.' },
+        { status: 401 }
+      )
+    }
+
     const body = await req.json()
     const { deviceToken } = body
 
@@ -85,10 +93,21 @@ export async function DELETE(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    await supabase
+    // Solo permitir desactivar el token si pertenece al usuario en sesión (o si es superadmin/master)
+    let queryBuilder = supabase
       .from('device_push_tokens')
       .update({ is_active: false })
       .eq('device_token', deviceToken)
+
+    if (authContext.role !== 'superadmin' && authContext.role !== 'master') {
+      queryBuilder = queryBuilder.eq('user_id', authContext.userId)
+    }
+
+    const { error: delError } = await queryBuilder
+
+    if (delError) {
+      console.error('[RegisterToken API] Error desactivando token en Supabase:', delError)
+    }
 
     return NextResponse.json({ success: true, message: 'Token desactivado correctamente' })
   } catch (err) {

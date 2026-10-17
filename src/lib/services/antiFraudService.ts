@@ -75,7 +75,7 @@ export class AntiFraudService {
    * Genera o consulta el PIN OTP de 4 dígitos de una orden
    */
   static getOrderPin(orderId: string): string {
-    if (typeof window === 'undefined') return '8492'
+    if (typeof window === 'undefined') return ''
     const storageKey = `vamo_order_pin_${orderId}`
     try {
       const stored = localStorage.getItem(storageKey)
@@ -84,8 +84,8 @@ export class AntiFraudService {
       const newPin = Math.floor(1000 + Math.random() * 9000).toString()
       localStorage.setItem(storageKey, newPin)
       return newPin
-    } catch (e) {
-      return '8492'
+    } catch {
+      return ''
     }
   }
 

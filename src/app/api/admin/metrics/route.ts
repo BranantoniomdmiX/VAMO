@@ -35,19 +35,22 @@ export async function GET() {
 
     const latencyMs = Date.now() - start
 
-    // Intentar ping al VPS de Oracle Cloud Dokploy si responde
-    let vpsStatus = 'ONLINE'
-    let vpsLatency = 24
-    try {
-      const vpsStart = Date.now()
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 2000)
-      const vpsRes = await fetch('http://163.192.147.231:3000', { signal: controller.signal })
-      clearTimeout(timeoutId)
-      vpsLatency = Date.now() - vpsStart
-      vpsStatus = vpsRes.ok ? 'ONLINE' : 'CONNECTING'
-    } catch {
-      vpsStatus = 'STANDBY'
+    // Telemetría de VPS operativo (desacoplado de IP fija de Dokploy)
+    let vpsStatus = 'STANDBY'
+    let vpsLatency = 0
+    const telemetryUrl = process.env.TELEMETRY_SERVER_URL
+    if (telemetryUrl) {
+      try {
+        const vpsStart = Date.now()
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 2000)
+        const vpsRes = await fetch(telemetryUrl, { signal: controller.signal })
+        clearTimeout(timeoutId)
+        vpsLatency = Date.now() - vpsStart
+        vpsStatus = vpsRes.ok ? 'ONLINE' : 'CONNECTING'
+      } catch {
+        vpsStatus = 'STANDBY'
+      }
     }
 
     return NextResponse.json({
@@ -59,11 +62,9 @@ export async function GET() {
         activeDbConnections: 1,
         totalOrdersToday: ordersCount || 0
       },
-      vps: {
-        ip: '163.192.147.231',
+      telemetry: {
         status: vpsStatus,
-        latencyMs: vpsLatency,
-        provider: 'Oracle Cloud Infrastructure (VM.Standard.A1.Flex)'
+        latencyMs: vpsLatency
       },
       supabase: {
         latencyMs,
@@ -71,7 +72,8 @@ export async function GET() {
       },
       timestamp: new Date().toISOString()
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
     return NextResponse.json({
       status: 'partial',
       realtime: {
@@ -81,7 +83,7 @@ export async function GET() {
         activeDbConnections: 1,
         totalOrdersToday: 0
       },
-      error: error.message
+      error: errorMsg
     })
   }
 }

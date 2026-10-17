@@ -234,7 +234,7 @@ export async function POST(req: NextRequest) {
 
     const conektaOrder = await conektaRes.json()
 
-    let responseData: Record<string, unknown> = {
+    const responseData: Record<string, unknown> = {
       success: true,
       paymentMethod,
       amount: authoritativeTotal,
@@ -257,6 +257,35 @@ export async function POST(req: NextRequest) {
       responseData.bank = charge?.payment_method?.bank
       responseData.reference = charge?.payment_method?.reference
       responseData.expiresAt = charge?.payment_method?.expires_at
+    }
+
+    // 🛡️ Registrar la intención de pago en public.payment_intents (idempotente)
+    try {
+      const { createClient } = await import('@supabase/supabase-js')
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      )
+
+      await supabase.from('payment_intents').upsert(
+        {
+          order_id: authoritativeOrder.id,
+          customer_order_id: authoritativeOrder.id,
+          gateway: 'conekta',
+          gateway_order_id: conektaOrder.id,
+          gateway_payment_url: (responseData.checkoutUrl as string) || null,
+          amount: authoritativeTotal,
+          currency: 'MXN',
+          status: 'PENDING',
+          payment_method_type: paymentMethod,
+          payment_reference: (responseData.reference as string) || (responseData.clabe as string) || null,
+          payment_expires_at: responseData.expiresAt ? new Date(Number(responseData.expiresAt) * 1000).toISOString() : null,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'gateway_order_id' }
+      )
+    } catch (piErr) {
+      console.warn('[VAMO Payments] Advertencia al registrar payment_intent:', piErr)
     }
 
     return NextResponse.json(responseData)

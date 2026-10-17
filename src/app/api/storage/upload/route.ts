@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { uploadToR2 } from '@/lib/storage/r2Storage'
+import { getTrustedAuthContext } from '@/lib/auth/contextResolver'
 
 export async function POST(request: NextRequest) {
   try {
+    const authContext = await getTrustedAuthContext()
+    if (!authContext) {
+      return NextResponse.json(
+        { error: 'Sesión no válida o ausente. Autenticación requerida para subir archivos.' },
+        { status: 401 }
+      )
+    }
+
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const rawFolder = (formData.get('folder') as string) || 'general'
@@ -47,8 +56,9 @@ export async function POST(request: NextRequest) {
       fileName: file.name,
       size: file.size,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : 'Error interno al subir a Cloudflare R2'
     console.error('Error en API de subida a R2:', error)
-    return NextResponse.json({ error: 'Error al subir el archivo a Cloudflare R2', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Error al subir el archivo a Cloudflare R2', details: errorMsg }, { status: 500 })
   }
 }
