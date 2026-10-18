@@ -9,7 +9,17 @@ import { getTrustedAuthContext } from '@/lib/auth/contextResolver'
 export async function POST(req: NextRequest) {
   try {
     const internalSecret = req.headers.get('x-internal-push-secret')
-    const isValidInternal = internalSecret && internalSecret === process.env.SUPABASE_SERVICE_ROLE_KEY
+    const configuredSecret = process.env.INTERNAL_PUSH_SECRET
+
+    // 🛡️ REGLA CANÓNICA:
+    // NO reutilizar SUPABASE_SERVICE_ROLE_KEY como secreto HTTP interno.
+    // Usar INTERNAL_PUSH_SECRET dedicado y fail-closed si no está configurado.
+    const isValidInternal = Boolean(
+      configuredSecret && 
+      configuredSecret.length >= 16 && 
+      internalSecret && 
+      internalSecret === configuredSecret
+    )
 
     if (!isValidInternal) {
       const authContext = await getTrustedAuthContext()

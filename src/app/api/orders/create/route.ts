@@ -17,6 +17,7 @@ interface StopPayload {
 interface CreateOrderPayload {
   orderType?: 'DIRECT' | 'PURCHASE' | 'MULTI_STOP'
   scheduleType?: 'ASAP' | 'SCHEDULED'
+  fulfillmentMode?: 'VAMO_NETWORK' | 'OWN_FLEET' | 'HYBRID_OVERFLOW'
   fleetMode?: 'VAMO_NETWORK' | 'OWN_FLEET' | 'HYBRID_OVERFLOW'
   originAddress: string
   destinationAddress: string
@@ -25,6 +26,7 @@ interface CreateOrderPayload {
   destinationLat?: number
   destinationLng?: number
   distanceKm?: number
+  routeDurationMinutes?: number
   merchantId?: string
   paymentMethod?: 'CASH' | 'CARD' | 'OXXO_CASH' | 'SPEI'
   notes?: string
@@ -39,9 +41,8 @@ function calculateAuthoritativeDistance(
   lat1?: number,
   lon1?: number,
   lat2?: number,
-  lon2?: number,
-  clientReportedKm?: number
-): number {
+  lon2?: number
+): number | null {
   if (lat1 != null && lon1 != null && lat2 != null && lon2 != null) {
     const R = 6371 // km
     const dLat = ((lat2 - lat1) * Math.PI) / 180
@@ -57,23 +58,19 @@ function calculateAuthoritativeDistance(
     return Math.max(0.5, Math.round(km * 10) / 10)
   }
 
-  if (clientReportedKm && clientReportedKm > 0 && clientReportedKm < 100) {
-    return Math.round(clientReportedKm * 10) / 10
-  }
-
-  // Fallback seguro de distancia mínima
-  return 3.5
+  // CERO FALBACK FICTICIO: Si faltan coordenadas válidas, retorna null
+  return null
 }
 
-function calculateAuthoritativePricing(distanceKm: number, extraStopsCount: number = 0) {
-  // Hipótesis configurable autorizada: Base $35 + $8 por km + $15 por parada extra
-  const baseFee = 35.0
-  const perKmRate = 8.0
-  const perStopFee = 15.0
-  const deliveryFee = Math.round((baseFee + distanceKm * perKmRate + extraStopsCount * perStopFee) * 100) / 100
-  const subtotal = deliveryFee
-  const total = deliveryFee
-  return { deliveryFee, subtotal, total }
+function generateSecureOrderCode(): string {
+  // CSPRNG de 6 caracteres alfanuméricos en mayúsculas (Espacio: 36^6 = ~2,176 millones de combinaciones)
+  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'
+  const bytes = crypto.randomBytes(6)
+  let code = 'V-'
+  for (let i = 0; i < 6; i++) {
+    code += chars[bytes[i] % chars.length]
+  }
+  return code
 }
 
 export async function POST(req: NextRequest) {
@@ -82,14 +79,14 @@ export async function POST(req: NextRequest) {
     const {
       orderType = 'DIRECT',
       scheduleType = 'ASAP',
-      fleetMode = 'VAMO_NETWORK',
+      fulfillmentMode = body.fleetMode || 'VAMO_NETWORK',
       originAddress,
       destinationAddress,
       originLat,
       originLng,
       destinationLat,
       destinationLng,
-      distanceKm: reportedKm,
+      routeDurationMinutes,
       merchantId,
       paymentMethod = 'CASH',
       pickupWindowStart,
@@ -107,12 +104,25 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Validación fail-closed de órdenes programadas
+    if (scheduleType === 'SCHEDULED') {
+      if (!pickupWindowStart && !deliveryWindowStart) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'SCHEDULED_WINDOW_REQUIRED',
+            error: 'Una orden programada (SCHEDULED) requiere al menos una ventana de recogida o entrega válida.'
+          },
+          { status: 400 }
+        )
+      }
+    }
+
     const authResult = await withTrustedAuthContext(async (authContext, client) => {
       // 1. Derivar identidad autoritativa
       const customerId = authContext.userId
       let franchiseId = authContext.franchiseId
 
-      // Si el cliente no tiene franquicia asignada, buscar la franquicia activa por defecto
       if (!franchiseId) {
         const fRes = await client.query<{ id: string }>(
           'SELECT id FROM public.franchises WHERE status = $1 ORDER BY created_at ASC LIMIT 1;',
@@ -123,27 +133,56 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 2. Calcular distancia y precios en servidor
-      const distance = calculateAuthoritativeDistance(
-        originLat,
-        originLng,
-        destinationLat,
-        destinationLng,
-        reportedKm
+      // 2. Consultar regla de pricing activa de la plaza o regla base general
+      const pricingRes = await client.query<{
+        base_fare: string
+        included_km: string
+        price_per_extra_km: string
+        price_per_extra_stop: string
+        operational_dispatch_buffer_minutes: number
+      }>(
+        `SELECT base_fare, included_km, price_per_extra_km, price_per_extra_stop, operational_dispatch_buffer_minutes
+         FROM public.pricing_rules
+         WHERE is_active = TRUE AND (franchise_id = $1 OR franchise_id IS NULL)
+         ORDER BY franchise_id NULLS LAST
+         LIMIT 1;`,
+        [franchiseId || null]
       )
-      const extraStops = stops.length > 2 ? stops.length - 2 : 0
-      const { deliveryFee, subtotal, total } = calculateAuthoritativePricing(distance, extraStops)
 
-      // 3. Generar código y PIN criptográfico (4 dígitos aleatorios seguros)
-      const randomDigits = Math.floor(1000 + Math.random() * 9000).toString()
-      const orderCode = `V-${randomDigits}`
-      const pinCode = crypto.randomInt(1000, 9999).toString()
+      const pricingRule = pricingRes.rows[0] || {
+        base_fare: '35.00',
+        included_km: '2.00',
+        price_per_extra_km: '8.00',
+        price_per_extra_stop: '15.00',
+        operational_dispatch_buffer_minutes: 15
+      }
+
+      const baseFare = parseFloat(pricingRule.base_fare)
+      const includedKm = parseFloat(pricingRule.included_km)
+      const pricePerExtraKm = parseFloat(pricingRule.price_per_extra_km)
+      const pricePerExtraStop = parseFloat(pricingRule.price_per_extra_stop)
+      const operationalBufferMin = pricingRule.operational_dispatch_buffer_minutes || 15
+
+      // 3. Calcular distancia autoritativa
+      const distance = calculateAuthoritativeDistance(originLat, originLng, destinationLat, destinationLng)
+
+      let deliveryFee: number | null = null
+      let subtotal: number | null = null
+      let total: number | null = null
+
+      if (distance != null) {
+        const extraKm = Math.max(0, distance - includedKm)
+        const extraStops = stops.length > 2 ? stops.length - 2 : 0
+        deliveryFee = Math.round((baseFare + extraKm * pricePerExtraKm + extraStops * pricePerExtraStop) * 100) / 100
+        subtotal = deliveryFee
+        total = deliveryFee
+      }
 
       // 4. Derivación estricta de ventanas temporales para órdenes programadas
       let dispatchNotBefore: string | null = null
       let dispatchDeadline: string | null = null
       let overflowAfterAt: string | null = null
-      const operationalBufferMs = 15 * 60 * 1000 // 15 minutos de margen operativo configurable
+      const operationalBufferMs = operationalBufferMin * 60 * 1000
 
       if (scheduleType === 'SCHEDULED') {
         if (pickupWindowStart) {
@@ -151,101 +190,129 @@ export async function POST(req: NextRequest) {
           dispatchNotBefore = new Date(pickupTime - operationalBufferMs).toISOString()
           dispatchDeadline = pickupWindowEnd ? new Date(pickupWindowEnd).toISOString() : new Date(pickupTime).toISOString()
         } else if (deliveryWindowStart) {
-          // Estimación de duración de ruta basada en velocidad promedio urbana (25 km/h = 2.4 min/km)
-          const estimatedRouteMinutes = Math.max(10, Math.round(distance * 2.4))
+          // Requiere duración de ruta real calculada por motor de routing
+          if (!routeDurationMinutes || routeDurationMinutes <= 0) {
+            return {
+              status: 400,
+              body: {
+                success: false,
+                code: 'ROUTE_DURATION_REQUIRED',
+                error: 'Para órdenes programadas con solo hora de entrega, se requiere una duración real de ruta válida (routeDurationMinutes).'
+              }
+            }
+          }
           const deliveryTime = new Date(deliveryWindowStart).getTime()
-          const totalBufferMs = (estimatedRouteMinutes * 60 * 1000) + operationalBufferMs
+          const totalBufferMs = (routeDurationMinutes * 60 * 1000) + operationalBufferMs
           dispatchNotBefore = new Date(deliveryTime - totalBufferMs).toISOString()
           dispatchDeadline = deliveryWindowEnd ? new Date(deliveryWindowEnd).toISOString() : new Date(deliveryTime).toISOString()
         }
       }
 
       // En modo híbrido, el desborde hacia la Red VAMO ocurre tras 5 minutos de no aceptación por flota propia
-      if (fleetMode === 'HYBRID_OVERFLOW') {
+      if (fulfillmentMode === 'HYBRID_OVERFLOW') {
         const baseOverflowTime = dispatchNotBefore ? new Date(dispatchNotBefore).getTime() : Date.now()
         overflowAfterAt = new Date(baseOverflowTime + (5 * 60 * 1000)).toISOString()
       }
 
-      // 5. Crear orden directamente en public.orders
-      const insertRes = await client.query<{
-        id: string
-        code: string
-        status: string
-        total: string
-        delivery_fee: string
-        pin_code: string
-        order_type: string
-        schedule_type: string
-        fleet_mode: string
-      }>(
-        `INSERT INTO public.orders (
-          customer_id,
-          merchant_id,
-          franchise_id,
-          code,
-          status,
-          order_type,
-          schedule_type,
-          fleet_mode,
-          origin_address,
-          origin_lat,
-          origin_lng,
-          destination_address,
-          destination_lat,
-          destination_lng,
-          distance_km,
-          subtotal,
-          delivery_fee,
-          total,
-          payment_method,
-          payment_status,
-          pin_code,
-          pickup_window_start,
-          pickup_window_end,
-          delivery_window_start,
-          delivery_window_end,
-          dispatch_not_before,
-          dispatch_deadline,
-          overflow_after_at,
-          notes
-        ) VALUES (
-          $1, $2, $3, $4, 'PENDING', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'PENDING', $19,
-          $20, $21, $22, $23, $24, $25, $26, $27
-        ) RETURNING id, code, status, total, delivery_fee, pin_code, order_type, schedule_type, fleet_mode;`,
-        [
-          customerId,
-          merchantId || null,
-          franchiseId,
-          orderCode,
-          orderType,
-          scheduleType,
-          fleetMode,
-          originAddress,
-          originLat || null,
-          originLng || null,
-          destinationAddress,
-          destinationLat || null,
-          destinationLng || null,
-          distance,
-          subtotal,
-          deliveryFee,
-          total,
-          paymentMethod,
-          pinCode,
-          pickupWindowStart || null,
-          pickupWindowEnd || null,
-          deliveryWindowStart || null,
-          deliveryWindowEnd || null,
-          dispatchNotBefore,
-          dispatchDeadline,
-          overflowAfterAt,
-          notes || null
-        ]
-      )
+      // 5. Generar PIN criptográfico seguro (CSPRNG de 4 dígitos entre 1000 y 9999)
+      const pinCode = crypto.randomInt(1000, 10000).toString()
 
-      const created = insertRes.rows[0]
+      // 6. Inserción con retry para código único CSPRNG
+      let createdOrder: any = null
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const orderCode = generateSecureOrderCode()
+        try {
+          const insertRes = await client.query<{
+            id: string
+            code: string
+            status: string
+            total: string | null
+            delivery_fee: string | null
+            pin_code: string
+            order_type: string
+            schedule_type: string
+            fulfillment_mode: string
+          }>(
+            `INSERT INTO public.orders (
+              customer_id,
+              merchant_id,
+              franchise_id,
+              code,
+              status,
+              order_type,
+              schedule_type,
+              fulfillment_mode,
+              origin_address,
+              origin_lat,
+              origin_lng,
+              destination_address,
+              destination_lat,
+              destination_lng,
+              distance_km,
+              subtotal,
+              delivery_fee,
+              total,
+              payment_method,
+              payment_status,
+              pin_code,
+              pickup_window_start,
+              pickup_window_end,
+              delivery_window_start,
+              delivery_window_end,
+              dispatch_not_before,
+              dispatch_deadline,
+              overflow_after_at,
+              notes
+            ) VALUES (
+              $1, $2, $3, $4, 'PENDING', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'PENDING', $19,
+              $20, $21, $22, $23, $24, $25, $26, $27
+            ) RETURNING id, code, status, total, delivery_fee, pin_code, order_type, schedule_type, fulfillment_mode;`,
+            [
+              customerId,
+              merchantId || null,
+              franchiseId,
+              orderCode,
+              orderType,
+              scheduleType,
+              fulfillmentMode,
+              originAddress,
+              originLat || null,
+              originLng || null,
+              destinationAddress,
+              destinationLat || null,
+              destinationLng || null,
+              distance,
+              subtotal,
+              deliveryFee,
+              total,
+              paymentMethod,
+              pinCode,
+              pickupWindowStart || null,
+              pickupWindowEnd || null,
+              deliveryWindowStart || null,
+              deliveryWindowEnd || null,
+              dispatchNotBefore,
+              dispatchDeadline,
+              overflowAfterAt,
+              notes || null
+            ]
+          )
+          createdOrder = insertRes.rows[0]
+          break
+        } catch (dbErr: any) {
+          if (dbErr.code === '23505' && attempt < 2) {
+            // Colisión de código UNIQUE, reintentar con nuevo código
+            continue
+          }
+          throw dbErr
+        }
+      }
 
-      // 6. Si se especificaron paradas o es multiparada, registrarlas en public.order_stops
+      if (!createdOrder) {
+        throw new Error('No se pudo generar un código único para la orden.')
+      }
+
+      // 7. Si se especificaron paradas o es multiparada, registrarlas en public.order_stops
       if (stops && stops.length > 0) {
         for (let i = 0; i < stops.length; i++) {
           const stop = stops[i]
@@ -254,7 +321,7 @@ export async function POST(req: NextRequest) {
               order_id, sequence_index, stop_type, address, lat, lng, contact_name, contact_phone, notes
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
             [
-              created.id,
+              createdOrder.id,
               i + 1,
               stop.stopType,
               stop.address,
@@ -272,16 +339,17 @@ export async function POST(req: NextRequest) {
         status: 201,
         body: {
           success: true,
-          orderId: created.id,
-          code: created.code,
-          orderType: created.order_type,
-          scheduleType: created.schedule_type,
-          fleetMode: created.fleet_mode,
-          total: parseFloat(created.total),
-          deliveryFee: parseFloat(created.delivery_fee),
+          orderId: createdOrder.id,
+          code: createdOrder.code,
+          orderType: createdOrder.order_type,
+          scheduleType: createdOrder.schedule_type,
+          fulfillmentMode: createdOrder.fulfillment_mode,
+          fleetMode: createdOrder.fulfillment_mode,
+          total: createdOrder.total ? parseFloat(createdOrder.total) : null,
+          deliveryFee: createdOrder.delivery_fee ? parseFloat(createdOrder.delivery_fee) : null,
           distanceKm: distance,
-          status: created.status,
-          pinCode: created.pin_code,
+          status: createdOrder.status,
+          pinCode: createdOrder.pin_code,
           dispatchNotBefore
         }
       }

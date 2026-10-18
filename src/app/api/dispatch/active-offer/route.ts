@@ -24,12 +24,45 @@ export async function GET(request: NextRequest) {
       // 2. Si se solicitó un orderId específico
       if (orderId && orderId !== 'mock' && orderId.length > 5) {
         let queryStr = 'SELECT * FROM public.orders WHERE (id = $1 OR code = $1)'
-        const queryParams: (string | number)[] = [orderId]
+        const queryParams: (string | number | null)[] = [orderId]
 
         // Restricción anti cross-franchise para roles no globales
         if (authContext.role !== 'superadmin' && authContext.role !== 'master' && authContext.franchiseId) {
           queryStr += ' AND (franchise_id = $2 OR franchise_id IS NULL)'
           queryParams.push(authContext.franchiseId)
+        }
+
+        // Restricción de flota y horario para choferes consultando por orderId
+        if (authContext.role === 'driver') {
+          // Obtener empleador del conductor si pertenece a flota propia
+          const driverRes = await client.query<{ employer_merchant_id: string | null }>(
+            'SELECT employer_merchant_id FROM public.drivers WHERE id = $1 LIMIT 1;',
+            [authContext.userId]
+          )
+          const driverEmployerId = driverRes.rows[0]?.employer_merchant_id || null
+
+          // Si es OWN_FLEET, debe ser conductor de ese comercio
+          // Si es HYBRID_OVERFLOW antes de overflow_after_at, solo chofer de ese comercio
+          // No debe mostrar órdenes programadas antes de dispatch_not_before
+          queryStr += ` AND (
+            (schedule_type = 'ASAP' OR dispatch_not_before IS NULL OR dispatch_not_before <= NOW())
+            AND (
+              COALESCE(fulfillment_mode, fleet_mode, 'VAMO_NETWORK') = 'VAMO_NETWORK'
+              OR (
+                COALESCE(fulfillment_mode, fleet_mode, 'VAMO_NETWORK') = 'OWN_FLEET'
+                AND $${queryParams.length + 1}::uuid IS NOT NULL 
+                AND merchant_id = $${queryParams.length + 1}::uuid
+              )
+              OR (
+                COALESCE(fulfillment_mode, fleet_mode, 'VAMO_NETWORK') = 'HYBRID_OVERFLOW'
+                AND (
+                  (overflow_after_at IS NOT NULL AND overflow_after_at <= NOW())
+                  OR ($${queryParams.length + 1}::uuid IS NOT NULL AND merchant_id = $${queryParams.length + 1}::uuid)
+                )
+              )
+            )
+          )`
+          queryParams.push(driverEmployerId)
         }
 
         const res = await client.query(queryStr, queryParams)
@@ -61,30 +94,52 @@ export async function GET(request: NextRequest) {
           body: {
             hasOffer: false,
             offer: null,
-            message: 'Pedido no encontrado o fuera de tu jurisdicción territorial.'
+            message: 'Pedido no encontrado o fuera de tu jurisdicción/flota autorizada.'
           }
         }
       }
 
       // 3. Buscar orden pendiente elegible para el conductor o despachador
       // 🛡️ Reglas Canónicas:
-      // - Si es SCHEDULED: Solo elegible si dispatch_not_before IS NULL o <= NOW()
-      // - OWN_FLEET: Solo elegible para choferes vinculados al comercio
-      // - HYBRID_OVERFLOW: Solo elegible para choferes de red si overflow_after_at IS NULL o <= NOW()
+      // - Status: 'PENDING', 'CONFIRMED', 'ACCEPTED_BIZ', 'PREPARING', 'READY_BIZ', 'READY_FOR_PICKUP'
+      // - Si es SCHEDULED: Solo elegible si dispatch_not_before <= NOW()
+      // - OWN_FLEET: Conductor de flota propia (employer_merchant_id = orders.merchant_id) puede verla durante toda la ventana.
+      // - HYBRID_OVERFLOW: Conductor de flota propia puede verla desde el inicio; Conductor de Red VAMO solo si overflow_after_at <= NOW().
+      // - VAMO_NETWORK: Conductor de red y choferes disponibles.
+      
+      let driverEmployerId: string | null = null
+      if (authContext.role === 'driver') {
+        const driverRes = await client.query<{ employer_merchant_id: string | null }>(
+          'SELECT employer_merchant_id FROM public.drivers WHERE id = $1 LIMIT 1;',
+          [authContext.userId]
+        )
+        driverEmployerId = driverRes.rows[0]?.employer_merchant_id || null
+      }
+
       let pendingQuery = `
         SELECT * FROM public.orders 
-        WHERE status IN ('PENDING', 'ACCEPTED_BIZ', 'PREPARING', 'READY_BIZ', 'READY_FOR_PICKUP')
+        WHERE status IN ('PENDING', 'CONFIRMED', 'ACCEPTED_BIZ', 'PREPARING', 'READY_BIZ', 'READY_FOR_PICKUP')
           AND driver_id IS NULL
           AND (schedule_type = 'ASAP' OR dispatch_not_before IS NULL OR dispatch_not_before <= NOW())
           AND (
-            fleet_mode = 'VAMO_NETWORK'
-            OR (fleet_mode = 'HYBRID_OVERFLOW' AND (overflow_after_at IS NULL OR overflow_after_at <= NOW()))
+            COALESCE(fulfillment_mode, fleet_mode, 'VAMO_NETWORK') = 'VAMO_NETWORK'
+            OR (
+              COALESCE(fulfillment_mode, fleet_mode, 'VAMO_NETWORK') = 'OWN_FLEET'
+              AND $1::uuid IS NOT NULL AND merchant_id = $1::uuid
+            )
+            OR (
+              COALESCE(fulfillment_mode, fleet_mode, 'VAMO_NETWORK') = 'HYBRID_OVERFLOW'
+              AND (
+                (overflow_after_at IS NOT NULL AND overflow_after_at <= NOW())
+                OR ($1::uuid IS NOT NULL AND merchant_id = $1::uuid)
+              )
+            )
           )
       `
-      const pendingParams: (string | number)[] = []
+      const pendingParams: (string | number | null)[] = [driverEmployerId]
 
       if (authContext.role !== 'superadmin' && authContext.role !== 'master' && authContext.franchiseId) {
-        pendingQuery += ' AND (franchise_id = $1 OR franchise_id IS NULL)'
+        pendingQuery += ` AND (franchise_id = $${pendingParams.length + 1} OR franchise_id IS NULL)`
         pendingParams.push(authContext.franchiseId)
       }
 

@@ -108,58 +108,72 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: 'Moneda inválida' }, { status: 400 })
         }
 
-        // 5. Actualizar payment_intent
-        await supabase
-          .from('payment_intents')
-          .update({
-            status: 'PAID',
-            paid_at: new Date().toISOString(),
-            webhook_received_at: new Date().toISOString(),
-            card_last4: (charge?.payment_method as Record<string, unknown>)?.last4 as string ?? null,
-            card_brand: (charge?.payment_method as Record<string, unknown>)?.brand as string ?? null,
-            card_bank: (charge?.payment_method as Record<string, unknown>)?.issuer as string ?? null
-          })
-          .eq('gateway_order_id', gatewayOrderId)
+        // 5, 6 y 7. Actualización ATÓMICA en transacción PostgreSQL (Anti dual-write inconsistente)
+        const { getTransactionClient } = await import('@/lib/db/postgres')
+        const pgClient = await getTransactionClient()
 
-        // 6. Autoridad Primaria: Actualizar pedido en public.orders
         try {
-          const { query } = await import('@/lib/db/postgres')
-          await query(
-            "UPDATE public.orders SET payment_status = 'PAID', status = 'CONFIRMED', updated_at = NOW() WHERE id = $1 OR code = $1;",
+          await pgClient.query('BEGIN')
+
+          // A. Actualizar payment_intents
+          await pgClient.query(
+            `UPDATE public.payment_intents 
+             SET status = 'PAID',
+                 paid_at = NOW(),
+                 webhook_received_at = NOW(),
+                 card_last4 = $1,
+                 card_brand = $2,
+                 card_bank = $3,
+                 updated_at = NOW()
+             WHERE gateway_order_id = $4;`,
+            [
+              (charge?.payment_method as Record<string, unknown>)?.last4 as string ?? null,
+              (charge?.payment_method as Record<string, unknown>)?.brand as string ?? null,
+              (charge?.payment_method as Record<string, unknown>)?.issuer as string ?? null,
+              gatewayOrderId
+            ]
+          )
+
+          // B. Actualizar public.orders
+          await pgClient.query(
+            `UPDATE public.orders 
+             SET payment_status = 'PAID', 
+                 status = 'CONFIRMED', 
+                 updated_at = NOW() 
+             WHERE id = $1 OR code = $1;`,
             [canonicalOrderId]
           )
-        } catch (pgErr) {
-          console.error('🚨 [VAMO Webhook] public.orders update error:', pgErr)
-        }
 
-        // Proyección auxiliar en Supabase si existe customer_orders (retrocompatibilidad)
-        try {
-          if (pi.customer_order_id) {
-            await supabase
-              .from('customer_orders')
-              .update({ payment_status: 'PAID' })
-              .eq('id', pi.customer_order_id)
-          }
-        } catch (sbErr) {
-          console.warn('[VAMO Webhook] Supabase projection sync warning:', sbErr)
-        }
-
-        // 7. Escribir en ledger financiero (Proyección Supabase)
-        try {
-          await supabase.from('financial_ledger').insert({
-            order_id: canonicalOrderId,
-            customer_order_id: pi.customer_order_id || null,
-            entry_type: 'delivery_income',
-            amount: pi.amount,
-            balance_before: 0,
-            balance_after: pi.amount,
-            description: `Pago digital confirmado — Order Conekta ${gatewayOrderId}`
+          // C. Registrar en ledger financiero de forma atómica si existe la tabla
+          await pgClient.query(
+            `INSERT INTO public.financial_ledger 
+             (order_id, customer_order_id, entry_type, amount, balance_before, balance_after, description)
+             VALUES ($1, $2, 'delivery_income', $3, 0, $3, $4)
+             ON CONFLICT DO NOTHING;`,
+            [
+              pi.order_id || canonicalOrderId,
+              pi.customer_order_id || null,
+              pi.amount,
+              `Pago digital confirmado — Order Conekta ${gatewayOrderId}`
+            ]
+          ).catch((e: unknown) => {
+            // Si la tabla no existe o falla el ledger, registrar log pero verificar si aborta
+            console.warn('[VAMO Webhook] Ledger insert notice:', e)
           })
-        } catch (fErr) {
-          console.warn('[VAMO Webhook] Ledger insert warning:', fErr)
+
+          await pgClient.query('COMMIT')
+          console.log(`[VAMO Webhook] ✅ Transacción atómica completada para orden: ${gatewayOrderId}`)
+        } catch (txErr) {
+          await pgClient.query('ROLLBACK')
+          console.error('🚨 [VAMO Webhook] Fallo crítico en transacción PostgreSQL:', txErr)
+          return NextResponse.json(
+            { error: 'Error interno al actualizar la base de datos financiera (Fail-Closed).' },
+            { status: 500 }
+          )
+        } finally {
+          pgClient.release()
         }
 
-        console.log(`[VAMO Webhook] ✅ Pago confirmado e idempotente: ${gatewayOrderId}`)
         break
       }
 
@@ -168,16 +182,23 @@ export async function POST(req: NextRequest) {
         const order = data.object as Record<string, unknown>
         const gatewayOrderId = order.id as string
 
-        await supabase
-          .from('payment_intents')
-          .update({
-            status: 'FAILED',
-            failed_at: new Date().toISOString(),
-            webhook_received_at: new Date().toISOString()
-          })
-          .eq('gateway_order_id', gatewayOrderId)
+        const { query: pgQuery } = await import('@/lib/db/postgres')
+        try {
+          await pgQuery(
+            `UPDATE public.payment_intents 
+             SET status = 'FAILED', 
+                 failed_at = NOW(), 
+                 webhook_received_at = NOW(),
+                 updated_at = NOW() 
+             WHERE gateway_order_id = $1;`,
+            [gatewayOrderId]
+          )
+        } catch (err) {
+          console.error('[VAMO Webhook] Error registrando fallo en payment_intents:', err)
+          return NextResponse.json({ error: 'Error al registrar fallo de pago.' }, { status: 500 })
+        }
 
-        console.log(`[VAMO Webhook] ❌ Pago fallido: ${gatewayOrderId}`)
+        console.log(`[VAMO Webhook] ❌ Pago fallido registrado: ${gatewayOrderId}`)
         break
       }
 
@@ -186,37 +207,70 @@ export async function POST(req: NextRequest) {
         const order = data.object as Record<string, unknown>
         const gatewayOrderId = order.id as string
 
-        await supabase
-          .from('payment_intents')
-          .update({
-            status: 'REFUNDED',
-            webhook_received_at: new Date().toISOString()
-          })
-          .eq('gateway_order_id', gatewayOrderId)
+        const { getTransactionClient } = await import('@/lib/db/postgres')
+        const pgClient = await getTransactionClient()
 
-        const { data: pi } = await supabase
-          .from('payment_intents')
-          .select('customer_order_id, amount')
-          .eq('gateway_order_id', gatewayOrderId)
-          .single()
+        try {
+          await pgClient.query('BEGIN')
 
-        if (pi) {
-          await supabase
-            .from('customer_orders')
-            .update({ payment_status: 'REFUNDED' })
-            .eq('id', pi.customer_order_id)
+          const piRes = await pgClient.query<{
+            id: string
+            order_id: string | null
+            customer_order_id: string | null
+            amount: string
+          }>(
+            `SELECT id, order_id, customer_order_id, amount FROM public.payment_intents WHERE gateway_order_id = $1;`,
+            [gatewayOrderId]
+          )
 
-          await supabase.from('financial_ledger').insert({
-            customer_order_id: pi.customer_order_id,
-            entry_type: 'refund',
-            amount: -pi.amount,
-            balance_before: pi.amount,
-            balance_after: 0,
-            description: `Reembolso procesado — Order Conekta ${gatewayOrderId}`
-          })
+          const pi = piRes.rows[0]
+          if (pi) {
+            await pgClient.query(
+              `UPDATE public.payment_intents 
+               SET status = 'REFUNDED', 
+                   webhook_received_at = NOW(),
+                   updated_at = NOW() 
+               WHERE gateway_order_id = $1;`,
+              [gatewayOrderId]
+            )
+
+            // Actualizar orden canónica si existe
+            if (pi.order_id) {
+              await pgClient.query(
+                `UPDATE public.orders 
+                 SET payment_status = 'REFUNDED', 
+                     updated_at = NOW() 
+                 WHERE id = $1;`,
+                [pi.order_id]
+              )
+            }
+
+            // Registrar en ledger
+            await pgClient.query(
+              `INSERT INTO public.financial_ledger 
+               (order_id, customer_order_id, entry_type, amount, balance_before, balance_after, description)
+               VALUES ($1, $2, 'refund', $3, $4, 0, $5)
+               ON CONFLICT DO NOTHING;`,
+              [
+                pi.order_id,
+                pi.customer_order_id,
+                -Number(pi.amount),
+                Number(pi.amount),
+                `Reembolso procesado — Order Conekta ${gatewayOrderId}`
+              ]
+            ).catch(() => {})
+          }
+
+          await pgClient.query('COMMIT')
+          console.log(`[VAMO Webhook] 🔄 Reembolso procesado atómicamente: ${gatewayOrderId}`)
+        } catch (refErr) {
+          await pgClient.query('ROLLBACK')
+          console.error('🚨 [VAMO Webhook] Error en refund transaccional:', refErr)
+          return NextResponse.json({ error: 'Error al procesar reembolso.' }, { status: 500 })
+        } finally {
+          pgClient.release()
         }
 
-        console.log(`[VAMO Webhook] 🔄 Reembolso procesado: ${gatewayOrderId}`)
         break
       }
 

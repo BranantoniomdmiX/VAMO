@@ -9,12 +9,13 @@ interface PodRequestBody {
   photoUrl?: string
   lat?: number
   lng?: number
+  exceptionReason?: string
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: PodRequestBody = await request.json().catch(() => ({}))
-    const { orderId, pin, photoUrl, lat, lng } = body
+    const { orderId, pin, photoUrl, lat, lng, exceptionReason } = body
 
     if (!orderId) {
       return NextResponse.json(
@@ -23,9 +24,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!pin && !photoUrl) {
+    // 🛡️ REGLA POD CANÓNICA:
+    // El PIN criptográfico exacto del cliente es obligatorio. Una foto POD NO sustituye silenciosamente el PIN.
+    // Excepción por geofence/GPS: Requiere PIN exacto + foto obligatoria + coordenadas + motivo auditado.
+    if (!pin) {
       return NextResponse.json(
-        { success: false, code: 'PROOF_REQUIRED', message: 'Se requiere el PIN del cliente o la fotografía POD.' },
+        { 
+          success: false, 
+          code: 'PIN_REQUIRED', 
+          message: 'El PIN de entrega del cliente es estrictamente obligatorio para confirmar la entrega.' 
+        },
         { status: 400 }
       )
     }
@@ -70,9 +78,9 @@ export async function POST(request: NextRequest) {
       }
 
       // 3. Ejecutar función atómica verify_order_pod bajo RLS
-      const res = await client.query<{ verify_order_pod: any }>(
-        'SELECT public.verify_order_pod($1, $2, $3, $4, $5) as verify_order_pod;',
-        [orderId, pin || null, photoUrl || null, lat || null, lng || null]
+      const res = await client.query<{ verify_order_pod: Record<string, unknown> }>(
+        'SELECT public.verify_order_pod($1, $2, $3, $4, $5, $6) as verify_order_pod;',
+        [orderId, pin || null, photoUrl || null, lat || null, lng || null, exceptionReason || null]
       )
 
       const podResult = res.rows[0]?.verify_order_pod
@@ -98,9 +106,10 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(result.payload, { status: result.status })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : 'Error al verificar la entrega.'
     return NextResponse.json(
-      { success: false, code: 'INTERNAL_ERROR', message: error.message || 'Error al verificar la entrega.' },
+      { success: false, code: 'INTERNAL_ERROR', message: errorMsg },
       { status: 500 }
     )
   }

@@ -259,7 +259,8 @@ export async function POST(req: NextRequest) {
       responseData.expiresAt = charge?.payment_method?.expires_at
     }
 
-    // 🛡️ Registrar la intención de pago en public.payment_intents (idempotente)
+    // 🛡️ Registrar la intención de pago en public.payment_intents (idempotente y canónico)
+    // Para órdenes canónicas: order_id = authoritativeOrder.id y customer_order_id = NULL
     try {
       const { createClient } = await import('@supabase/supabase-js')
       const supabase = createClient(
@@ -267,10 +268,10 @@ export async function POST(req: NextRequest) {
         process.env.SUPABASE_SERVICE_ROLE_KEY!
       )
 
-      await supabase.from('payment_intents').upsert(
+      const { error: piError } = await supabase.from('payment_intents').upsert(
         {
           order_id: authoritativeOrder.id,
-          customer_order_id: authoritativeOrder.id,
+          customer_order_id: null,
           gateway: 'conekta',
           gateway_order_id: conektaOrder.id,
           gateway_payment_url: (responseData.checkoutUrl as string) || null,
@@ -284,8 +285,20 @@ export async function POST(req: NextRequest) {
         },
         { onConflict: 'gateway_order_id' }
       )
+
+      if (piError) {
+        console.error('🚨 [VAMO Payments] Error crítico al persistir payment_intent:', piError)
+        return NextResponse.json(
+          { error: 'Error al registrar la intención de pago en el servidor (Fail-Closed). Intente de nuevo.' },
+          { status: 500 }
+        )
+      }
     } catch (piErr) {
-      console.warn('[VAMO Payments] Advertencia al registrar payment_intent:', piErr)
+      console.error('🚨 [VAMO Payments] Excepción al registrar payment_intent:', piErr)
+      return NextResponse.json(
+        { error: 'Fallo al asegurar la persistencia del pago. Intente de nuevo.' },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json(responseData)

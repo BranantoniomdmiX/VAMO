@@ -2,7 +2,7 @@ import http from 'http'
 
 const DOKPLOY_HOST = '163.192.147.231'
 const DOKPLOY_PORT = 3000
-const DOKPLOY_API_KEY = 'krysHjaGCjeowFNDdSHzHJOUhQIFXJJOhTRgmkgiXvrlxRHqMESgmWyvcmAKHVFM'
+const DOKPLOY_API_KEY = process.env.DOKPLOY_API_KEY || ''
 
 async function dokployRequest<T = any>(endpoint: string, method: string = 'GET', data?: any): Promise<{ status: number; data: T }> {
   return new Promise((resolve, reject) => {

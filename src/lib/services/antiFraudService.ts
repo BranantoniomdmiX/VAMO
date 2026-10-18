@@ -50,15 +50,23 @@ export class AntiFraudService {
   }
 
   /**
-   * Valida si el conductor está a menos de 30 metros del destino del cliente para habilitar el modal de PIN
+   * Valida si el conductor está dentro del radio del destino de la orden para habilitar el modal de PIN
    */
   static checkPinGeofence(
     driverLat: number,
     driverLng: number,
-    destLat: number = 20.5260,
-    destLng: number = -100.8090,
+    destLat: number,
+    destLng: number,
     maxDistanceMeters: number = MAX_PIN_DISTANCE_METERS
   ): { isAllowed: boolean; distanceMeters: number; message: string } {
+    if (!destLat || !destLng || isNaN(destLat) || isNaN(destLng)) {
+      return {
+        isAllowed: false,
+        distanceMeters: -1,
+        message: '🔴 Coordenadas de destino de la orden no disponibles para validar geofence.'
+      }
+    }
+
     const distanceMeters = this.calculateDistanceMeters(driverLat, driverLng, destLat, destLng)
     const isAllowed = distanceMeters <= maxDistanceMeters
 
@@ -72,33 +80,8 @@ export class AntiFraudService {
   }
 
   /**
-   * Genera o consulta el PIN OTP de 4 dígitos de una orden
-   */
-  static getOrderPin(orderId: string): string {
-    if (typeof window === 'undefined') return ''
-    const storageKey = `vamo_order_pin_${orderId}`
-    try {
-      const stored = localStorage.getItem(storageKey)
-      if (stored) return stored
-      // Generar PIN aleatorio seguro de 4 dígitos
-      const newPin = Math.floor(1000 + Math.random() * 9000).toString()
-      localStorage.setItem(storageKey, newPin)
-      return newPin
-    } catch {
-      return ''
-    }
-  }
-
-  /**
-   * Valida si el PIN introducido por el chofer coincide con el de la orden
-   */
-  static verifyOrderPin(orderId: string, enteredPin: string): boolean {
-    const expectedPin = this.getOrderPin(orderId)
-    return enteredPin.trim() === expectedPin.trim()
-  }
-
-  /**
-   * Valida el PIN directamente contra el endpoint atómico de backend y dispara la liquidación contable
+   * Valida el PIN directamente contra el endpoint atómico de backend y dispara la liquidación contable.
+   * La única autoridad de generación y validación de PIN es PostgreSQL/Backend.
    */
   static async verifyPinAtomic(params: {
     orderId: string

@@ -34,10 +34,13 @@ export type CanonicalScheduleType =
   | 'ASAP'
   | 'SCHEDULED'
 
-export type CanonicalFleetMode =
+export type CanonicalFulfillmentMode =
   | 'VAMO_NETWORK'
   | 'OWN_FLEET'
   | 'HYBRID_OVERFLOW'
+
+// Compatibilidad retroactiva
+export type CanonicalFleetMode = CanonicalFulfillmentMode
 
 export type OrderStopType =
   | 'PICKUP'
@@ -85,7 +88,8 @@ export interface OrderRow {
   status: CanonicalOrderStatus
   order_type: CanonicalOrderType
   schedule_type: CanonicalScheduleType
-  fleet_mode: CanonicalFleetMode
+  fulfillment_mode: CanonicalFulfillmentMode
+  fleet_mode?: CanonicalFulfillmentMode
   origin_address: string
   origin_lat: number | null
   origin_lng: number | null
