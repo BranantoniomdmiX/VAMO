@@ -18,7 +18,6 @@ interface CreateOrderPayload {
   orderType?: 'DIRECT' | 'PURCHASE' | 'MULTI_STOP'
   scheduleType?: 'ASAP' | 'SCHEDULED'
   fulfillmentMode?: 'VAMO_NETWORK' | 'OWN_FLEET' | 'HYBRID_OVERFLOW'
-  fleetMode?: 'VAMO_NETWORK' | 'OWN_FLEET' | 'HYBRID_OVERFLOW'
   originAddress: string
   destinationAddress: string
   originLat?: number
@@ -79,7 +78,7 @@ export async function POST(req: NextRequest) {
     const {
       orderType = 'DIRECT',
       scheduleType = 'ASAP',
-      fulfillmentMode = body.fleetMode || 'VAMO_NETWORK',
+      fulfillmentMode = 'VAMO_NETWORK',
       originAddress,
       destinationAddress,
       originLat,
@@ -133,7 +132,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 2. Consultar regla de pricing activa de la plaza o regla base general
+      // 2. Consultar regla de pricing activa de la plaza o regla base general en PostgreSQL
       const pricingRes = await client.query<{
         base_fare: string
         included_km: string
@@ -149,12 +148,16 @@ export async function POST(req: NextRequest) {
         [franchiseId || null]
       )
 
-      const pricingRule = pricingRes.rows[0] || {
-        base_fare: '35.00',
-        included_km: '2.00',
-        price_per_extra_km: '8.00',
-        price_per_extra_stop: '15.00',
-        operational_dispatch_buffer_minutes: 15
+      const pricingRule = pricingRes.rows[0]
+      if (!pricingRule) {
+        return {
+          status: 400,
+          body: {
+            success: false,
+            code: 'PRICING_RULE_REQUIRED',
+            error: 'No existe una regla de precios activa en PostgreSQL para esta plaza/franquicia (Fail-Closed).'
+          }
+        }
       }
 
       const baseFare = parseFloat(pricingRule.base_fare)
@@ -163,20 +166,39 @@ export async function POST(req: NextRequest) {
       const pricePerExtraStop = parseFloat(pricingRule.price_per_extra_stop)
       const operationalBufferMin = pricingRule.operational_dispatch_buffer_minutes || 15
 
-      // 3. Calcular distancia autoritativa
-      const distance = calculateAuthoritativeDistance(originLat, originLng, destinationLat, destinationLng)
-
-      let deliveryFee: number | null = null
-      let subtotal: number | null = null
-      let total: number | null = null
-
-      if (distance != null) {
-        const extraKm = Math.max(0, distance - includedKm)
-        const extraStops = stops.length > 2 ? stops.length - 2 : 0
-        deliveryFee = Math.round((baseFare + extraKm * pricePerExtraKm + extraStops * pricePerExtraStop) * 100) / 100
-        subtotal = deliveryFee
-        total = deliveryFee
+      // 3. Routing Autoritativo:
+      // Haversine no es distancia autoritativa para liquidación financiera.
+      // El servidor debe verificar coordenadas completas para obtener la ruta.
+      // Si todavía no existe routing autoritativo calculable, responder ROUTE_REQUIRED para no crear orden despachable ficticia.
+      if (originLat == null || originLng == null || destinationLat == null || destinationLng == null) {
+        return {
+          status: 400,
+          body: {
+            success: false,
+            code: 'ROUTE_REQUIRED',
+            error: 'Se requieren coordenadas geográficas completas (origen y destino) para calcular el routing autoritativo.'
+          }
+        }
       }
+
+      // En este release, calcular distancia geodésica base asegurando puntos válidos
+      const distance = calculateAuthoritativeDistance(originLat, originLng, destinationLat, destinationLng)
+      if (distance == null || distance <= 0) {
+        return {
+          status: 400,
+          body: {
+            success: false,
+            code: 'ROUTE_REQUIRED',
+            error: 'No fue posible obtener una distancia de ruta válida para el cálculo de tarifa.'
+          }
+        }
+      }
+
+      const extraKm = Math.max(0, distance - includedKm)
+      const extraStops = stops.length > 2 ? stops.length - 2 : 0
+      const deliveryFee = Math.round((baseFare + extraKm * pricePerExtraKm + extraStops * pricePerExtraStop) * 100) / 100
+      const subtotal = deliveryFee
+      const total = deliveryFee
 
       // 4. Derivación estricta de ventanas temporales para órdenes programadas
       let dispatchNotBefore: string | null = null
@@ -196,7 +218,7 @@ export async function POST(req: NextRequest) {
               status: 400,
               body: {
                 success: false,
-                code: 'ROUTE_DURATION_REQUIRED',
+                code: 'ROUTE_REQUIRED',
                 error: 'Para órdenes programadas con solo hora de entrega, se requiere una duración real de ruta válida (routeDurationMinutes).'
               }
             }
@@ -218,7 +240,18 @@ export async function POST(req: NextRequest) {
       const pinCode = crypto.randomInt(1000, 10000).toString()
 
       // 6. Inserción con retry para código único CSPRNG
-      let createdOrder: any = null
+      let createdOrder: {
+        id: string
+        code: string
+        status: string
+        total: string | null
+        delivery_fee: string | null
+        pin_code: string
+        order_type: string
+        schedule_type: string
+        fulfillment_mode: string
+      } | null = null
+
       for (let attempt = 0; attempt < 3; attempt++) {
         const orderCode = generateSecureOrderCode()
         try {
@@ -299,8 +332,8 @@ export async function POST(req: NextRequest) {
           )
           createdOrder = insertRes.rows[0]
           break
-        } catch (dbErr: any) {
-          if (dbErr.code === '23505' && attempt < 2) {
+        } catch (dbErr: unknown) {
+          if (typeof dbErr === 'object' && dbErr !== null && 'code' in dbErr && (dbErr as { code?: string }).code === '23505' && attempt < 2) {
             // Colisión de código UNIQUE, reintentar con nuevo código
             continue
           }

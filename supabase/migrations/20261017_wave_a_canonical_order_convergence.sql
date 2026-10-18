@@ -85,10 +85,23 @@ BEGIN
     ALTER TABLE public.drivers ADD COLUMN employer_merchant_id UUID REFERENCES public.merchants(id);
   END IF;
 
-  -- Reconciliar constraint de status para permitir AVAILABLE, BUSY, PAUSED, OFFLINE (usados por el nuevo spine)
+  -- Garantizar columnas COD para conductores
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'drivers' AND column_name = 'cash_collected') THEN
+    ALTER TABLE public.drivers ADD COLUMN cash_collected NUMERIC(10,2) NOT NULL DEFAULT 0.00;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'drivers' AND column_name = 'cash_limit') THEN
+    ALTER TABLE public.drivers ADD COLUMN cash_limit NUMERIC(10,2) NOT NULL DEFAULT 1500.00;
+  END IF;
+
+  -- Reconciliar constraint de status para permitir tanto valores legacy (disponible, asignado, etc.)
+  -- como canónicos (AVAILABLE, BUSY, PAUSED, OFFLINE) sin romper escrituras legacy
   ALTER TABLE public.drivers DROP CONSTRAINT IF EXISTS drivers_status_check;
   ALTER TABLE public.drivers ADD CONSTRAINT drivers_status_check
-    CHECK (status IN ('AVAILABLE', 'BUSY', 'PAUSED', 'OFFLINE'));
+    CHECK (status IN (
+      'AVAILABLE', 'BUSY', 'PAUSED', 'OFFLINE',
+      'disponible', 'asignado', 'rumbo_comercio', 'esperando', 'recogido', 'rumbo_cliente', 'incidencia', 'pausa', 'offline'
+    ));
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_drivers_employer_merchant ON public.drivers(employer_merchant_id);
@@ -203,12 +216,17 @@ BEGIN
     ALTER TABLE public.orders ADD COLUMN arrived_destination_at TIMESTAMPTZ;
   END IF;
 
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'delivered_at') THEN
-    ALTER TABLE public.orders ADD COLUMN delivered_at TIMESTAMPTZ;
-  END IF;
-
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'pin_code') THEN
     ALTER TABLE public.orders ADD COLUMN pin_code VARCHAR(10);
+  END IF;
+
+  -- Separación canónica: payment_status vs settlement_status
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'settlement_status') THEN
+    ALTER TABLE public.orders ADD COLUMN settlement_status TEXT NOT NULL DEFAULT 'PENDING';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'settlement_at') THEN
+    ALTER TABLE public.orders ADD COLUMN settlement_at TIMESTAMPTZ;
   END IF;
 END $$;
 
@@ -241,10 +259,13 @@ ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS orders_schedule_type_check;
 ALTER TABLE public.orders ADD CONSTRAINT orders_schedule_type_check
   CHECK (schedule_type IN ('ASAP', 'SCHEDULED'));
 
-ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS orders_fleet_mode_check;
 ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS orders_fulfillment_mode_check;
 ALTER TABLE public.orders ADD CONSTRAINT orders_fulfillment_mode_check
   CHECK (fulfillment_mode IN ('VAMO_NETWORK', 'OWN_FLEET', 'HYBRID_OVERFLOW'));
+
+ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS orders_settlement_status_check;
+ALTER TABLE public.orders ADD CONSTRAINT orders_settlement_status_check
+  CHECK (settlement_status IN ('PENDING', 'SETTLED', 'FAILED', 'EXEMPT'));
 
 -- Constraints de Integridad Temporal
 ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS chk_orders_scheduled_window_exists;
@@ -443,12 +464,55 @@ BEGIN
     ALTER TABLE public.wallet_transactions ADD COLUMN balance_after NUMERIC(12,2) DEFAULT 0.00;
   END IF;
 
+  -- 🛡️ REGLA: Reconciliar wallet_transactions con el esquema REAL legacy (tenant_id y user_id).
+  -- Si existen como columnas NOT NULL en la base existente, asegurar que sean nullable para inserciones canónicas
+  -- o mantener su soporte aditivo.
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'wallet_transactions' AND column_name = 'tenant_id' AND is_nullable = 'NO') THEN
+    ALTER TABLE public.wallet_transactions ALTER COLUMN tenant_id DROP NOT NULL;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'wallet_transactions' AND column_name = 'user_id' AND is_nullable = 'NO') THEN
+    ALTER TABLE public.wallet_transactions ALTER COLUMN user_id DROP NOT NULL;
+  END IF;
+
+  -- Garantizar que existan las columnas si la tabla se crea de cero
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'wallet_transactions' AND column_name = 'tenant_id') THEN
+    ALTER TABLE public.wallet_transactions ADD COLUMN tenant_id UUID;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'wallet_transactions' AND column_name = 'user_id') THEN
+    ALTER TABLE public.wallet_transactions ADD COLUMN user_id UUID;
+  END IF;
+
   -- Reconciliar CHECK de types para permitir todos los tipos canónicos y legacy sin conflicto
   ALTER TABLE public.wallet_transactions DROP CONSTRAINT IF EXISTS wallet_transactions_type_check;
   ALTER TABLE public.wallet_transactions ADD CONSTRAINT wallet_transactions_type_check
     CHECK (type IN ('DEPOSIT', 'WITHDRAWAL', 'EARNING', 'COMMISSION', 'CASH_CLEARING', 'REFUND', 'BONUS', 'WEEKLY_FEE', 'PAYOUT'));
 END $$;
 
+-- 🛡️ REGLA: Reconciliar financial_ledger existente agregando order_id aditivamente con FK e índice
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'financial_ledger') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'financial_ledger' AND column_name = 'order_id') THEN
+      ALTER TABLE public.financial_ledger ADD COLUMN order_id UUID REFERENCES public.orders(id) ON DELETE SET NULL;
+    END IF;
+  ELSE
+    CREATE TABLE public.financial_ledger (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      order_id UUID REFERENCES public.orders(id) ON DELETE SET NULL,
+      customer_order_id UUID,
+      entry_type TEXT NOT NULL,
+      amount NUMERIC(10,2) NOT NULL,
+      balance_before NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+      balance_after NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+      description TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_financial_ledger_order_id ON public.financial_ledger(order_id);
 CREATE INDEX IF NOT EXISTS idx_wallet_accounts_profile ON public.wallet_accounts(profile_id);
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_wallet ON public.wallet_transactions(wallet_id);
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_order ON public.wallet_transactions(order_id);
@@ -466,7 +530,17 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_wallet_id UUID;
+  v_actor_user_id UUID;
+  v_actor_role TEXT;
 BEGIN
+  v_actor_user_id := public.current_app_user_id();
+  v_actor_role := public.current_app_role();
+
+  -- Un usuario normal solo puede consultar/asegurar su propia billetera, a menos que sea rol administrativo o ejecucion interna
+  IF v_actor_role NOT IN ('superadmin', 'master') AND v_actor_user_id IS NOT NULL AND v_actor_user_id != p_profile_id THEN
+    RAISE EXCEPTION 'Acceso denegado a billetera ajena' USING ERRCODE = '42501';
+  END IF;
+
   SELECT id INTO v_wallet_id
   FROM public.wallet_accounts
   WHERE profile_id = p_profile_id;
@@ -510,7 +584,9 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'code', 'ORDER_NOT_DELIVERED', 'message', 'El pedido aún no ha sido marcado como entregado.');
   END IF;
 
-  IF v_order.payment_status = 'PAID' THEN
+  -- 🛡️ REGLA: Separar por completo payment_status de settlement_status.
+  -- Idempotencia financiera específica de settlement mediante settlement_status = 'SETTLED'
+  IF v_order.settlement_status = 'SETTLED' THEN
     RETURN jsonb_build_object('success', true, 'code', 'ALREADY_SETTLED', 'message', 'El pedido ya fue liquidado contablemente con anterioridad (idempotente).');
   END IF;
 
@@ -523,6 +599,10 @@ BEGIN
       SET cash_collected = cash_collected + v_order.total
       WHERE id = v_order.driver_id;
     END IF;
+    -- Para efectivo al repartidor, marcar payment_status como PAID al entregar
+    UPDATE public.orders
+    SET payment_status = 'PAID'
+    WHERE id = p_order_id AND payment_status != 'PAID';
   ELSE
     IF v_order.driver_id IS NOT NULL THEN
       v_driver_wallet := public.ensure_wallet_account(v_order.driver_id);
@@ -538,17 +618,19 @@ BEGIN
       SET balance = v_new_bal, updated_at = NOW()
       WHERE id = v_driver_wallet;
 
+      -- Poblar wallet_id, order_id y campos de compatibilidad legacy tenant_id / user_id
       INSERT INTO public.wallet_transactions (
-        wallet_id, order_id, type, amount, balance_before, balance_after, description
+        wallet_id, order_id, tenant_id, user_id, type, amount, balance_before, balance_after, description
       ) VALUES (
-        v_driver_wallet, p_order_id, 'EARNING', v_driver_payout, v_cur_bal, v_new_bal,
+        v_driver_wallet, p_order_id, v_order.franchise_id, v_order.driver_id, 'EARNING', v_driver_payout, v_cur_bal, v_new_bal,
         'Tarifa de entrega 100% conductor #' || v_order.code
       );
     END IF;
   END IF;
 
+  -- Marcar liquidación como SETTLED
   UPDATE public.orders
-  SET payment_status = 'PAID', updated_at = NOW()
+  SET settlement_status = 'SETTLED', settlement_at = NOW(), updated_at = NOW()
   WHERE id = p_order_id;
 
   RETURN jsonb_build_object(
@@ -565,7 +647,7 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$;
 
--- 8.3 Solicitud de Retiro de Billetera (SPEI)
+-- 8.3 Solicitud de Retiro de Billetera (SPEI) — Endurecida (🛡️ REGLA 11)
 CREATE OR REPLACE FUNCTION public.request_wallet_withdrawal(
   p_profile_id UUID,
   p_amount NUMERIC(12,2),
@@ -581,10 +663,34 @@ DECLARE
   v_cur_bal NUMERIC(12,2);
   v_new_bal NUMERIC(12,2);
   v_new_held NUMERIC(12,2);
+  v_actor_user_id UUID;
+  v_actor_role TEXT;
+  v_masked_clabe TEXT;
 BEGIN
+  -- 🛡️ REGLA 11: Validar actor autenticado. Un usuario normal sólo puede retirar de su propio profile_id.
+  v_actor_user_id := public.current_app_user_id();
+  v_actor_role := public.current_app_role();
+
+  IF v_actor_role NOT IN ('superadmin', 'master') THEN
+    IF v_actor_user_id IS NULL OR v_actor_user_id != p_profile_id THEN
+      RETURN jsonb_build_object(
+        'success', false,
+        'code', 'FORBIDDEN_WITHDRAWAL',
+        'message', 'Solo el titular autenticado de la cuenta o un administrador puede solicitar un retiro.'
+      );
+    END IF;
+  END IF;
+
   IF p_amount <= 0 THEN
     RETURN jsonb_build_object('success', false, 'code', 'INVALID_AMOUNT', 'message', 'El monto a retirar debe ser mayor a 0.');
   END IF;
+
+  IF p_clabe IS NULL OR LENGTH(TRIM(p_clabe)) != 18 THEN
+    RETURN jsonb_build_object('success', false, 'code', 'INVALID_CLABE', 'message', 'La cuenta CLABE interbancaria debe ser de 18 dígitos.');
+  END IF;
+
+  -- Enmascarar CLABE (solo últimos 4 dígitos visibles)
+  v_masked_clabe := '************' || RIGHT(TRIM(p_clabe), 4);
 
   v_wallet_id := public.ensure_wallet_account(p_profile_id);
 
@@ -604,8 +710,8 @@ BEGIN
   SET balance = v_new_bal, held_balance = v_new_held, updated_at = NOW()
   WHERE id = v_wallet_id;
 
-  INSERT INTO public.wallet_transactions (wallet_id, type, amount, balance_before, balance_after, description)
-  VALUES (v_wallet_id, 'WITHDRAWAL', -p_amount, v_cur_bal, v_new_bal, 'Solicitud de retiro SPEI a cuenta CLABE: ' || p_clabe);
+  INSERT INTO public.wallet_transactions (wallet_id, user_id, type, amount, balance_before, balance_after, description)
+  VALUES (v_wallet_id, p_profile_id, 'WITHDRAWAL', -p_amount, v_cur_bal, v_new_bal, 'Solicitud de retiro SPEI a cuenta CLABE: ' || v_masked_clabe);
 
   RETURN jsonb_build_object(
     'success', true,
@@ -613,7 +719,7 @@ BEGIN
     'message', 'Retiro solicitado con éxito. En proceso de dispersión.',
     'amount', p_amount,
     'remaining_balance', v_new_bal,
-    'clabe', p_clabe
+    'masked_clabe', v_masked_clabe
   );
 EXCEPTION WHEN OTHERS THEN
   RETURN jsonb_build_object('success', false, 'code', 'WITHDRAWAL_ERROR', 'message', SQLERRM);
@@ -634,8 +740,8 @@ CREATE TABLE IF NOT EXISTS public.pricing_rules (
   included_km NUMERIC(5,2) NOT NULL DEFAULT 2.00,
   price_per_extra_km NUMERIC(10,2) NOT NULL DEFAULT 8.00,
   price_per_extra_stop NUMERIC(10,2) NOT NULL DEFAULT 15.00,
-  gateway_fee_percent NUMERIC(5,2) NOT NULL DEFAULT 3.60,
-  gateway_fixed_fee NUMERIC(10,2) NOT NULL DEFAULT 3.00,
+  gateway_fee_percent NUMERIC(5,2) DEFAULT NULL,
+  gateway_fixed_fee NUMERIC(10,2) DEFAULT NULL,
   operational_dispatch_buffer_minutes INT NOT NULL DEFAULT 15,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -648,12 +754,17 @@ BEGIN
     ALTER TABLE public.pricing_rules ADD COLUMN franchise_id UUID;
   END IF;
 
+  -- 🛡️ REGLA 6: gateway_fee_percent y gateway_fixed_fee son configurables y nullable hasta contar con valor vigente aprobado.
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'pricing_rules' AND column_name = 'gateway_fee_percent') THEN
-    ALTER TABLE public.pricing_rules ADD COLUMN gateway_fee_percent NUMERIC(5,2) NOT NULL DEFAULT 3.60;
+    ALTER TABLE public.pricing_rules ADD COLUMN gateway_fee_percent NUMERIC(5,2) DEFAULT NULL;
+  ELSE
+    ALTER TABLE public.pricing_rules ALTER COLUMN gateway_fee_percent DROP NOT NULL;
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'pricing_rules' AND column_name = 'gateway_fixed_fee') THEN
-    ALTER TABLE public.pricing_rules ADD COLUMN gateway_fixed_fee NUMERIC(10,2) NOT NULL DEFAULT 3.00;
+    ALTER TABLE public.pricing_rules ADD COLUMN gateway_fixed_fee NUMERIC(10,2) DEFAULT NULL;
+  ELSE
+    ALTER TABLE public.pricing_rules ALTER COLUMN gateway_fixed_fee DROP NOT NULL;
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'pricing_rules' AND column_name = 'operational_dispatch_buffer_minutes') THEN
@@ -675,9 +786,9 @@ END $$;
 
 INSERT INTO public.pricing_rules (
   name, base_fare, included_km, price_per_extra_km, price_per_extra_stop,
-  gateway_fee_percent, gateway_fixed_fee, operational_dispatch_buffer_minutes, is_active
+  operational_dispatch_buffer_minutes, is_active
 )
-SELECT 'Regla Piloto Base', 35.00, 2.00, 8.00, 15.00, 3.60, 3.00, 15, TRUE
+SELECT 'Regla Piloto Base', 35.00, 2.00, 8.00, 15.00, 15, TRUE
 WHERE NOT EXISTS (SELECT 1 FROM public.pricing_rules WHERE is_active = TRUE);
 
 -- ---------------------------------------------------------------------
@@ -790,8 +901,15 @@ BEGIN
     WHERE id = v_order.driver_id;
   END IF;
 
-  -- 7. Liquidación contable atómica
+  -- 7. Liquidación contable atómica (🛡️ REGLA 10: verify_order_pod NO puede devolver success:true si settlement falla)
   v_settlement_res := public.process_order_settlement(p_order_id);
+
+  IF (v_settlement_res ->> 'success')::boolean IS NOT TRUE THEN
+    -- Forzar fallo transaccional para que no quede como DELIVERED sin liquidación exitosa
+    RAISE EXCEPTION 'Fallo crítico en liquidación financiera: % (Código: %)', 
+      COALESCE(v_settlement_res ->> 'message', 'Error desconocido'),
+      COALESCE(v_settlement_res ->> 'code', 'SETTLEMENT_FAILED');
+  END IF;
 
   RETURN jsonb_build_object(
     'success', true,
@@ -803,7 +921,7 @@ BEGIN
   );
 
 EXCEPTION WHEN OTHERS THEN
-  RETURN jsonb_build_object('success', false, 'code', 'INTERNAL_ERROR', 'message', SQLERRM);
+  RETURN jsonb_build_object('success', false, 'code', 'SETTLEMENT_FAILED', 'message', SQLERRM);
 END;
 $$;
 
@@ -882,13 +1000,22 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'code', 'ORDER_NOT_DISPATCHABLE', 'message', 'El pedido ya no se encuentra disponible para despacho.');
   END IF;
 
-  -- Validación de horario SCHEDULED
+  -- 🛡️ REGLA 3: Ninguna orden con distance_km IS NULL, delivery_fee IS NULL o total IS NULL puede ser aceptada
+  IF v_order.distance_km IS NULL OR v_order.delivery_fee IS NULL OR v_order.total IS NULL THEN
+    RETURN jsonb_build_object(
+      'success', false,
+      'code', 'ORDER_PRICING_INCOMPLETE',
+      'message', 'El pedido no cuenta con cálculo autoritativo de distancia y tarifa. No puede ser asignado.'
+    );
+  END IF;
+
+  -- 🛡️ REGLA 2: Validación de horario SCHEDULED (Fail-closed si dispatch_not_before es NULL o futuro)
   IF v_order.schedule_type = 'SCHEDULED' THEN
     IF v_order.dispatch_not_before IS NULL OR NOW() < v_order.dispatch_not_before THEN
       RETURN jsonb_build_object(
         'success', false,
         'code', 'ORDER_SCHEDULED_NOT_READY',
-        'message', 'El pedido programado aún no alcanza su ventana de despacho autorizada.'
+        'message', 'El pedido programado aún no alcanza su ventana de despacho autorizada o carece de dispatch_not_before.'
       );
     END IF;
   END IF;
@@ -1050,44 +1177,51 @@ CREATE POLICY "wallet_transactions_owner_only" ON public.wallet_transactions FOR
     OR public.current_app_role() IN ('superadmin', 'master')
   );
 
--- 12.4 Políticas para public.payment_intents
+-- 12.4 Políticas para public.payment_intents (🛡️ REGLA 13)
 DROP POLICY IF EXISTS "customer_can_view_own_payment_intents" ON public.payment_intents;
 CREATE POLICY "customer_can_view_own_payment_intents" ON public.payment_intents FOR SELECT
   USING (
     (order_id IS NOT NULL AND order_id IN (SELECT id FROM public.orders WHERE customer_id = public.current_app_user_id()))
-    OR (customer_order_id IS NOT NULL AND customer_order_id IN (SELECT id FROM public.orders WHERE customer_id = public.current_app_user_id()))
+    OR (customer_order_id IS NOT NULL AND customer_order_id IN (SELECT id FROM public.customer_orders WHERE customer_id = public.current_app_user_id()))
     OR public.current_app_role() IN ('superadmin', 'master')
   );
 
--- 12.5 Cierre estricto de public.merchant_orders (Aislamiento Multi-Tenant)
+-- 12.5 Cierre estricto de public.merchant_orders (Aislamiento Multi-Tenant) (🛡️ REGLA 12)
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'merchant_orders') THEN
     ALTER TABLE public.merchant_orders ENABLE ROW LEVEL SECURITY;
     DROP POLICY IF EXISTS "Lectura de pedidos por comercios y usuarios" ON public.merchant_orders;
     DROP POLICY IF EXISTS "Inserción y actualización de pedidos por gerencia y cocina" ON public.merchant_orders;
+    DROP POLICY IF EXISTS "merchant_orders_isolated_select" ON public.merchant_orders;
+    DROP POLICY IF EXISTS "merchant_orders_isolated_write" ON public.merchant_orders;
     
     CREATE POLICY "merchant_orders_isolated_select" ON public.merchant_orders FOR SELECT
       USING (
-        tenant_id = public.current_app_franchise_id()
-        OR public.current_app_role() IN ('superadmin', 'master', 'merchant')
+        public.current_app_role() IN ('superadmin', 'master')
+        OR (tenant_id IS NOT NULL AND tenant_id = public.current_app_franchise_id())
+        OR (tenant_id IS NOT NULL AND tenant_id IN (SELECT m.id FROM public.merchants m WHERE m.profile_id = public.current_app_user_id()))
       );
 
     CREATE POLICY "merchant_orders_isolated_write" ON public.merchant_orders FOR ALL
       USING (
-        public.current_app_role() IN ('superadmin', 'master', 'merchant')
+        public.current_app_role() IN ('superadmin', 'master')
+        OR (tenant_id IS NOT NULL AND tenant_id IN (SELECT m.id FROM public.merchants m WHERE m.profile_id = public.current_app_user_id()))
       );
   END IF;
 END $$;
 
--- 12.6 Permisos y Grants Mínimos
+-- 12.6 Permisos y Grants Mínimos (🛡️ REGLA 11)
 REVOKE EXECUTE ON FUNCTION public.process_order_settlement(UUID) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.assign_order_atomic(UUID, UUID) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.verify_order_pod(UUID, TEXT, TEXT, NUMERIC, NUMERIC, TEXT) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.request_wallet_withdrawal(UUID, NUMERIC, TEXT) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.ensure_wallet_account(UUID) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION public.assign_order_atomic(UUID, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.verify_order_pod(UUID, TEXT, TEXT, NUMERIC, NUMERIC, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.request_wallet_withdrawal(UUID, NUMERIC, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.ensure_wallet_account(UUID) TO authenticated;
 
 GRANT SELECT, INSERT ON public.orders TO authenticated;
 GRANT SELECT, INSERT ON public.order_stops TO authenticated;

@@ -18,7 +18,7 @@ export async function GET(
     }
 
     const authResult = await withTrustedAuthContext(async (authContext, client) => {
-      // 1. Consultar orden desde public.orders
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId)
       const res = await client.query<{
         id: string
         code: string
@@ -38,11 +38,17 @@ export async function GET(
         pin_code: string | null
         created_at: string
       }>(
-        `SELECT id, code, customer_id, driver_id, merchant_id, franchise_id, status,
-                origin_address, destination_address, distance_km, subtotal, delivery_fee, total,
-                payment_method, payment_status, pin_code, created_at
-         FROM public.orders
-         WHERE id = $1 OR code = $1;`,
+        isUuid
+          ? `SELECT id, code, customer_id, driver_id, merchant_id, franchise_id, status,
+                    origin_address, destination_address, distance_km, subtotal, delivery_fee, total,
+                    payment_method, payment_status, pin_code, created_at
+             FROM public.orders
+             WHERE id = $1::uuid;`
+          : `SELECT id, code, customer_id, driver_id, merchant_id, franchise_id, status,
+                    origin_address, destination_address, distance_km, subtotal, delivery_fee, total,
+                    payment_method, payment_status, pin_code, created_at
+             FROM public.orders
+             WHERE code = $1;`,
         [orderId]
       )
 

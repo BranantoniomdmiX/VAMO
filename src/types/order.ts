@@ -89,7 +89,6 @@ export interface OrderRow {
   order_type: CanonicalOrderType
   schedule_type: CanonicalScheduleType
   fulfillment_mode: CanonicalFulfillmentMode
-  fleet_mode?: CanonicalFulfillmentMode
   origin_address: string
   origin_lat: number | null
   origin_lng: number | null

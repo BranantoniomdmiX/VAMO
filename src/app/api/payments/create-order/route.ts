@@ -32,9 +32,7 @@ export async function POST(req: NextRequest) {
 
     // 🛡️ Consultar el pedido y verificar permisos bajo la transacción con contexto RLS coherente
     const authOrderResult = await withTrustedAuthContext(async (authContext, client) => {
-      // 🛡️ REGLA SUPREMA DE AUTORIDAD DE PRECIOS:
-      // NUNCA confiar en `body.amount` del cliente.
-      // Consultar el total autoritativo calculado por el backend en PostgreSQL Dokploy.
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId)
       const orderRes = await client.query<{
         id: string
         code: string
@@ -43,7 +41,12 @@ export async function POST(req: NextRequest) {
         delivery_fee: string
         subtotal: string
         status: string
-      }>('SELECT id, code, customer_id, total, delivery_fee, subtotal, status FROM public.orders WHERE id = $1 OR code = $1;', [orderId])
+      }>(
+        isUuid
+          ? 'SELECT id, code, customer_id, total, delivery_fee, subtotal, status FROM public.orders WHERE id = $1::uuid;'
+          : 'SELECT id, code, customer_id, total, delivery_fee, subtotal, status FROM public.orders WHERE code = $1;',
+        [orderId]
+      )
 
       if (orderRes.rows.length === 0) {
         return {
@@ -153,6 +156,37 @@ export async function POST(req: NextRequest) {
           checkoutUrl: `/customer/payment/${authoritativeOrder.id}/success`
         })
       }
+    }
+
+    // 🛡️ REGLA DE IDEMPOTENCIA REAL:
+    // Consultar si ya existe un payment_intent activo para esta orden y método de pago
+    // para no duplicar órdenes externas en Conekta ante retries del cliente/red.
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    const { data: existingIntent } = await supabase
+      .from('payment_intents')
+      .select('*')
+      .eq('order_id', authoritativeOrder.id)
+      .eq('payment_method_type', paymentMethod)
+      .eq('status', 'PENDING')
+      .maybeSingle()
+
+    if (existingIntent && existingIntent.gateway_order_id) {
+      return NextResponse.json({
+        success: true,
+        paymentMethod,
+        amount: authoritativeTotal,
+        gatewayOrderId: existingIntent.gateway_order_id,
+        checkoutUrl: existingIntent.gateway_payment_url,
+        reference: existingIntent.payment_reference,
+        clabe: existingIntent.payment_reference,
+        expiresAt: existingIntent.payment_expires_at ? Math.floor(new Date(existingIntent.payment_expires_at).getTime() / 1000) : undefined,
+        idempotentRetry: true
+      })
     }
 
     // Convertir total autoritativo en MXN a centavos para Conekta

@@ -135,16 +135,23 @@ export async function POST(req: NextRequest) {
           )
 
           // B. Actualizar public.orders
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(canonicalOrderId)
           await pgClient.query(
-            `UPDATE public.orders 
-             SET payment_status = 'PAID', 
-                 status = 'CONFIRMED', 
-                 updated_at = NOW() 
-             WHERE id = $1 OR code = $1;`,
+            isUuid
+              ? `UPDATE public.orders 
+                 SET payment_status = 'PAID', 
+                     status = 'CONFIRMED', 
+                     updated_at = NOW() 
+                 WHERE id = $1::uuid;`
+              : `UPDATE public.orders 
+                 SET payment_status = 'PAID', 
+                     status = 'CONFIRMED', 
+                     updated_at = NOW() 
+                 WHERE code = $1;`,
             [canonicalOrderId]
           )
 
-          // C. Registrar en ledger financiero de forma atómica si existe la tabla
+          // C. Registrar en ledger financiero de forma atómica
           await pgClient.query(
             `INSERT INTO public.financial_ledger 
              (order_id, customer_order_id, entry_type, amount, balance_before, balance_after, description)
@@ -156,10 +163,7 @@ export async function POST(req: NextRequest) {
               pi.amount,
               `Pago digital confirmado — Order Conekta ${gatewayOrderId}`
             ]
-          ).catch((e: unknown) => {
-            // Si la tabla no existe o falla el ledger, registrar log pero verificar si aborta
-            console.warn('[VAMO Webhook] Ledger insert notice:', e)
-          })
+          )
 
           await pgClient.query('COMMIT')
           console.log(`[VAMO Webhook] ✅ Transacción atómica completada para orden: ${gatewayOrderId}`)
@@ -258,7 +262,7 @@ export async function POST(req: NextRequest) {
                 Number(pi.amount),
                 `Reembolso procesado — Order Conekta ${gatewayOrderId}`
               ]
-            ).catch(() => {})
+            )
           }
 
           await pgClient.query('COMMIT')
@@ -281,7 +285,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true, event: eventType })
 
   } catch (error) {
-    console.error('[VAMO Webhook] Error inesperado:', error)
-    return NextResponse.json({ received: true, note: 'Error interno procesado' })
+    console.error('🚨 [VAMO Webhook] Error inesperado en procesamiento de webhook:', error)
+    return NextResponse.json(
+      { error: 'Fallo inesperado al procesar el webhook (Fail-Closed).' },
+      { status: 500 }
+    )
   }
 }

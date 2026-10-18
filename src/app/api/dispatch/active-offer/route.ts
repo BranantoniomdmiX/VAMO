@@ -23,12 +23,19 @@ export async function GET(request: NextRequest) {
 
       // 2. Si se solicitó un orderId específico
       if (orderId && orderId !== 'mock' && orderId.length > 5) {
-        let queryStr = 'SELECT * FROM public.orders WHERE (id = $1 OR code = $1)'
+        // Distinguir UUID vs Code de forma segura para evitar error de inferencia de tipos en PostgreSQL
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId)
+        let queryStr = isUuid
+          ? 'SELECT * FROM public.orders WHERE id = $1::uuid'
+          : 'SELECT * FROM public.orders WHERE code = $1'
         const queryParams: (string | number | null)[] = [orderId]
+
+        // 🛡️ REGLA: Ninguna orden con distance_km, delivery_fee o total NULL puede ser ofertada
+        queryStr += ' AND distance_km IS NOT NULL AND delivery_fee IS NOT NULL AND total IS NOT NULL'
 
         // Restricción anti cross-franchise para roles no globales
         if (authContext.role !== 'superadmin' && authContext.role !== 'master' && authContext.franchiseId) {
-          queryStr += ' AND (franchise_id = $2 OR franchise_id IS NULL)'
+          queryStr += ` AND (franchise_id = $${queryParams.length + 1} OR franchise_id IS NULL)`
           queryParams.push(authContext.franchiseId)
         }
 
@@ -41,20 +48,22 @@ export async function GET(request: NextRequest) {
           )
           const driverEmployerId = driverRes.rows[0]?.employer_merchant_id || null
 
-          // Si es OWN_FLEET, debe ser conductor de ese comercio
-          // Si es HYBRID_OVERFLOW antes de overflow_after_at, solo chofer de ese comercio
-          // No debe mostrar órdenes programadas antes de dispatch_not_before
+          // Si es SCHEDULED: Solo elegible cuando dispatch_not_before IS NOT NULL AND dispatch_not_before <= NOW()
+          // dispatch_not_before = NULL es fail-closed.
           queryStr += ` AND (
-            (schedule_type = 'ASAP' OR dispatch_not_before IS NULL OR dispatch_not_before <= NOW())
+            (
+              (schedule_type = 'ASAP')
+              OR (schedule_type = 'SCHEDULED' AND dispatch_not_before IS NOT NULL AND dispatch_not_before <= NOW())
+            )
             AND (
-              COALESCE(fulfillment_mode, fleet_mode, 'VAMO_NETWORK') = 'VAMO_NETWORK'
+              fulfillment_mode = 'VAMO_NETWORK'
               OR (
-                COALESCE(fulfillment_mode, fleet_mode, 'VAMO_NETWORK') = 'OWN_FLEET'
+                fulfillment_mode = 'OWN_FLEET'
                 AND $${queryParams.length + 1}::uuid IS NOT NULL 
                 AND merchant_id = $${queryParams.length + 1}::uuid
               )
               OR (
-                COALESCE(fulfillment_mode, fleet_mode, 'VAMO_NETWORK') = 'HYBRID_OVERFLOW'
+                fulfillment_mode = 'HYBRID_OVERFLOW'
                 AND (
                   (overflow_after_at IS NOT NULL AND overflow_after_at <= NOW())
                   OR ($${queryParams.length + 1}::uuid IS NOT NULL AND merchant_id = $${queryParams.length + 1}::uuid)
@@ -120,15 +129,21 @@ export async function GET(request: NextRequest) {
         SELECT * FROM public.orders 
         WHERE status IN ('PENDING', 'CONFIRMED', 'ACCEPTED_BIZ', 'PREPARING', 'READY_BIZ', 'READY_FOR_PICKUP')
           AND driver_id IS NULL
-          AND (schedule_type = 'ASAP' OR dispatch_not_before IS NULL OR dispatch_not_before <= NOW())
+          AND distance_km IS NOT NULL 
+          AND delivery_fee IS NOT NULL 
+          AND total IS NOT NULL
           AND (
-            COALESCE(fulfillment_mode, fleet_mode, 'VAMO_NETWORK') = 'VAMO_NETWORK'
+            (schedule_type = 'ASAP')
+            OR (schedule_type = 'SCHEDULED' AND dispatch_not_before IS NOT NULL AND dispatch_not_before <= NOW())
+          )
+          AND (
+            fulfillment_mode = 'VAMO_NETWORK'
             OR (
-              COALESCE(fulfillment_mode, fleet_mode, 'VAMO_NETWORK') = 'OWN_FLEET'
+              fulfillment_mode = 'OWN_FLEET'
               AND $1::uuid IS NOT NULL AND merchant_id = $1::uuid
             )
             OR (
-              COALESCE(fulfillment_mode, fleet_mode, 'VAMO_NETWORK') = 'HYBRID_OVERFLOW'
+              fulfillment_mode = 'HYBRID_OVERFLOW'
               AND (
                 (overflow_after_at IS NOT NULL AND overflow_after_at <= NOW())
                 OR ($1::uuid IS NOT NULL AND merchant_id = $1::uuid)
