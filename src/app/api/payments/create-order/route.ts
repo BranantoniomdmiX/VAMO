@@ -158,40 +158,78 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 🛡️ REGLA DE IDEMPOTENCIA REAL:
-    // Consultar si ya existe un payment_intent activo para esta orden y método de pago
-    // para no duplicar órdenes externas en Conekta ante retries del cliente/red.
-    const { createClient } = await import('@supabase/supabase-js')
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    // 🛡️ PUNTO I: Idempotencia real previa a pasarela
+    // Crear/persistir una reserva local con idempotency_key antes de llamar a Conekta.
+    // Dos requests concurrentes se resolverán atómicamente en PostgreSQL mediante constraint única.
+    const idempotencyKey = `pi_${authoritativeOrder.id}_${paymentMethod}`
+    const { getTransactionClient } = await import('@/lib/db/postgres')
+    const pgClient = await getTransactionClient()
 
-    const { data: existingIntent } = await supabase
-      .from('payment_intents')
-      .select('*')
-      .eq('order_id', authoritativeOrder.id)
-      .eq('payment_method_type', paymentMethod)
-      .eq('status', 'PENDING')
-      .maybeSingle()
+    let reservedIntentId: string | null = null
 
-    if (existingIntent && existingIntent.gateway_order_id) {
-      return NextResponse.json({
-        success: true,
-        paymentMethod,
-        amount: authoritativeTotal,
-        gatewayOrderId: existingIntent.gateway_order_id,
-        checkoutUrl: existingIntent.gateway_payment_url,
-        reference: existingIntent.payment_reference,
-        clabe: existingIntent.payment_reference,
-        expiresAt: existingIntent.payment_expires_at ? Math.floor(new Date(existingIntent.payment_expires_at).getTime() / 1000) : undefined,
-        idempotentRetry: true
-      })
+    try {
+      await pgClient.query('BEGIN')
+
+      // Bloquear o insertar reserva idempotente
+      const checkRes = await pgClient.query<{
+        id: string
+        gateway_order_id: string | null
+        gateway_payment_url: string | null
+        payment_reference: string | null
+        payment_expires_at: string | null
+        status: string
+      }>(
+        `SELECT id, gateway_order_id, gateway_payment_url, payment_reference, payment_expires_at, status
+         FROM public.payment_intents
+         WHERE idempotency_key = $1
+         FOR UPDATE;`,
+        [idempotencyKey]
+      )
+
+      if (checkRes.rows.length > 0) {
+        const existing = checkRes.rows[0]
+        // Si ya cuenta con gateway_order_id y está PENDING, devolver la intención existente
+        if (existing.gateway_order_id && existing.status === 'PENDING') {
+          await pgClient.query('COMMIT')
+          return NextResponse.json({
+            success: true,
+            paymentMethod,
+            amount: authoritativeTotal,
+            gatewayOrderId: existing.gateway_order_id,
+            checkoutUrl: existing.gateway_payment_url,
+            reference: existing.payment_reference,
+            clabe: existing.payment_reference,
+            expiresAt: existing.payment_expires_at ? Math.floor(new Date(existing.payment_expires_at).getTime() / 1000) : undefined,
+            idempotentRetry: true
+          })
+        }
+        reservedIntentId = existing.id
+      } else {
+        // Insertar reserva previa
+        const insertRes = await pgClient.query<{ id: string }>(
+          `INSERT INTO public.payment_intents (
+            order_id, customer_order_id, idempotency_key, gateway, amount, currency, status, payment_method_type
+          ) VALUES ($1, NULL, $2, 'conekta', $3, 'MXN', 'PENDING', $4)
+          RETURNING id;`,
+          [authoritativeOrder.id, idempotencyKey, authoritativeTotal, paymentMethod]
+        )
+        reservedIntentId = insertRes.rows[0].id
+      }
+
+      await pgClient.query('COMMIT')
+    } catch (reserveErr) {
+      await pgClient.query('ROLLBACK')
+      console.error('🚨 [VAMO Payments] Error reservando intento de pago:', reserveErr)
+      return NextResponse.json(
+        { error: 'Error de concurrencia al reservar la intención de pago. Reintente.' },
+        { status: 409 }
+      )
+    } finally {
+      pgClient.release()
     }
 
     // Convertir total autoritativo en MXN a centavos para Conekta
     const amountCents = Math.round(authoritativeTotal * 100)
-
     const orderDescription = description || `Envío VAMO #${authoritativeOrder.code}`
 
     // Construir el body del Order de Conekta según su API v2.1
@@ -293,42 +331,27 @@ export async function POST(req: NextRequest) {
       responseData.expiresAt = charge?.payment_method?.expires_at
     }
 
-    // 🛡️ Registrar la intención de pago en public.payment_intents (idempotente y canónico)
-    // Para órdenes canónicas: order_id = authoritativeOrder.id y customer_order_id = NULL
+    // Actualizar la reserva confirmando los datos oficiales de Conekta
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      const { query: pgQuery } = await import('@/lib/db/postgres')
+      await pgQuery(
+        `UPDATE public.payment_intents
+         SET gateway_order_id = $1,
+             gateway_payment_url = $2,
+             payment_reference = $3,
+             payment_expires_at = $4,
+             updated_at = NOW()
+         WHERE id = $5;`,
+        [
+          conektaOrder.id,
+          (responseData.checkoutUrl as string) || null,
+          (responseData.reference as string) || (responseData.clabe as string) || null,
+          responseData.expiresAt ? new Date(Number(responseData.expiresAt) * 1000).toISOString() : null,
+          reservedIntentId
+        ]
       )
-
-      const { error: piError } = await supabase.from('payment_intents').upsert(
-        {
-          order_id: authoritativeOrder.id,
-          customer_order_id: null,
-          gateway: 'conekta',
-          gateway_order_id: conektaOrder.id,
-          gateway_payment_url: (responseData.checkoutUrl as string) || null,
-          amount: authoritativeTotal,
-          currency: 'MXN',
-          status: 'PENDING',
-          payment_method_type: paymentMethod,
-          payment_reference: (responseData.reference as string) || (responseData.clabe as string) || null,
-          payment_expires_at: responseData.expiresAt ? new Date(Number(responseData.expiresAt) * 1000).toISOString() : null,
-          updated_at: new Date().toISOString()
-        },
-        { onConflict: 'gateway_order_id' }
-      )
-
-      if (piError) {
-        console.error('🚨 [VAMO Payments] Error crítico al persistir payment_intent:', piError)
-        return NextResponse.json(
-          { error: 'Error al registrar la intención de pago en el servidor (Fail-Closed). Intente de nuevo.' },
-          { status: 500 }
-        )
-      }
     } catch (piErr) {
-      console.error('🚨 [VAMO Payments] Excepción al registrar payment_intent:', piErr)
+      console.error('🚨 [VAMO Payments] Excepción al actualizar payment_intent con datos de Conekta:', piErr)
       return NextResponse.json(
         { error: 'Fallo al asegurar la persistencia del pago. Intente de nuevo.' },
         { status: 500 }

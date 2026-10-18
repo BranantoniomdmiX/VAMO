@@ -94,12 +94,13 @@ BEGIN
     ALTER TABLE public.drivers ADD COLUMN cash_limit NUMERIC(10,2) NOT NULL DEFAULT 1500.00;
   END IF;
 
-  -- Reconciliar constraint de status para permitir tanto valores legacy (disponible, asignado, etc.)
-  -- como canónicos (AVAILABLE, BUSY, PAUSED, OFFLINE) sin romper escrituras legacy
+  -- Reconciliar constraint de status para permitir tanto valores legacy (OFFLINE, DISPONIBLE, EN_SERVICIO, PAUSA, SUSPENDIDO)
+  -- como canónicos (AVAILABLE, BUSY, PAUSED, OFFLINE) y minúsculas sin romper escrituras legacy
   ALTER TABLE public.drivers DROP CONSTRAINT IF EXISTS drivers_status_check;
   ALTER TABLE public.drivers ADD CONSTRAINT drivers_status_check
     CHECK (status IN (
       'AVAILABLE', 'BUSY', 'PAUSED', 'OFFLINE',
+      'DISPONIBLE', 'EN_SERVICIO', 'PAUSA', 'SUSPENDIDO',
       'disponible', 'asignado', 'rumbo_comercio', 'esperando', 'recogido', 'rumbo_cliente', 'incidencia', 'pausa', 'offline'
     ));
 END $$;
@@ -227,6 +228,70 @@ BEGIN
 
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'settlement_at') THEN
     ALTER TABLE public.orders ADD COLUMN settlement_at TIMESTAMPTZ;
+  END IF;
+
+  -- 🛡️ PUNTO C: Incorporar FKs compatibles para el nuevo spine
+  -- orders.customer_id -> profiles(id)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'profiles') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_orders_customer_profile' AND table_name = 'orders') THEN
+      ALTER TABLE public.orders ADD CONSTRAINT fk_orders_customer_profile FOREIGN KEY (customer_id) REFERENCES public.profiles(id) ON DELETE SET NULL;
+    END IF;
+  END IF;
+
+  -- orders.driver_id -> drivers(id)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'drivers') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_orders_driver' AND table_name = 'orders') THEN
+      ALTER TABLE public.orders ADD CONSTRAINT fk_orders_driver FOREIGN KEY (driver_id) REFERENCES public.drivers(id) ON DELETE SET NULL;
+    END IF;
+  END IF;
+
+  -- orders.merchant_id -> merchants(id)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'merchants') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_orders_merchant' AND table_name = 'orders') THEN
+      ALTER TABLE public.orders ADD CONSTRAINT fk_orders_merchant FOREIGN KEY (merchant_id) REFERENCES public.merchants(id) ON DELETE SET NULL;
+    END IF;
+  END IF;
+
+  -- orders.franchise_id -> franchises(id)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'franchises') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_orders_franchise' AND table_name = 'orders') THEN
+      ALTER TABLE public.orders ADD CONSTRAINT fk_orders_franchise FOREIGN KEY (franchise_id) REFERENCES public.franchises(id) ON DELETE SET NULL;
+    END IF;
+  END IF;
+
+  -- orders.territory_id -> territories(id)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'territories') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_orders_territory' AND table_name = 'orders') THEN
+      ALTER TABLE public.orders ADD CONSTRAINT fk_orders_territory FOREIGN KEY (territory_id) REFERENCES public.territories(id) ON DELETE SET NULL;
+    END IF;
+  END IF;
+
+  -- profiles.franchise_id -> franchises(id)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'franchises') AND EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'profiles') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_profiles_franchise' AND table_name = 'profiles') THEN
+      ALTER TABLE public.profiles ADD CONSTRAINT fk_profiles_franchise FOREIGN KEY (franchise_id) REFERENCES public.franchises(id) ON DELETE SET NULL;
+    END IF;
+  END IF;
+
+  -- drivers.franchise_id -> franchises(id)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'franchises') AND EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'drivers') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_drivers_franchise' AND table_name = 'drivers') THEN
+      ALTER TABLE public.drivers ADD CONSTRAINT fk_drivers_franchise FOREIGN KEY (franchise_id) REFERENCES public.franchises(id) ON DELETE SET NULL;
+    END IF;
+  END IF;
+
+  -- merchants.franchise_id -> franchises(id)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'franchises') AND EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'merchants') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_merchants_franchise' AND table_name = 'merchants') THEN
+      ALTER TABLE public.merchants ADD CONSTRAINT fk_merchants_franchise FOREIGN KEY (franchise_id) REFERENCES public.franchises(id) ON DELETE SET NULL;
+    END IF;
+  END IF;
+
+  -- merchants.profile_id -> profiles(id)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'profiles') AND EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'merchants') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_merchants_profile' AND table_name = 'merchants') THEN
+      ALTER TABLE public.merchants ADD CONSTRAINT fk_merchants_profile FOREIGN KEY (profile_id) REFERENCES public.profiles(id) ON DELETE SET NULL;
+    END IF;
   END IF;
 END $$;
 
@@ -379,8 +444,9 @@ CREATE TABLE IF NOT EXISTS public.payment_intents (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   customer_order_id     UUID,
   order_id              UUID REFERENCES public.orders(id) ON DELETE CASCADE,
+  idempotency_key       TEXT UNIQUE,
   gateway               TEXT NOT NULL DEFAULT 'conekta',
-  gateway_order_id      TEXT NOT NULL,
+  gateway_order_id      TEXT,
   gateway_payment_url   TEXT,
   amount                NUMERIC(10,2) NOT NULL,
   currency              TEXT NOT NULL DEFAULT 'MXN',
@@ -408,6 +474,23 @@ BEGIN
     ALTER TABLE public.payment_intents ALTER COLUMN customer_order_id DROP NOT NULL;
   END IF;
 
+  -- 🛡️ PUNTO I: gateway_order_id debe ser nullable mientras se reserva localmente antes de llamar al PSP
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'payment_intents' 
+      AND column_name = 'gateway_order_id' AND is_nullable = 'NO'
+  ) THEN
+    ALTER TABLE public.payment_intents ALTER COLUMN gateway_order_id DROP NOT NULL;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'payment_intents' 
+      AND column_name = 'idempotency_key'
+  ) THEN
+    ALTER TABLE public.payment_intents ADD COLUMN idempotency_key TEXT;
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns 
     WHERE table_schema = 'public' AND table_name = 'payment_intents' 
@@ -418,7 +501,8 @@ BEGIN
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_payment_intents_canonical_order_id ON public.payment_intents(order_id);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_payment_intents_gateway_order ON public.payment_intents(gateway_order_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_payment_intents_idempotency_key ON public.payment_intents(idempotency_key) WHERE idempotency_key IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_payment_intents_gateway_order ON public.payment_intents(gateway_order_id) WHERE gateway_order_id IS NOT NULL;
 
 -- ---------------------------------------------------------------------
 -- 7. BILLETERAS DIGITALES: WALLET ACCOUNTS Y EVOLUCIÓN ADITIVA DE WALLET TRANSACTIONS
@@ -464,9 +548,9 @@ BEGIN
     ALTER TABLE public.wallet_transactions ADD COLUMN balance_after NUMERIC(12,2) DEFAULT 0.00;
   END IF;
 
-  -- 🛡️ REGLA: Reconciliar wallet_transactions con el esquema REAL legacy (tenant_id y user_id).
-  -- Si existen como columnas NOT NULL en la base existente, asegurar que sean nullable para inserciones canónicas
-  -- o mantener su soporte aditivo.
+  -- 🛡️ PUNTO D: Reconciliar wallet_transactions con el esquema REAL legacy (tenant_id y user_id).
+  -- wallet_transactions.tenant_id referencia tenants(id). NO insertar franchise_id dentro de tenant_id.
+  -- Mantener tenant_id legacy nullable durante transición.
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'wallet_transactions' AND column_name = 'tenant_id' AND is_nullable = 'NO') THEN
     ALTER TABLE public.wallet_transactions ALTER COLUMN tenant_id DROP NOT NULL;
   END IF;
@@ -484,24 +568,44 @@ BEGIN
     ALTER TABLE public.wallet_transactions ADD COLUMN user_id UUID;
   END IF;
 
-  -- Reconciliar CHECK de types para permitir todos los tipos canónicos y legacy sin conflicto
+  -- Agregar franchise_id canónico para la plaza
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'wallet_transactions' AND column_name = 'franchise_id') THEN
+    ALTER TABLE public.wallet_transactions ADD COLUMN franchise_id UUID;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'franchises') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_wallet_transactions_franchise' AND table_name = 'wallet_transactions') THEN
+      ALTER TABLE public.wallet_transactions ADD CONSTRAINT fk_wallet_transactions_franchise FOREIGN KEY (franchise_id) REFERENCES public.franchises(id) ON DELETE SET NULL;
+    END IF;
+  END IF;
+
+  -- Reconciliar CHECK de types para permitir todos los tipos canónicos y los legacy reales:
+  -- SERVICE_EARNING, COMMISSION_DEDUCTION, RENTAL_FEE, CASH_DEPOSIT, PAYOUT, etc.
   ALTER TABLE public.wallet_transactions DROP CONSTRAINT IF EXISTS wallet_transactions_type_check;
   ALTER TABLE public.wallet_transactions ADD CONSTRAINT wallet_transactions_type_check
-    CHECK (type IN ('DEPOSIT', 'WITHDRAWAL', 'EARNING', 'COMMISSION', 'CASH_CLEARING', 'REFUND', 'BONUS', 'WEEKLY_FEE', 'PAYOUT'));
+    CHECK (type IN (
+      'DEPOSIT', 'WITHDRAWAL', 'EARNING', 'COMMISSION', 'CASH_CLEARING', 'REFUND', 'BONUS', 'WEEKLY_FEE', 'PAYOUT',
+      'SERVICE_EARNING', 'COMMISSION_DEDUCTION', 'RENTAL_FEE', 'CASH_DEPOSIT'
+    ));
 END $$;
 
--- 🛡️ REGLA: Reconciliar financial_ledger existente agregando order_id aditivamente con FK e índice
+-- 🛡️ REGLA: Reconciliar financial_ledger existente agregando order_id e idempotency_key
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'financial_ledger') THEN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'financial_ledger' AND column_name = 'order_id') THEN
       ALTER TABLE public.financial_ledger ADD COLUMN order_id UUID REFERENCES public.orders(id) ON DELETE SET NULL;
     END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'financial_ledger' AND column_name = 'idempotency_key') THEN
+      ALTER TABLE public.financial_ledger ADD COLUMN idempotency_key TEXT;
+    END IF;
   ELSE
     CREATE TABLE public.financial_ledger (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       order_id UUID REFERENCES public.orders(id) ON DELETE SET NULL,
       customer_order_id UUID,
+      idempotency_key TEXT UNIQUE,
       entry_type TEXT NOT NULL,
       amount NUMERIC(10,2) NOT NULL,
       balance_before NUMERIC(10,2) NOT NULL DEFAULT 0.00,
@@ -512,6 +616,7 @@ BEGIN
   END IF;
 END $$;
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_financial_ledger_idempotency_key ON public.financial_ledger(idempotency_key) WHERE idempotency_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_financial_ledger_order_id ON public.financial_ledger(order_id);
 CREATE INDEX IF NOT EXISTS idx_wallet_accounts_profile ON public.wallet_accounts(profile_id);
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_wallet ON public.wallet_transactions(wallet_id);
@@ -565,11 +670,14 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_order RECORD;
+  v_driver RECORD;
   v_driver_wallet UUID;
   v_delivery_fee NUMERIC(10,2);
   v_driver_payout NUMERIC(10,2);
   v_cur_bal NUMERIC(12,2);
   v_new_bal NUMERIC(12,2);
+  v_is_employer_driver BOOLEAN := false;
+  v_is_own_fleet_fulfillment BOOLEAN := false;
 BEGIN
   SELECT * INTO v_order
   FROM public.orders
@@ -590,7 +698,55 @@ BEGIN
     RETURN jsonb_build_object('success', true, 'code', 'ALREADY_SETTLED', 'message', 'El pedido ya fue liquidado contablemente con anterioridad (idempotente).');
   END IF;
 
+  -- 🛡️ PUNTO H: Para pagos no CASH, process_order_settlement() sólo puede acreditar al conductor si payment_status = 'PAID'
+  IF v_order.payment_method != 'CASH' AND v_order.payment_status != 'PAID' THEN
+    RETURN jsonb_build_object(
+      'success', false,
+      'code', 'PAYMENT_NOT_SETTLED',
+      'message', 'No se puede liquidar al conductor: el pago digital no ha sido confirmado como PAID.'
+    );
+  END IF;
+
+  -- Obtener datos del conductor asignado si existe
+  IF v_order.driver_id IS NOT NULL THEN
+    SELECT * INTO v_driver
+    FROM public.drivers
+    WHERE id = v_order.driver_id;
+
+    IF v_order.merchant_id IS NOT NULL AND v_driver.employer_merchant_id IS NOT NULL THEN
+      v_is_employer_driver := (v_driver.employer_merchant_id = v_order.merchant_id);
+    END IF;
+  END IF;
+
+  -- 🛡️ PUNTO H: Determinar fulfiller real
+  -- VAMO_NETWORK: conductor VAMO recibe delivery fee.
+  -- OWN_FLEET: por defecto no crear payable de VAMO hacia el conductor; marcar como EXEMPT.
+  -- HYBRID_OVERFLOW: si es flota propia -> OWN_FLEET; si es Red VAMO -> VAMO_NETWORK.
+  IF v_order.fulfillment_mode = 'OWN_FLEET' THEN
+    v_is_own_fleet_fulfillment := true;
+  ELSIF v_order.fulfillment_mode = 'HYBRID_OVERFLOW' THEN
+    v_is_own_fleet_fulfillment := v_is_employer_driver;
+  ELSE
+    v_is_own_fleet_fulfillment := false;
+  END IF;
+
   v_delivery_fee := COALESCE(v_order.delivery_fee, 0.00);
+
+  IF v_is_own_fleet_fulfillment THEN
+    -- Cumplimiento por flota propia del comercio: VAMO no debe dinero al conductor
+    UPDATE public.orders
+    SET settlement_status = 'EXEMPT', settlement_at = NOW(), updated_at = NOW()
+    WHERE id = p_order_id;
+
+    RETURN jsonb_build_object(
+      'success', true,
+      'code', 'SETTLEMENT_EXEMPT',
+      'message', 'Liquidación exenta: el pedido fue entregado por la flota privada del comercio.',
+      'driver_payout', 0.00
+    );
+  END IF;
+
+  -- Para Red VAMO: conductor recibe 100% de la tarifa
   v_driver_payout := v_delivery_fee;
 
   IF v_order.payment_method = 'CASH' THEN
@@ -598,12 +754,22 @@ BEGIN
       UPDATE public.drivers
       SET cash_collected = cash_collected + v_order.total
       WHERE id = v_order.driver_id;
+
+      -- 🛡️ PUNTO H: Trazabilidad de clearing/obligaciones para CASH
+      v_driver_wallet := public.ensure_wallet_account(v_order.driver_id);
+      INSERT INTO public.wallet_transactions (
+        wallet_id, order_id, franchise_id, user_id, type, amount, balance_before, balance_after, description
+      ) VALUES (
+        v_driver_wallet, p_order_id, v_order.franchise_id, v_order.driver_id, 'CASH_CLEARING', 0.00, 0.00, 0.00,
+        'Registro de efectivo cobrado en entrega #' || v_order.code || ' ($' || v_order.total || ' MXN)'
+      );
     END IF;
     -- Para efectivo al repartidor, marcar payment_status como PAID al entregar
     UPDATE public.orders
     SET payment_status = 'PAID'
     WHERE id = p_order_id AND payment_status != 'PAID';
   ELSE
+    -- Pago digital confirmado
     IF v_order.driver_id IS NOT NULL THEN
       v_driver_wallet := public.ensure_wallet_account(v_order.driver_id);
 
@@ -618,9 +784,9 @@ BEGIN
       SET balance = v_new_bal, updated_at = NOW()
       WHERE id = v_driver_wallet;
 
-      -- Poblar wallet_id, order_id y campos de compatibilidad legacy tenant_id / user_id
+      -- Poblar wallet_id, order_id, franchise_id y user_id (tenant_id legacy nullable)
       INSERT INTO public.wallet_transactions (
-        wallet_id, order_id, tenant_id, user_id, type, amount, balance_before, balance_after, description
+        wallet_id, order_id, franchise_id, user_id, type, amount, balance_before, balance_after, description
       ) VALUES (
         v_driver_wallet, p_order_id, v_order.franchise_id, v_order.driver_id, 'EARNING', v_driver_payout, v_cur_bal, v_new_bal,
         'Tarifa de entrega 100% conductor #' || v_order.code
@@ -863,9 +1029,18 @@ BEGIN
     );
   END IF;
 
-  -- 4. Geofence Real: Calcular distancia con destino de la orden
-  IF v_order.destination_lat IS NOT NULL AND v_order.destination_lng IS NOT NULL AND p_lat IS NOT NULL AND p_lng IS NOT NULL THEN
-    -- Fórmula de Haversine en metros
+  -- 4. Geofence Real: Calcular distancia con destino de la orden (🛡️ PUNTO L)
+  -- Si la orden tiene coordenadas de destino, el conductor DEBE enviar lat/lng. Omitirlas no puede saltarse el geofence.
+  IF v_order.destination_lat IS NOT NULL AND v_order.destination_lng IS NOT NULL THEN
+    IF p_lat IS NULL OR p_lng IS NULL THEN
+      RETURN jsonb_build_object(
+        'success', false,
+        'code', 'COORDINATES_REQUIRED',
+        'message', 'Se requieren coordenadas GPS actuales del conductor para validar la entrega en destino.'
+      );
+    END IF;
+
+    -- Fórmula de Haversine en metros para verificación de proximidad física
     v_distance_meters := 6371000 * 2 * ASIN(SQRT(
       POWER(SIN(RADIANS(p_lat - v_order.destination_lat) / 2), 2) +
       COS(RADIANS(v_order.destination_lat)) * COS(RADIANS(p_lat)) *
@@ -873,7 +1048,7 @@ BEGIN
     ));
 
     IF v_distance_meters > 50 THEN
-      -- Excepción auditada por GPS de baja precisión: Exige PIN exacto + foto obligatoria + coordenadas + motivo registrado
+      -- Excepción auditada por GPS de baja precisión: Exige PIN exacto + foto obligatoria + coordenadas disponibles + motivo auditado
       IF p_photo_url IS NULL OR TRIM(p_photo_url) = '' OR p_exception_reason IS NULL OR TRIM(p_exception_reason) = '' THEN
         RETURN jsonb_build_object(
           'success', false,
@@ -1020,7 +1195,7 @@ BEGIN
     END IF;
   END IF;
 
-  -- 3. Bloqueo del conductor y validación de disponibilidad
+  -- 3. Bloqueo del conductor y validación de disponibilidad (🛡️ PUNTO E: Solo conductor AVAILABLE en MVP)
   SELECT * INTO v_driver
   FROM public.drivers
   WHERE id = p_driver_id
@@ -1030,8 +1205,8 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'code', 'DRIVER_NOT_FOUND', 'message', 'El conductor no fue encontrado.');
   END IF;
 
-  IF v_driver.status NOT IN ('AVAILABLE', 'BUSY') THEN
-    RETURN jsonb_build_object('success', false, 'code', 'DRIVER_NOT_AVAILABLE', 'message', 'El conductor no está disponible para asignaciones.');
+  IF v_driver.status NOT IN ('AVAILABLE', 'DISPONIBLE', 'disponible') THEN
+    RETURN jsonb_build_object('success', false, 'code', 'DRIVER_NOT_AVAILABLE', 'message', 'El conductor no está disponible para asignaciones (Estado actual no disponible).');
   END IF;
 
   -- Validar si el conductor pertenece a la flota privada del comercio
@@ -1039,7 +1214,7 @@ BEGIN
     v_is_employer_driver := (v_driver.employer_merchant_id = v_order.merchant_id);
   END IF;
 
-  -- Validación de Regla de Cumplimiento (fulfillment_mode)
+  -- Validación de Regla de Cumplimiento (fulfillment_mode) (🛡️ PUNTO F: HYBRID Fail-Closed)
   IF v_order.fulfillment_mode = 'OWN_FLEET' THEN
     IF NOT v_is_employer_driver THEN
       RETURN jsonb_build_object(
@@ -1050,11 +1225,15 @@ BEGIN
     END IF;
   ELSIF v_order.fulfillment_mode = 'HYBRID_OVERFLOW' THEN
     IF NOT v_is_employer_driver THEN
-      IF v_order.overflow_after_at IS NOT NULL AND NOW() < v_order.overflow_after_at THEN
+      -- Para un conductor que NO pertenece a la flota del merchant:
+      -- una orden HYBRID_OVERFLOW sólo es asignable cuando:
+      -- overflow_after_at IS NOT NULL AND NOW() >= overflow_after_at.
+      -- Si overflow_after_at IS NULL, bloquear (Fail-Closed).
+      IF v_order.overflow_after_at IS NULL OR NOW() < v_order.overflow_after_at THEN
         RETURN jsonb_build_object(
           'success', false,
           'code', 'HYBRID_WAITING_FOR_OVERFLOW',
-          'message', 'El pedido está reservado temporalmente para la flota del comercio antes de su desborde a la Red VAMO.'
+          'message', 'El pedido está reservado para la flota del comercio o carece de hora de desborde autorizada.'
         );
       END IF;
     END IF;
@@ -1132,11 +1311,14 @@ CREATE POLICY "orders_party_isolation" ON public.orders FOR SELECT
     OR public.current_app_role() IN ('superadmin', 'master', 'dispatcher')
   );
 
+-- 🛡️ PUNTO G: SUPABASE DIRECT INSERT — CERRAR BYPASS
+-- Revocar INSERT directo de authenticated sobre public.orders y public.order_stops.
+-- La creación se realiza exclusivamente mediante API/RPC autoritativa del servidor.
+-- Solo roles administrativos (superadmin, master) pueden insertar directamente si fuera necesario.
 DROP POLICY IF EXISTS "orders_customer_insert" ON public.orders;
-CREATE POLICY "orders_customer_insert" ON public.orders FOR INSERT
+CREATE POLICY "orders_admin_master_insert" ON public.orders FOR INSERT
   WITH CHECK (
-    customer_id = public.current_app_user_id() 
-    OR public.current_app_role() IN ('superadmin', 'master')
+    public.current_app_role() IN ('superadmin', 'master')
   );
 
 -- Privilegios mínimos: Los roles operativos solo actualizan vía funciones RPC controladas o roles admin
@@ -1148,7 +1330,7 @@ CREATE POLICY "orders_admin_dispatcher_update" ON public.orders FOR UPDATE
 
 -- 12.2 Políticas para public.order_stops
 DROP POLICY IF EXISTS "order_stops_access_policy" ON public.order_stops;
-CREATE POLICY "order_stops_access_policy" ON public.order_stops FOR ALL
+CREATE POLICY "order_stops_access_policy" ON public.order_stops FOR SELECT
   USING (
     EXISTS (
       SELECT 1 FROM public.orders o
@@ -1160,6 +1342,12 @@ CREATE POLICY "order_stops_access_policy" ON public.order_stops FOR ALL
           OR public.current_app_role() IN ('superadmin', 'master', 'dispatcher')
         )
     )
+  );
+
+DROP POLICY IF EXISTS "order_stops_admin_insert" ON public.order_stops;
+CREATE POLICY "order_stops_admin_insert" ON public.order_stops FOR INSERT
+  WITH CHECK (
+    public.current_app_role() IN ('superadmin', 'master')
   );
 
 -- 12.3 Políticas para public.wallet_accounts y wallet_transactions
@@ -1186,10 +1374,18 @@ CREATE POLICY "customer_can_view_own_payment_intents" ON public.payment_intents 
     OR public.current_app_role() IN ('superadmin', 'master')
   );
 
--- 12.5 Cierre estricto de public.merchant_orders (Aislamiento Multi-Tenant) (🛡️ REGLA 12)
+-- 12.5 Cierre estricto de public.merchant_orders (Proyección Legacy con order_id y merchant_id) (🛡️ PUNTO K)
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'merchant_orders') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'merchant_orders' AND column_name = 'order_id') THEN
+      ALTER TABLE public.merchant_orders ADD COLUMN order_id UUID REFERENCES public.orders(id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'merchant_orders' AND column_name = 'merchant_id') THEN
+      ALTER TABLE public.merchant_orders ADD COLUMN merchant_id UUID REFERENCES public.merchants(id) ON DELETE CASCADE;
+    END IF;
+
     ALTER TABLE public.merchant_orders ENABLE ROW LEVEL SECURITY;
     DROP POLICY IF EXISTS "Lectura de pedidos por comercios y usuarios" ON public.merchant_orders;
     DROP POLICY IF EXISTS "Inserción y actualización de pedidos por gerencia y cocina" ON public.merchant_orders;
@@ -1199,31 +1395,34 @@ BEGIN
     CREATE POLICY "merchant_orders_isolated_select" ON public.merchant_orders FOR SELECT
       USING (
         public.current_app_role() IN ('superadmin', 'master')
-        OR (tenant_id IS NOT NULL AND tenant_id = public.current_app_franchise_id())
-        OR (tenant_id IS NOT NULL AND tenant_id IN (SELECT m.id FROM public.merchants m WHERE m.profile_id = public.current_app_user_id()))
+        OR (merchant_id IS NOT NULL AND merchant_id IN (SELECT m.id FROM public.merchants m WHERE m.profile_id = public.current_app_user_id()))
       );
 
     CREATE POLICY "merchant_orders_isolated_write" ON public.merchant_orders FOR ALL
       USING (
         public.current_app_role() IN ('superadmin', 'master')
-        OR (tenant_id IS NOT NULL AND tenant_id IN (SELECT m.id FROM public.merchants m WHERE m.profile_id = public.current_app_user_id()))
+        OR (merchant_id IS NOT NULL AND merchant_id IN (SELECT m.id FROM public.merchants m WHERE m.profile_id = public.current_app_user_id()))
       );
   END IF;
 END $$;
 
--- 12.6 Permisos y Grants Mínimos (🛡️ REGLA 11)
+-- 12.6 Permisos y Grants Mínimos (🛡️ PUNTO G y 11)
 REVOKE EXECUTE ON FUNCTION public.process_order_settlement(UUID) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.assign_order_atomic(UUID, UUID) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.verify_order_pod(UUID, TEXT, TEXT, NUMERIC, NUMERIC, TEXT) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.request_wallet_withdrawal(UUID, NUMERIC, TEXT) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.ensure_wallet_account(UUID) FROM PUBLIC;
 
+-- Revocar INSERT directo a authenticated sobre orders y order_stops
+REVOKE INSERT ON public.orders FROM authenticated, anon, PUBLIC;
+REVOKE INSERT ON public.order_stops FROM authenticated, anon, PUBLIC;
+
 GRANT EXECUTE ON FUNCTION public.assign_order_atomic(UUID, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.verify_order_pod(UUID, TEXT, TEXT, NUMERIC, NUMERIC, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.request_wallet_withdrawal(UUID, NUMERIC, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.ensure_wallet_account(UUID) TO authenticated;
 
-GRANT SELECT, INSERT ON public.orders TO authenticated;
-GRANT SELECT, INSERT ON public.order_stops TO authenticated;
+GRANT SELECT ON public.orders TO authenticated;
+GRANT SELECT ON public.order_stops TO authenticated;
 GRANT SELECT ON public.order_status_history TO authenticated;
 GRANT SELECT ON public.pricing_rules TO anon, authenticated;

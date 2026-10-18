@@ -88,8 +88,6 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: 'Orden no encontrada en VAMO' }, { status: 404 })
         }
 
-        const canonicalOrderId = pi.order_id || pi.customer_order_id
-
         // 3. Idempotencia: Si ya está marcada como PAID, responder 200 sin duplicar cobro/ledger
         if (pi.status === 'PAID') {
           console.log(`ℹ️ [VAMO Webhook] Orden ${gatewayOrderId} ya estaba pagada previamente (Idempotente).`)
@@ -108,12 +106,39 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: 'Moneda inválida' }, { status: 400 })
         }
 
-        // 5, 6 y 7. Actualización ATÓMICA en transacción PostgreSQL (Anti dual-write inconsistente)
+        // 5, 6 y 7. Actualización ATÓMICA en transacción PostgreSQL (Anti dual-write inconsistente) (🛡️ PUNTO J)
         const { getTransactionClient } = await import('@/lib/db/postgres')
         const pgClient = await getTransactionClient()
 
         try {
           await pgClient.query('BEGIN')
+
+          // Bloquear la payment_intent con FOR UPDATE para concurrencia estricta
+          const lockRes = await pgClient.query<{
+            id: string
+            order_id: string | null
+            customer_order_id: string | null
+            amount: string
+            status: string
+          }>(
+            `SELECT id, order_id, customer_order_id, amount, status 
+             FROM public.payment_intents 
+             WHERE gateway_order_id = $1 
+             FOR UPDATE;`,
+            [gatewayOrderId]
+          )
+
+          if (lockRes.rows.length === 0) {
+            await pgClient.query('ROLLBACK')
+            return NextResponse.json({ error: 'Intención de pago no encontrada' }, { status: 404 })
+          }
+
+          const lockedPi = lockRes.rows[0]
+          if (lockedPi.status === 'PAID') {
+            await pgClient.query('COMMIT')
+            console.log(`ℹ️ [VAMO Webhook] Orden ${gatewayOrderId} ya estaba marcada como PAID (Idempotente dentro de lock).`)
+            return NextResponse.json({ received: true, idempotent: true }, { status: 200 })
+          }
 
           // A. Actualizar payment_intents
           await pgClient.query(
@@ -134,33 +159,46 @@ export async function POST(req: NextRequest) {
             ]
           )
 
-          // B. Actualizar public.orders
-          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(canonicalOrderId)
-          await pgClient.query(
-            isUuid
-              ? `UPDATE public.orders 
-                 SET payment_status = 'PAID', 
-                     status = 'CONFIRMED', 
-                     updated_at = NOW() 
-                 WHERE id = $1::uuid;`
-              : `UPDATE public.orders 
-                 SET payment_status = 'PAID', 
-                     status = 'CONFIRMED', 
-                     updated_at = NOW() 
-                 WHERE code = $1;`,
-            [canonicalOrderId]
-          )
+          // B. Actualizar public.orders de forma monótona (🛡️ PUNTO J: Nunca retroceder lifecycle hacia CONFIRMED)
+          if (lockedPi.order_id) {
+            await pgClient.query(
+              `UPDATE public.orders 
+               SET payment_status = 'PAID', 
+                   status = CASE 
+                     WHEN status IN ('PENDING', 'ACCEPTED_BIZ') THEN 'CONFIRMED'
+                     ELSE status 
+                   END, 
+                   updated_at = NOW() 
+               WHERE id = $1;`,
+              [lockedPi.order_id]
+            )
+          } else if (lockedPi.customer_order_id) {
+            // Manejar legacy customer_orders por separado
+            await pgClient.query(
+              `UPDATE public.customer_orders 
+               SET payment_status = 'PAID', 
+                   status = CASE 
+                     WHEN status IN ('PENDING', 'ACCEPTED_BIZ') THEN 'CONFIRMED'
+                     ELSE status 
+                   END, 
+                   updated_at = NOW() 
+               WHERE id = $1;`,
+              [lockedPi.customer_order_id]
+            )
+          }
 
-          // C. Registrar en ledger financiero de forma atómica
+          // C. Registrar en ledger financiero de forma atómica con idempotency_key única por evento
+          const ledgerEventKey = `webhook_paid_${gatewayOrderId}`
           await pgClient.query(
             `INSERT INTO public.financial_ledger 
-             (order_id, customer_order_id, entry_type, amount, balance_before, balance_after, description)
-             VALUES ($1, $2, 'delivery_income', $3, 0, $3, $4)
-             ON CONFLICT DO NOTHING;`,
+             (order_id, customer_order_id, idempotency_key, entry_type, amount, balance_before, balance_after, description)
+             VALUES ($1, $2, $3, 'delivery_income', $4, 0, $4, $5)
+             ON CONFLICT (idempotency_key) DO NOTHING;`,
             [
-              pi.order_id || canonicalOrderId,
-              pi.customer_order_id || null,
-              pi.amount,
+              lockedPi.order_id || null,
+              lockedPi.customer_order_id || null,
+              ledgerEventKey,
+              lockedPi.amount,
               `Pago digital confirmado — Order Conekta ${gatewayOrderId}`
             ]
           )

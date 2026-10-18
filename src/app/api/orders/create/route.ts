@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withTrustedAuthContext } from '@/lib/auth/contextResolver'
+import { authoritativeRoutingProvider } from '@/lib/routing/authoritativeRouting'
 import crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
 
 interface StopPayload {
-  stopType: 'PICKUP' | 'DROPOFF' | 'WAYPOINT'
+  stopType?: 'PICKUP' | 'DROPOFF' | 'WAYPOINT'
   address: string
   lat: number
   lng: number
@@ -24,7 +25,6 @@ interface CreateOrderPayload {
   originLng?: number
   destinationLat?: number
   destinationLng?: number
-  distanceKm?: number
   routeDurationMinutes?: number
   merchantId?: string
   paymentMethod?: 'CASH' | 'CARD' | 'OXXO_CASH' | 'SPEI'
@@ -34,31 +34,6 @@ interface CreateOrderPayload {
   deliveryWindowStart?: string
   deliveryWindowEnd?: string
   stops?: StopPayload[]
-}
-
-function calculateAuthoritativeDistance(
-  lat1?: number,
-  lon1?: number,
-  lat2?: number,
-  lon2?: number
-): number | null {
-  if (lat1 != null && lon1 != null && lat2 != null && lon2 != null) {
-    const R = 6371 // km
-    const dLat = ((lat2 - lat1) * Math.PI) / 180
-    const dLon = ((lon2 - lon1) * Math.PI) / 180
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2)
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    const km = R * c
-    return Math.max(0.5, Math.round(km * 10) / 10)
-  }
-
-  // CERO FALBACK FICTICIO: Si faltan coordenadas válidas, retorna null
-  return null
 }
 
 function generateSecureOrderCode(): string {
@@ -85,7 +60,6 @@ export async function POST(req: NextRequest) {
       originLng,
       destinationLat,
       destinationLng,
-      routeDurationMinutes,
       merchantId,
       paymentMethod = 'CASH',
       pickupWindowStart,
@@ -118,21 +92,83 @@ export async function POST(req: NextRequest) {
     }
 
     const authResult = await withTrustedAuthContext(async (authContext, client) => {
-      // 1. Derivar identidad autoritativa
+      // 1. Derivar identidad autoritativa y franquicia/plaza (🛡️ PUNTO B)
       const customerId = authContext.userId
-      let franchiseId = authContext.franchiseId
+      let franchiseId: string | null = null
 
-      if (!franchiseId) {
-        const fRes = await client.query<{ id: string }>(
-          'SELECT id FROM public.franchises WHERE status = $1 ORDER BY created_at ASC LIMIT 1;',
-          ['ACTIVE']
+      if (merchantId) {
+        const mRes = await client.query<{ id: string; franchise_id: string | null }>(
+          'SELECT id, franchise_id FROM public.merchants WHERE id = $1 AND is_active = TRUE;',
+          [merchantId]
         )
-        if (fRes.rows.length > 0) {
-          franchiseId = fRes.rows[0].id
+        if (mRes.rows.length === 0) {
+          return {
+            status: 400,
+            body: {
+              success: false,
+              code: 'MERCHANT_NOT_FOUND',
+              error: 'El comercio especificado no existe o no está activo.'
+            }
+          }
+        }
+        const merchant = mRes.rows[0]
+        if (!merchant.franchise_id) {
+          return {
+            status: 400,
+            body: {
+              success: false,
+              code: 'FRANCHISE_REQUIRED',
+              error: 'El comercio especificado no tiene una franquicia/plaza asignada.'
+            }
+          }
+        }
+        franchiseId = merchant.franchise_id
+
+        if (authContext.franchiseId && authContext.franchiseId !== franchiseId) {
+          return {
+            status: 403,
+            body: {
+              success: false,
+              code: 'FRANCHISE_MISMATCH',
+              error: 'Conflicto de franquicia: El comercio pertenece a una plaza distinta a la del usuario autenticado.'
+            }
+          }
+        }
+      } else {
+        if (authContext.franchiseId) {
+          franchiseId = authContext.franchiseId
         }
       }
 
-      // 2. Consultar regla de pricing activa de la plaza o regla base general en PostgreSQL
+      // Si no puede determinarse la plaza de manera inequívoca: FRANCHISE_REQUIRED (Cero fallback arbitrario)
+      if (!franchiseId) {
+        return {
+          status: 400,
+          body: {
+            success: false,
+            code: 'FRANCHISE_REQUIRED',
+            error: 'No se pudo determinar la plaza/franquicia autoritativa para el pedido. Asigne un comercio o perfil con plaza válida.'
+          }
+        }
+      }
+
+      // Validar que la franquicia exista y esté activa en BD (con soporte para 'active' / 'ACTIVE')
+      const franchiseCheck = await client.query<{ id: string }>(
+        'SELECT id FROM public.franchises WHERE id = $1 AND LOWER(status) = $2;',
+        [franchiseId, 'active']
+      )
+      if (franchiseCheck.rows.length === 0) {
+        return {
+          status: 400,
+          body: {
+            success: false,
+            code: 'FRANCHISE_REQUIRED',
+            error: 'La franquicia/plaza asignada no existe o no se encuentra activa.'
+          }
+        }
+      }
+
+      // 2. Consultar regla de pricing activa de la plaza en PostgreSQL (🛡️ PUNTO 5)
       const pricingRes = await client.query<{
         base_fare: string
         included_km: string
@@ -145,7 +181,7 @@ export async function POST(req: NextRequest) {
          WHERE is_active = TRUE AND (franchise_id = $1 OR franchise_id IS NULL)
          ORDER BY franchise_id NULLS LAST
          LIMIT 1;`,
-        [franchiseId || null]
+        [franchiseId]
       )
 
       const pricingRule = pricingRes.rows[0]
@@ -166,10 +202,9 @@ export async function POST(req: NextRequest) {
       const pricePerExtraStop = parseFloat(pricingRule.price_per_extra_stop)
       const operationalBufferMin = pricingRule.operational_dispatch_buffer_minutes || 15
 
-      // 3. Routing Autoritativo:
-      // Haversine no es distancia autoritativa para liquidación financiera.
-      // El servidor debe verificar coordenadas completas para obtener la ruta.
-      // Si todavía no existe routing autoritativo calculable, responder ROUTE_REQUIRED para no crear orden despachable ficticia.
+      // 3. Routing Autoritativo Server-Side (🛡️ PUNTO A):
+      // No aceptar distanceKm ni routeDurationMinutes enviados por browser como verdad.
+      // Haversine no es distancia autoritativa para tarificación ni liquidación financiera.
       if (originLat == null || originLng == null || destinationLat == null || destinationLng == null) {
         return {
           status: 400,
@@ -181,18 +216,26 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // En este release, calcular distancia geodésica base asegurando puntos válidos
-      const distance = calculateAuthoritativeDistance(originLat, originLng, destinationLat, destinationLng)
-      if (distance == null || distance <= 0) {
+      const waypoints = stops.map(s => ({ lat: s.lat, lng: s.lng }))
+      const authoritativeRoute = await authoritativeRoutingProvider.calculateRoute(
+        { lat: originLat, lng: originLng },
+        { lat: destinationLat, lng: destinationLng },
+        waypoints
+      )
+
+      if (!authoritativeRoute || authoritativeRoute.distanceKm <= 0) {
         return {
           status: 400,
           body: {
             success: false,
             code: 'ROUTE_REQUIRED',
-            error: 'No fue posible obtener una distancia de ruta válida para el cálculo de tarifa.'
+            error: 'El motor de routing autoritativo no está disponible o no devolvió una ruta válida para tarificación.'
           }
         }
       }
+
+      const distance = authoritativeRoute.distanceKm
+      const authoritativeDurationMin = authoritativeRoute.durationMinutes
 
       const extraKm = Math.max(0, distance - includedKm)
       const extraStops = stops.length > 2 ? stops.length - 2 : 0
@@ -212,19 +255,8 @@ export async function POST(req: NextRequest) {
           dispatchNotBefore = new Date(pickupTime - operationalBufferMs).toISOString()
           dispatchDeadline = pickupWindowEnd ? new Date(pickupWindowEnd).toISOString() : new Date(pickupTime).toISOString()
         } else if (deliveryWindowStart) {
-          // Requiere duración de ruta real calculada por motor de routing
-          if (!routeDurationMinutes || routeDurationMinutes <= 0) {
-            return {
-              status: 400,
-              body: {
-                success: false,
-                code: 'ROUTE_REQUIRED',
-                error: 'Para órdenes programadas con solo hora de entrega, se requiere una duración real de ruta válida (routeDurationMinutes).'
-              }
-            }
-          }
           const deliveryTime = new Date(deliveryWindowStart).getTime()
-          const totalBufferMs = (routeDurationMinutes * 60 * 1000) + operationalBufferMs
+          const totalBufferMs = (authoritativeDurationMin * 60 * 1000) + operationalBufferMs
           dispatchNotBefore = new Date(deliveryTime - totalBufferMs).toISOString()
           dispatchDeadline = deliveryWindowEnd ? new Date(deliveryWindowEnd).toISOString() : new Date(deliveryTime).toISOString()
         }
@@ -239,7 +271,7 @@ export async function POST(req: NextRequest) {
       // 5. Generar PIN criptográfico seguro (CSPRNG de 4 dígitos entre 1000 y 9999)
       const pinCode = crypto.randomInt(1000, 10000).toString()
 
-      // 6. Inserción con retry para código único CSPRNG
+      // 6. Inserción con retry para código único CSPRNG persistiendo distance_km y duration_minutes
       let createdOrder: {
         id: string
         code: string
@@ -282,6 +314,7 @@ export async function POST(req: NextRequest) {
               destination_lat,
               destination_lng,
               distance_km,
+              duration_minutes,
               subtotal,
               delivery_fee,
               total,
@@ -297,8 +330,8 @@ export async function POST(req: NextRequest) {
               overflow_after_at,
               notes
             ) VALUES (
-              $1, $2, $3, $4, 'PENDING', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'PENDING', $19,
-              $20, $21, $22, $23, $24, $25, $26, $27
+              $1, $2, $3, $4, 'PENDING', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, 'PENDING', $20,
+              $21, $22, $23, $24, $25, $26, $27, $28
             ) RETURNING id, code, status, total, delivery_fee, pin_code, order_type, schedule_type, fulfillment_mode;`,
             [
               customerId,
@@ -315,6 +348,7 @@ export async function POST(req: NextRequest) {
               destinationLat || null,
               destinationLng || null,
               distance,
+              authoritativeDurationMin,
               subtotal,
               deliveryFee,
               total,
